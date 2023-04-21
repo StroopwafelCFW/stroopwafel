@@ -30,4 +30,4 @@ patched_sections/*.bin
 salt-patch-src/*.o
 
 fat_mnt/
-bin/*
+bin/*.bin
