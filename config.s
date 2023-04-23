@@ -55,7 +55,7 @@ MLC_ACCELERATE equ 0
 ; allowing for dual-format disks.
 ;
 ; Make sure to set the config for your disks below!
-USB_SHRINKSHIFT equ 1
+USB_SHRINKSHIFT equ 0
 
 ; Configure up to 3 different disks for the above. If a disk is not specified
 ; here, it will use the normal (offset +0, not shrunken, encrypted) format.
