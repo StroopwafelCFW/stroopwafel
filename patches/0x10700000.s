@@ -77,6 +77,8 @@ FS_ISFS_READWRITEBLOCKS equ 0x10720324
 FS_CRYPTO_HMAC equ 0x107F3798
 FS_RAW_READ1 equ 0x10732BC0
 FS_REGISTER_FS_DRIVER equ 0x10732D70
+FS_GET_SPECIFIC_DEVNAME_HOOK equ 0x107112B0
+FS_DEVTYPE_TO_NAME equ 0x107111A8
 FS_REGISTERMDPHYSICALDEVICE equ 0x10718860
 
 ; patches start here
@@ -87,11 +89,17 @@ FS_REGISTERMDPHYSICALDEVICE equ 0x10718860
 
 .if FAT32_USB
 .org 0x1078F5D8
+.arm
     bl fat_register_hook
 
 ; extra check? lol
 .org 0x1078E074
+.arm
     b 0x1078E084
+
+.org FS_GET_SPECIFIC_DEVNAME_HOOK
+.arm
+    bl fsa_dev_register_hook
 .endif
 
 ; null out references to slcSomething1 and slcSomething2
@@ -210,7 +218,9 @@ opendir_base equ 0x1070B7F4
 .arm
 
 .if FAT32_USB
+.align 4
 fat_register_hook:
+.arm
     mov r1, #0x6 ; SDcard
     strb r1, [r0, #0xC]
     mov r1, #0x11 ; USB
@@ -218,6 +228,36 @@ fat_register_hook:
     mov r1, #0x0 ; terminating 0
     strb r1, [r0, #0xE]
     b FS_REGISTER_FS_DRIVER
+
+.align 4
+fsa_dev_register_hook:
+.arm
+    push {lr}
+    cmp r0, #0x11
+    bne skip_changes
+    ldr r1, [r4, #0x5c]
+    add r1, #0x8
+    ldr r0, =target_fsname
+    mov r2, #0x4
+    bl FS_MEMCMP
+    cmp r0, #0x0
+    bne skip_changes
+    ldr r0, =new_devname
+    pop {pc}
+
+skip_changes:
+    ldr r0, [r4, #0x70]
+    bl FS_DEVTYPE_TO_NAME
+    pop {pc}
+
+.align 4
+target_fsname:
+    .ascii "fat"
+    .byte 0x0
+
+new_devname:
+    .ascii "ext"
+    .byte 0x0
 .endif
 
 .if MLC_ACCELERATE
@@ -234,6 +274,7 @@ FS_IOS_MEMALIGN equ 0x107F6A44
 FS_IOS_FREE equ 0x107F6A4C
 
 FSA_STATUS_NOT_FOUND equ 0xFFFCFFE9
+.align 4
 scfm_try_slc_cache_migration:
     ldr r0, [r3] ; do replaced instruction and push result for later
     push {r0, r4-r6, lr}
@@ -540,6 +581,7 @@ str_wplus: .ascii "w+",0
 .align 4
 .endif
 
+.align 4
 seekfile_hook:
     push {r0-r3, lr}
     ldr r0, [r0,#4]
