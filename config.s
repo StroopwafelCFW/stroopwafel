@@ -62,10 +62,13 @@ USB_SHRINKSHIFT equ 0
 ; This is useful for initial migration (e.g. copy from an encrypted device to a new, decrypted one)
 USB_SHRINK_ORIG_SECTOR_COUNT1 equ 0x74706DB0
 USB_SHRINK_SECTOR_COUNT1 equ 0x38000000
-USB_SHRINK_ORIG_SECTOR_COUNT2 equ 0x3A38602F
-USB_SHRINK_SECTOR_COUNT2 equ 0x1C000000
+USB_SHRINK_ORIG_SECTOR_COUNT2 equ -1
+USB_SHRINK_SECTOR_COUNT2 equ -1
 USB_SHRINK_ORIG_SECTOR_COUNT3 equ -1
 USB_SHRINK_SECTOR_COUNT3 equ -1
+
+; Allow USB drives to host FAT32 filesystems
+FAT32_USB equ 1
 
 ; *****************************
 ; Crypto config

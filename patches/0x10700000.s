@@ -76,12 +76,22 @@ FS_SDCARD_WRITE1 equ 0x107BDD60
 FS_ISFS_READWRITEBLOCKS equ 0x10720324
 FS_CRYPTO_HMAC equ 0x107F3798
 FS_RAW_READ1 equ 0x10732BC0
+FS_REGISTER_FS_DRIVER equ 0x10732D70
 FS_REGISTERMDPHYSICALDEVICE equ 0x10718860
 
 ; patches start here
 .if DUMP_LOG
 .org 0x107F0B68
 	bl syslogOutput_hook
+.endif
+
+.if FAT32_USB
+.org 0x1078F5D8
+    bl fat_register_hook
+
+; extra check? lol
+.org 0x1078E074
+    b 0x1078E084
 .endif
 
 ; null out references to slcSomething1 and slcSomething2
@@ -198,6 +208,17 @@ opendir_base equ 0x1070B7F4
 .org CODE_BASE
 .area (0x10800000-CODE_BASE)
 .arm
+
+.if FAT32_USB
+fat_register_hook:
+    mov r1, #0x6 ; SDcard
+    strb r1, [r0, #0xC]
+    mov r1, #0x11 ; USB
+    strb r1, [r0, #0xD]
+    mov r1, #0x0 ; terminating 0
+    strb r1, [r0, #0xE]
+    b FS_REGISTER_FS_DRIVER
+.endif
 
 .if MLC_ACCELERATE
 SCFM_FSA_HANDLE_PTR equ 0x1108B8B4

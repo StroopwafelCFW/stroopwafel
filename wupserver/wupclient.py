@@ -770,6 +770,26 @@ def mount_sd():
     ret = w.close(handle)
     print(hex(ret))
 
+def mount_usbfat():
+    handle = w.open("/dev/fsa", 0)
+    print(hex(handle))
+
+    ret = w.FSA_Mount(handle, "/dev/usb01", "/vol/storage_usb01", 2)
+    print(hex(ret))
+
+    ret = w.close(handle)
+    print(hex(ret))
+
+def mount_usbfat_ext():
+    handle = w.open("/dev/fsa", 0)
+    print(hex(handle))
+
+    ret = w.FSA_Mount(handle, "/dev/ext02", "/vol/storage_usb02", 2)
+    print(hex(ret))
+
+    ret = w.close(handle)
+    print(hex(ret))
+
 def mount_slccmpt():
     handle = w.open("/dev/fsa", 0)
     print(hex(handle))
@@ -1093,16 +1113,20 @@ def haxchi_install(install_coldboot = False):
 if __name__ == '__main__':
     w = wupclient()
     mount_sd()
+    mount_usbfat_ext()
     #mount_slccmpt()
     # mount_odd()
 
-    #w.cd("/vol/storage_sdcard")
-    #w.ls()
+    print("Listing for /vol/storage_usb02:")
+    w.cd("/vol/storage_usb02")
+    w.ls()
+    #print_devinfo("/dev/ext01")
+    #print_devinfo("/dev/ext02")
     #install_usb("woominstaller")
 
-    #w.dl("/vol/system_slc/title/00050010/1000400a/code/fw.img", "fw_crypted.img")
+    #w.dl("/vol/system_slc/title/00050010/1000400a/code/fw.img", "fw_crypted_bad.img")
     #w.dldir("/vol/system_slc/title")
-    w.dldir("/vol/compat_slc/")
+    #w.dldir("/vol/compat_slc/")
 
     # w.read(0x1167BDA0+0x408E0, 0x20) # get disk serial id
     # ret, data = w.otpread(0x0, 0x400)
