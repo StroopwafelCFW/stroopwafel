@@ -68,7 +68,7 @@ USB_SHRINK_ORIG_SECTOR_COUNT3 equ -1
 USB_SHRINK_SECTOR_COUNT3 equ -1
 
 ; Allow USB drives to host FAT32 filesystems
-FAT32_USB equ 1
+FAT32_USB equ 0
 
 ; *****************************
 ; Crypto config

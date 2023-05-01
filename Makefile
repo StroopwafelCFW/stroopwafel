@@ -1,16 +1,16 @@
 INPUT := bin/fw.img.full.bin
-SECTIONS := 0x10700000 0x10800000 0x8120000 0x5000000 0x5100000 0x8140000 0x4000000 0xE6000000 0xE0000000 0xE4000000
-BSS_SECTIONS := 0x10835000 0x5074000 0x8150000
+SECTIONS := 0x8120000
+BSS_SECTIONS := 
 INPUT_SECTIONS := $(addprefix sections/, $(addsuffix .bin, $(SECTIONS)))
 PATCHED_SECTIONS := $(addprefix patched_sections/, $(addsuffix .bin, $(SECTIONS)))
 
 .PHONY: all clean wupserver/wupserver.bin
 
-all: ios.img ios.patch
+all: extract ios.img ios.patch
 
 sections/%.bin: $(INPUT)
 	@mkdir -p sections
-	@python3 scripts/anpack.py -in $(INPUT) -e $*,$@
+	python3 scripts/anpack.py -in $(INPUT) -e $*,$@
 
 extract: $(INPUT_SECTIONS)
 
