@@ -9,6 +9,8 @@ MCP_BSS_START equ (0x5074000 + 0x48574)
 
 .include "config.s"
 
+.if MCP_PATCHES
+
 MCP_C2W_LAUNCH_FAIL equ 0x5008824
 MCP_MEMCMP equ 0x05054D6C
 MCP_MEMCPY_T equ 0x05059018
@@ -1124,4 +1126,6 @@ ios_ledout:
 	.align 0x100
 
 .endarea
+
+.endif
 .Close

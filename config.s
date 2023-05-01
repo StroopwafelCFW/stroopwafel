@@ -68,7 +68,10 @@ USB_SHRINK_ORIG_SECTOR_COUNT3 equ -1
 USB_SHRINK_SECTOR_COUNT3 equ -1
 
 ; Allow USB drives to host FAT32 filesystems
-FAT32_USB equ 1
+FAT32_USB equ 0
+
+; Don't use MCP patches (useful for MenuChangers)
+MCP_PATCHES equ 1
 
 ; *****************************
 ; Crypto config
