@@ -17,6 +17,9 @@ OTP_IN_MEM equ 1
 ; WIP vWii junk that doesn't really work quite yet
 WIP_VWII_JUNK equ 0
 
+; Experimental vWii PPC overclock
+VWII_PPC_OC equ 0
+
 ; Hooks semihosting operations with GPIO output
 HOOK_SEMIHOSTING equ 1
 

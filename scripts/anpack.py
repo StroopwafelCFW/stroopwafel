@@ -134,12 +134,13 @@ class ancast:
 	def __init__(self, file, no_crypto):
 		file.seek(0)
 		self.header = file.read(0x1000)
-		elf_offs = 0
+		self.elf_offs = 0
 		for i in range(0, 0x1000, 4):
 			if self.header[i:i+4] == b'\x7FELF':
-				elf_offs = i
+				self.elf_offs = i
 				break
-		self.elf = elf32(file, elf_offs)
+		self.header = self.header[0:self.elf_offs]
+		self.elf = elf32(file, self.elf_offs)
 		self.no_crypto = no_crypto
 		# self.elf._print()
 

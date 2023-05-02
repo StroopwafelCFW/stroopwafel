@@ -425,6 +425,8 @@ c2w_boot_hook_search_skip_replace_4:
 c2w_boot_hook_search_4_done:
     pop {r4-r5, pc}
 
+.if WIP_VWII_JUNK
+
 .align 4
 c2w_boot_hook_fixup_ios_reload_hookcode_start:
 .thumb
@@ -646,6 +648,48 @@ c2w_boot_hook_search_skip_replace_7:
 c2w_boot_hook_search_7_done:
     pop {r4-r5, pc}
 
+.endif ; WIP_VWII_JUNK
+
+;  
+
+.if VWII_PPC_OC
+.align 4
+c2w_oc_hax_patch:
+	.thumb
+	push {r4-r5, lr}
+	ldr r0, =0x01000000
+	ldr r1, =0x01F80000
+	ldr r3, =0xE3C22020
+	ldr r4, =0xE3822020
+
+	; Search for E3C22020 E3822020 and replace the second instruction with a nop
+c2w_oc_hax_search:
+	cmp r0, r1
+	bge c2w_oc_hax_search_done
+	ldr r2, [r0]
+	cmp r2, r3
+	bne c2w_oc_hax_search_skip_replace
+	ldr r2, [r0, #0x4]
+	cmp r2, r4
+	bne c2w_oc_hax_search_skip_replace
+	mov r4, #0x0
+	str r4, [r0, #0x4]
+
+	push {r0-r5}
+	mov r4, r0
+	ldr r0, =c2w_boot_hook_print_1
+	mov r1, r4
+	bl MCP_PRINTF_T
+	pop {r0-r5}
+
+c2w_oc_hax_search_skip_replace:
+	add r0, r0, #0x4
+	b c2w_oc_hax_search
+
+c2w_oc_hax_search_done:
+	pop {r4-r5, pc}
+.endif ; VWII_PPC_OC
+
 .align 4
 c2w_boot_hook_t:
 	.thumb
@@ -662,6 +706,9 @@ c2w_boot_hook_t:
     bl c2w_boot_hook_ios_semihosting_ledaddr
     bl c2w_boot_hook_ios_semihosting_2
 .endif
+.if VWII_PPC_OC
+	bl c2w_oc_hax_patch
+.endif ; VWII_PPC_OC
 
 	pop {r0-r7}
 	pop {r1} ; bug in armips??
