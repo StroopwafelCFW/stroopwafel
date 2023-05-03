@@ -306,6 +306,8 @@ void mount_sd(int fd, char* path)
         ret = FSA_Mount(fd, "/dev/sdcard01", path, 0, NULL, 0);
         print(0, 8, "Mount SD attempt %d, %X\n", i++, ret);
         usleep(1000);
+
+        if (ret == 0xFFFCFFEA || ret == 0xFFFCFFE6 || i >= 0x100) break;
     }
     print_log(0, 0, "Mounted SD...\n");
 }
@@ -350,6 +352,8 @@ void wait_storages_ready(int fd)
     print_log(0, 0, "MLC ready!\n");
 }
 
+#define EMERGENCY_INSTALL
+
 void _main()
 {
 	//clearScreen(0xFF0000FF);
@@ -381,6 +385,48 @@ void _main()
     print_log(0, 8, "Flush SLC returned %X\n", ret);
     while(1) ;
     */
+
+#ifdef EMERGENCY_INSTALL
+    // Get FSA ready.
+    int fsa_fd = FSA_Open();
+
+    int i = 1;
+    while(fsa_fd < 0)
+    {
+        usleep(1000*1000);
+        fsa_fd = FSA_Open();
+        print(0, 8, "FSA open attempt %d %X\n", i++, fsa_fd);
+    }
+    clearScreen(0x00FF00FF); // green on fsa open
+
+    while (1)
+    {
+        for (int j = 0; j < 15; j++)
+        {
+            print(0, 8, "sleeping...\n");
+            usleep(1*1000*1000);
+        }
+
+        mount_sd(fsa_fd, "/vol/sdcard/");
+        wait_storages_ready(fsa_fd);
+
+        int mcp_handle = svcOpen("/dev/mcp", 0);
+        print(0,8,"%08x", mcp_handle);
+
+        int ret = MCP_InstallTarget(mcp_handle, 0);
+        print(0,16,"installtarget : %08x", ret);
+
+        ret = MCP_InstallGetInfo(mcp_handle, "/vol/sdcard/test_install");
+        print(0,16,"installinfo : %08x", ret);
+
+        ret = MCP_Install(mcp_handle, "/vol/sdcard/test_install");
+        print(0,16,"install : %08x", ret);
+
+        svcClose(mcp_handle);
+        //svcClose(fd);
+    }
+#endif
+    
     
 	clearScreen(0xBB00FFFF);
 	while(ifmgrnclInit() <= 0)

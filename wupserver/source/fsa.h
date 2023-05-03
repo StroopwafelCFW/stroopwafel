@@ -47,6 +47,9 @@ typedef struct
 #define FSA_MOUNTFLAGS_BINDMOUNT (1 << 0)
 #define FSA_MOUNTFLAGS_GLOBAL (1 << 1)
 
+int MCP_InstallGetInfo(int fd, char* path);
+int MCP_Install(int fd, char* path);
+
 int FSA_Open();
 
 int FSA_Mount(int fd, char* device_path, char* volume_path, u32 flags, char* arg_string, int arg_string_len);

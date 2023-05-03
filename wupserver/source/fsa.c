@@ -29,6 +29,64 @@ static void freeIobuf(void* ptr)
 	svcFree(0xCAFF, ptr);
 }
 
+int MCP_InstallGetInfo(int fd, char* path)
+{
+    u8* iobuf = allocIobuf();
+	u8* inbuf8 = iobuf;
+	u8* outbuf8 = &iobuf[0x520];
+	iovec_s* iovec = (iovec_s*)&iobuf[0x7C0];
+	u32* inbuf = (u32*)inbuf8;
+	u32* outbuf = (u32*)outbuf8;
+
+	strncpy((char*)&inbuf8[0x00], path, 0x27F);
+
+	iovec[0].ptr = inbuf;
+	iovec[0].len = 0x27F;
+	iovec[1].ptr = outbuf;
+	iovec[1].len = 0x16;
+
+	int ret = svcIoctlv(fd, 0x80, 1, 1, iovec);
+
+	freeIobuf(iobuf);
+	return ret;
+}
+
+int MCP_Install(int fd, char* path)
+{
+    u8* iobuf = allocIobuf();
+	u8* inbuf8 = iobuf;
+	u8* outbuf8 = &iobuf[0x520];
+	iovec_s* iovec = (iovec_s*)&iobuf[0x7C0];
+	u32* inbuf = (u32*)inbuf8;
+	u32* outbuf = (u32*)outbuf8;
+
+	strncpy((char*)&inbuf8[0x00], path, 0x27F);
+
+	iovec[0].ptr = inbuf;
+	iovec[0].len = 0x27F;
+
+	int ret = svcIoctlv(fd, 0x81, 1, 0, iovec);
+
+	freeIobuf(iobuf);
+	return ret;
+}
+
+int MCP_InstallTarget(int fd, int target)
+{
+    u8* iobuf = allocIobuf();
+	u8* inbuf8 = iobuf;
+	u8* outbuf8 = &iobuf[0x520];
+	u32* inbuf = (u32*)inbuf8;
+	u32* outbuf = (u32*)outbuf8;
+
+	inbuf8[3] = target;
+
+	int ret = svcIoctl(fd, 0x8D, inbuf, 0x4, NULL, 0);
+
+	freeIobuf(iobuf);
+	return ret;
+}
+
 int FSA_Mount(int fd, char* device_path, char* volume_path, u32 flags, char* arg_string, int arg_string_len)
 {
 	u8* iobuf = allocIobuf();
