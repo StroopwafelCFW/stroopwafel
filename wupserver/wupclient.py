@@ -1160,13 +1160,29 @@ def clock_test(val):
 
 def clock_test_loop():
     while True:
-        clock_test(0x32)
-        time.sleep(5)
         clock_test(0x28)
         time.sleep(5)
-        clock_test(0x14)
+        clock_test(0x29)
         time.sleep(5)
-        clock_test(0x10)
+        clock_test(0x2A)
+        time.sleep(5)
+        clock_test(0x2B)
+        time.sleep(5)
+        clock_test(0x2C)
+        time.sleep(5)
+        clock_test(0x2D)
+        time.sleep(5)
+        clock_test(0x2E)
+        time.sleep(5)
+        clock_test(0x2F)
+        time.sleep(5)
+        clock_test(0x30)
+        time.sleep(5)
+        clock_test(0x32)
+        time.sleep(5)
+        clock_test(0x33)
+        time.sleep(5)
+        clock_test(0x34)
         time.sleep(5)
 
 #0xfffcffe9
