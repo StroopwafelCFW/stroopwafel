@@ -352,7 +352,7 @@ void wait_storages_ready(int fd)
     print_log(0, 0, "MLC ready!\n");
 }
 
-#define EMERGENCY_INSTALL
+//#define EMERGENCY_INSTALL
 
 void _main()
 {

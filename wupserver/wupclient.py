@@ -6,6 +6,7 @@ import struct
 import binascii
 from binascii import hexlify
 from time import sleep
+import glob
 import time
 
 def buffer(size):
@@ -394,6 +395,26 @@ class wupclient:
         copy_string(inbuffer, path, 0x0)
         (ret, data) = self.ioctlv(handle, 0x80, [inbuffer], [0x16])
         return (ret, struct.unpack(">IIIIIH", data[0]))
+
+    # mcp
+    def BSP_Read(self, handle, entityName, instance, attributeName, out_size):
+        inbuffer = buffer(0x48)
+        copy_string(inbuffer, entityName, 0x0)
+        copy_word(inbuffer, instance, 0x8*4)
+        copy_string(inbuffer, attributeName, 0x9*4)
+        copy_word(inbuffer, out_size, 17*4)
+        (ret, data) = self.ioctl(handle, 0x05, inbuffer, out_size)
+        return (ret, data)
+
+    # mcp
+    def BSP_Write(self, handle, entityName, instance, attributeName, data):
+        inbuffer = buffer(0x48) + bytearray(data)
+        copy_string(inbuffer, entityName, 0x0)
+        copy_word(inbuffer, instance, 0x8*4)
+        copy_string(inbuffer, attributeName, 0x9*4)
+        copy_word(inbuffer, len(data), 17*4)
+        (ret, data) = self.ioctl(handle, 0x06, inbuffer, 0)
+        return (ret, data)
 
     def MCP_Install(self, handle, path):
         inbuffer = buffer(0x27F)
@@ -1109,17 +1130,85 @@ def haxchi_install(install_coldboot = False):
     w.FSA_FlushVolume(fsa_handle, '/vol/storage_mlc01/')
     print("Done!")
     
+def clock_test(val):
+    bsp_handle = w.open("/dev/bsp", 0)
+    print(hex(bsp_handle))
+
+    ret, data = w.BSP_Read(bsp_handle, "GFX", 0, "spll", 0x36)
+    print("read : " + hex(ret), data)
+
+    fastEn,dithEn,satEn,ssEn,bypOut,bypVco,operational,clkR,clkFMsb,clkFLsb,clkO0Div,clkO1Div,clkO2Div,clkS,clkVMsb,clkVLsb,bwAdj,options = struct.unpack(">IIIIIIIHHHHHHHHHII", data)
+    clkFMsb = val
+    write_data = struct.pack(">IIIIIIIHHHHHHHHHII", fastEn,dithEn,satEn,ssEn,bypOut,bypVco,operational,clkR,clkFMsb,clkFLsb,clkO0Div,clkO1Div,clkO2Div,clkS,clkVMsb,clkVLsb,bwAdj,options)
+
+    # Calculate the frequency and show it in console
+    clkF = (clkFMsb << 16) | (clkFLsb << 1)
+    clkO = clkO0Div
+    freqMhz = 27 * (clkF/0x10000) / (clkR+1) / (clkO/2)
+    print("Setting clocks to: " + str(freqMhz) + " MHz")
+
+    #print (data)
+    ret, data = w.BSP_Write(bsp_handle, "GFX", 0, "spll", write_data)
+    print("write : " + hex(ret), data)
+
+    ret, new_data = w.BSP_Read(bsp_handle, "GFX", 0, "spll", 0x36)
+    print("read : " + hex(ret), new_data)
+    print("applied:", write_data == new_data)
+
+    ret = w.close(bsp_handle)
+    print(hex(ret))
+
+def clock_test_loop():
+    while True:
+        clock_test(0x32)
+        time.sleep(5)
+        clock_test(0x28)
+        time.sleep(5)
+        clock_test(0x14)
+        time.sleep(5)
+        clock_test(0x10)
+        time.sleep(5)
+
 #0xfffcffe9
 if __name__ == '__main__':
     w = wupclient()
-    mount_sd()
-    mount_usbfat_ext()
+    #mount_sd()
+    #mount_usbfat_ext()
     #mount_slccmpt()
     # mount_odd()
 
+    #clock_test_loop()
+    
+
+    '''
     print("Listing for /vol/storage_usb02:")
     w.cd("/vol/storage_usb02")
     w.ls()
+    print("Listing for /vol/storage_sdcard:")
+    w.cd("/vol/storage_sdcard/")
+    w.ls()
+    '''
+
+    '''
+    mkdir_p("sysnand")
+    os.chdir("sysnand")
+
+    fldnm = "rights"
+    mkdir_p(fldnm)
+    os.chdir(fldnm)
+    w.dldir("/vol/system_slc/" + fldnm)
+    '''
+
+    #mkdir_p("old_save")
+    #os.chdir("old_save")
+    #w.dldir("/vol/storage_usb01/usr/save/00050000/101c9400/user/80000006/")
+
+    #w.cpdir("vol/storage_sdcard/new_save/", "/vol/storage_usb01/usr/save/00050000/101c9400/user/80000006/")
+
+    
+    #w.cd("/vol/storage_usb01/usr/save/00050000/101c9400/user/80000006/") #
+    #w.ls()
+    
     #print_devinfo("/dev/ext01")
     #print_devinfo("/dev/ext02")
     #install_usb("woominstaller")
