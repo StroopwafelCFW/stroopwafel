@@ -26,14 +26,6 @@ KERNEL_MCP_IOMAPPINGS_STRUCT equ 0x08140DE0
 
 KERNEL_SMC_SET_PANIC equ 0xFFFFDF5C
 
-; patch out restrictions on syscall 0x22 (otp_read)
-.org 0x08120374
-	.arm
-	mov r12, #0x3
-.org 0x081203C4
-	.arm
-	nop
-
 ; kern main thread hook
 .org 0x0812A690
 	.arm
@@ -47,32 +39,6 @@ semihost_pocket:
 .pool
 .org 0x0812DD68
 	b semihost_pocket
-.endif
-
-.if OTP_IN_MEM
-; patch otp_read to just copy from memory
-.org 0x0812026C
-	nop
-	nop
-	ldr r1, =_otp_store_start
-	b otp_jumpover
-.pool
-.org 0x0812028C
-otp_jumpover:
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	add r1, r8,lsl#2
-	mov r2, r6
-	mov r0, r7
-
-	; BL              memcpy_krnl
-.org 0x081202B4
-	nop
-	nop
 .endif
 
 ; patch domains
@@ -114,19 +80,11 @@ otp_jumpover:
 .org 0x8129AA0
 	b ios_panic_print
 
-; skip 49mb memclear for faster loading.
-.org 0x812A088
-	.arm
-	mov r1, r5
-	mov r2, r6
-	mov r3, r7
-	bx r4
-
 .org CODE_BASE
 kern_main_hook:
 		mov r9, r2
 		push {r0-r11, lr} ; orig insn
-		ldr r0, =0x27f00000 ; ELF
+		ldr r0, =0x06000000 ; ELF
 		ldr r1, [r0] ; magic
 		ldr r2, =0x7F454C46
 		cmp r1, r2
@@ -149,15 +107,6 @@ map_mem_perm_fixup:
     bx lr
 
 .area (0x08140000 - CODE_BASE)
-.if OTP_IN_MEM
-_otp_store_start:
-.word 0x4F545053
-.word 0x544F5245
-.word 0x4F545053
-.word 0x544F5245
-.fill ((_otp_store_start + 0x400) - .), 0x45
-_otp_store_end:
-.endif
 
 .align 4
 .arm

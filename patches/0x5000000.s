@@ -36,16 +36,10 @@ MCP_SVC_MAPPPCLOAD equ 0x05056BA4
 MCP_SVC_FLUSHIPCSERVER equ 0x05056AC4
 MCP_STR_KERNEL_IMG equ 0x05068AEC
 
-NEW_TIMEOUT equ (0xFFFFFFFF) ; over an hour
-
-; fix 10 minute timeout that crashes MCP after 10 minutes of booting
-.org 0x05022474
-	.word NEW_TIMEOUT
-
-; disable loading cached title list from os-launch memory
-.org 0x0502E59A
-	.thumb
-	mov r0, #0x0
+; hook main thread to start our thread ASAP
+.org 0x05056718
+	.arm
+	bl mcpMainThread_hook
 
 ; hook in a few dirs to delete on mcp startup
 .org 0x05016C8C
@@ -60,23 +54,6 @@ NEW_TIMEOUT equ (0xFFFFFFFF) ; over an hour
 	.arm
 	b MCP_SYSLOG_OUTPUT
 
-; hook main thread to start our thread ASAP
-.org 0x05056718
-	.arm
-	bl mcpMainThread_hook
-
-; patch OS launch sig check
-.org 0x0500A818
-	.thumb
-	mov r0, #0
-	mov r0, #0
-
-; patch IOSC_VerifyPubkeySign to always succeed
-.org 0x05052C44
-	.arm
-	mov r0, #0
-	bx lr
-
 .org 0x050282AE
 	.thumb
 	bl launch_os_hook
@@ -84,43 +61,6 @@ NEW_TIMEOUT equ (0xFFFFFFFF) ; over an hour
 ; patch pointer to fw.img loader path
 .org 0x050284D8
 	.word fw_img_path
-
-; nop "COS encountered unrecoverable error..." IOS panic
-.org 0x05056B84
-	.arm
-	nop
-
-; allow MCP_GetSystemLog on retail
-.org 0x05025EE6
-	.thumb
-	mov r0, #0
-	nop
-; same, MCP_SetDefaultTitleId
-.org 0x05026BA8
-	.thumb
-	mov r0, #0
-	nop
-; same, MCP_GetDefaultTitleId
-.org 0x05026C54
-	.thumb
-	mov r0, #0
-	nop
-; same, MCP_GetTitleSize
-    .thumb
-.org 0x502574E
-    nop
-    nop
-
-; patch cert verification
-.org 0x05052A90
-	.arm
-	mov r0, #0
-	bx lr
-
-; allow usage of u16 at ancast header + 0x1A0
-.org 0x0500A7CA
-	.thumb
-	nop
 
 ; hook to allow decrypted ancast images
 .org 0x0500A678
@@ -132,18 +72,6 @@ NEW_TIMEOUT equ (0xFFFFFFFF) ; over an hour
 ;	bl ppc_hook_pre
 ;.org 0x05034118
 ;	bl ppc_hook_post
-
-; skip content hash verification
-.org 0x05014CAC
-.thumb
-    mov r0, #0
-    bx lr
-
-.if IOS_PROCESS
-; Shorten the RAMdisk area by 1MiB
-.org 0x0502365C
-	.word (0x7FFF800 - 0x100000)
-.endif ; IOS_PROCESS
 
 .if OTP_IN_MEM
 ; - Wii SEEPROM gets copied to 0xFFF07F00.
@@ -1079,15 +1007,13 @@ ancast_no_crypt:
 	mov r0, #0
 	bx lr
 
-crypt_check_ret:
-
 	.arm
 	mcpMainThread_hook:
 		mov r11, r0
 		push {r0-r11,lr}
 		sub sp, #8
 
-		ldr r0, =0x27f00000 ; ELF
+		ldr r0, =0x06000000 ; ELF
 		ldr r1, [r0] ; magic
 		ldr r2, =0x7F454C46
 		cmp r1, r2
@@ -1098,10 +1024,10 @@ crypt_check_ret:
 		add r0, r1, r0
 		add r0, #0x4 ; mcp_main
 		blx r0
-
 skip_proc:
 		add sp, #8
 		pop {r0-r11,pc}
+
 
 	.thumb
 	launch_os_hook:
