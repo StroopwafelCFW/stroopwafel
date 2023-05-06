@@ -8,11 +8,31 @@
 #include "ios/memory.h"
 #include "wupserver/wupserver.h"
 #include "utils.h"
+#include "cache.h"
 
 volatile int bss_var;
 volatile int data_var = 0x12345678;
+static int kern_done = 0;
 
 u32 main_thread(void*);
+
+#define ASM_PATCH(_addr, _str) { \
+    __asm__ volatile (           \
+    ".globl pre_" #_addr "\n"    \
+    ".globl post_" #_addr "\n"   \
+    "b post_" #_addr "\n"        \
+    "pre_" #_addr ":\n"          \
+    _str "\n"                    \
+    "post_" #_addr ":\n"         \
+    "adr r0, pre_" #_addr "\n"   \
+    "ldr r1, =0x" #_addr "\n"    \
+    "adr r2, post_" #_addr "\n"  \
+    "sub r2, r2, r0\n"           \
+    "bl memcpy\n");              \
+    extern void pre_##_addr();   \
+    extern void post_##_addr();  \
+    dc_flushrange((void*)0x##_addr, (u32)post_##_addr - (u32)pre_##_addr); \
+}
 
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
@@ -20,12 +40,33 @@ u32 main_thread(void*);
 // It must return.
 void kern_main()
 {
+    // They call the function I hook twice for whatever reason.
+    if (kern_done) return;
+
     // Make sure relocs worked fine and mappings are good
     debug_printf("we in here kern %p\n", kern_main);
     bss_var = 0x12345678;
     data_var = 0;
 
-    debug_printf("done\n");
+    // Disk drive disable
+    ASM_PATCH(E60085F8, "mov r3, #2");
+    ASM_PATCH(E6008BEC, "mov r3, #2");
+
+    // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
+    ASM_PATCH(E600CF5C, 
+        "mov r0, #0\n \
+         bx lr\n"
+    );
+
+    // skip seeprom writes in eepromDrvWriteWord for safety
+    ASM_PATCH(E600D010, 
+        "mov r0, #0\n \
+         bx lr\n"
+    );
+
+    ic_invalidateall();
+    debug_printf("done %x\n", *(u32*)0xE600D010);
+    kern_done = 1;
 }
 
 // This fn runs before MCP's main thread, and can be used

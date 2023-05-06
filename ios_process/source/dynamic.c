@@ -7,12 +7,16 @@
 
 extern void debug_printf(const char *format, ...);
 
+static int is_relocated = 0;
+
 void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
 {
     const Elf32_Rela* rela = NULL;
     u64 relasz = 0;
     const Elf32_Rel* rel = NULL;
     u64 relsz = 0;
+
+    if (is_relocated) return;
 
     for (; dyn->d_tag != DT_NULL; dyn++)
     {
@@ -72,6 +76,8 @@ void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
     else {
         svc_sys_write("Failed to find DT_REL\n");
     }
+
+    is_relocated = 1;
 }
 
 // TODO linking/symbol lookup
