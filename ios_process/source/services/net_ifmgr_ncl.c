@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include "net_ifmgr_ncl.h"
+#include "services/net_ifmgr_ncl.h"
 #include "imports.h"
-#include "svc.h"
+#include "ios/svc.h"
 
 static int ifmgrncl_handle = 0;
 

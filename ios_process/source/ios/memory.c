@@ -1,5 +1,5 @@
-#include "memory.h"
-#include "svc.h"
+#include "ios/memory.h"
+#include "ios/svc.h"
 
 void* malloc_global(u32 size)
 {

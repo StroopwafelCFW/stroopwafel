@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "socket.h"
-#include "svc.h"
-#include "text.h"
+#include "ios/svc.h"
 
 static int socket_handle = 0;
 

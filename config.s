@@ -76,6 +76,9 @@ FAT32_USB equ 0
 ; Don't use MCP patches (useful for MenuChangers)
 MCP_PATCHES equ 1
 
+; WIP IOS process
+IOS_PROCESS equ 1
+
 ; *****************************
 ; Crypto config
 ; *****************************

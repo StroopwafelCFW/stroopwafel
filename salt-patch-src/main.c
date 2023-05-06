@@ -367,8 +367,8 @@ int main(int argc, char* argv[])
     while((ent = readdir(d_patched)))
     {
         char* fn_cur = ent->d_name;
-        // skip . and ..
-        if(!strcmp(fn_cur, ".") || !strcmp(fn_cur, ".."))
+        // skip `.`, `..`, `.DS_Store`, etc
+        if(fn_cur[0] == '.')
             continue;
         
         // sanity-check fname format
@@ -447,10 +447,29 @@ int main(int argc, char* argv[])
     // read phdrs...
     fseek(f_img, 0x804+0x34, SEEK_SET);
     fread(elf_phdrs, 1, tbl_size, f_img);
+
+    // Now check the notes size and read it
+    u32 notes_size = getbe32((u8*)elf_phdrs + 0x30);
+    void* elf_notes = malloc(notes_size);
+    if(!elf_notes)
+    {
+        printf("Failed to alloc mem for elf notes copy!\n");
+        return -1;
+    }
+    fread(elf_notes, 1, notes_size, f_img);
+
     fclose(f_img);
     
-    // write phdrs to file as a diff overwrite
+    // write phdrs and notes to file as a diff overwrite
     patch_add_diff(f_patch, elf_phdrs, tbl_size/4, 0x1D000000);
+    patch_add_diff(f_patch, elf_notes, notes_size/4, 0x1D000000+tbl_size);
+
+    // Add in ios_process (TODO: do this in minute instead?)
+    void* ios_proc_elf = malloc(0x100000);
+    FILE* f_ios_proc_elf = fopen("ios_process/ios_process.elf", "rb");
+    size_t ios_proc_sz = fread(ios_proc_elf, 1, 0x100000, f_ios_proc_elf);
+    patch_add_diff(f_patch, ios_proc_elf, ios_proc_sz/4, 0x27F00000);
+    fclose(f_ios_proc_elf);
     
     write_patch_footer_and_hash(f_patch);
     fclose(f_patch);

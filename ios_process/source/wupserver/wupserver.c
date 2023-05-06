@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "imports.h"
-#include "net_ifmgr_ncl.h"
+#include "services/net_ifmgr_ncl.h"
 #include "socket.h"
-#include "fsa.h"
-#include "svc.h"
-#include "text.h"
+#include "services/fsa.h"
+#include "ios/svc.h"
+#include "wupserver/text.h"
 
 void fsa_copydir(int fd, char* src, char* dst)
 {
@@ -137,163 +137,163 @@ bool serverKilled;
 // returns length of response (or 0 for no response, negative for error)
 int serverCommandHandler(u32* command_buffer, u32 length, int sock)
 {
-	if(!command_buffer || !length) return -1;
+    if(!command_buffer || !length) return -1;
 
-	int out_length = 4;
+    int out_length = 4;
 
-	switch(command_buffer[0])
-	{
-		case 0:
-			// write
-			// [cmd_id][addr]
-			{
-				void* dst = (void*)command_buffer[1];
+    switch(command_buffer[0])
+    {
+        case 0:
+            // write
+            // [cmd_id][addr]
+            {
+                void* dst = (void*)command_buffer[1];
                 int length = command_buffer[2];
                 
                 u32 offset = 0;
                 while(offset < length)
                     offset += recv(sock, dst + offset, length - offset, 0);
-			}
-			break;
-		case 1:
-			// read
-			// [cmd_id][addr][length]
-			{
-				void* src = (void*)command_buffer[1];
-				length = command_buffer[2];
+            }
+            break;
+        case 1:
+            // read
+            // [cmd_id][addr][length]
+            {
+                void* src = (void*)command_buffer[1];
+                length = command_buffer[2];
                 
                 u32 offset = 0;
                 while(offset < length)
                     offset += send(sock, src + offset, length - offset, 0);
-			}
-			break;
-		case 2:
-			// svc
-			// [cmd_id][svc_id]
-			{
-				int svc_id = command_buffer[1];
-				int size_arguments = length - 8;
+            }
+            break;
+        case 2:
+            // svc
+            // [cmd_id][svc_id]
+            {
+                int svc_id = command_buffer[1];
+                int size_arguments = length - 8;
 
-				u32 arguments[8];
-				memset(arguments, 0x00, sizeof(arguments));
-				memcpy(arguments, &command_buffer[2], (size_arguments < 8 * 4) ? size_arguments : (8 * 4));
+                u32 arguments[8];
+                memset(arguments, 0x00, sizeof(arguments));
+                memcpy(arguments, &command_buffer[2], (size_arguments < 8 * 4) ? size_arguments : (8 * 4));
 
-				// return error code as data
-				out_length = 8;
-				command_buffer[1] = ((int (*const)(u32, u32, u32, u32, u32, u32, u32, u32))(MCP_SVC_BASE + svc_id * 8))(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], arguments[7]);
-			}
-			break;
-		case 3:
-			// kill
-			// [cmd_id]
-			{
-				serverKilled = true;
-			}
-			break;
-		case 4:
-			// memcpy
-			// [dst][src][size]
-			{
-				void* dst = (void*)command_buffer[1];
-				void* src = (void*)command_buffer[2];
-				int size = command_buffer[3];
+                // return error code as data
+                out_length = 8;
+                command_buffer[1] = ((int (*const)(u32, u32, u32, u32, u32, u32, u32, u32))(MCP_SVC_BASE + svc_id * 8))(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], arguments[7]);
+            }
+            break;
+        case 3:
+            // kill
+            // [cmd_id]
+            {
+                serverKilled = true;
+            }
+            break;
+        case 4:
+            // memcpy
+            // [dst][src][size]
+            {
+                void* dst = (void*)command_buffer[1];
+                void* src = (void*)command_buffer[2];
+                int size = command_buffer[3];
 
-				memcpy(dst, src, size);
-			}
-			break;
-		case 5:
-			// repeated-write
-			// [address][value][n]
-			{
-				u32* dst = (u32*)command_buffer[1];
-				u32* cache_range = (u32*)(command_buffer[1] & ~0xFF);
-				u32 value = command_buffer[2];
-				u32 n = command_buffer[3];
+                memcpy(dst, src, size);
+            }
+            break;
+        case 5:
+            // repeated-write
+            // [address][value][n]
+            {
+                u32* dst = (u32*)command_buffer[1];
+                u32* cache_range = (u32*)(command_buffer[1] & ~0xFF);
+                u32 value = command_buffer[2];
+                u32 n = command_buffer[3];
 
-				u32 old = *dst;
-				int i;
-				for(i = 0; i < n; i++)
-				{
-					if(*dst != old)
-					{
-						if(*dst == 0x0) old = *dst;
-						else
-						{
-							*dst = value;
-							svcFlushDCache(cache_range, 0x100);
-							break;
-						}
-					}else
-					{
-						svcInvalidateDCache(cache_range, 0x100);
-						usleep(50);
-					}
-				}
-			}
-			break;
-		default:
-			// unknown command
-			return -2;
-			break;
-	}
+                u32 old = *dst;
+                int i;
+                for(i = 0; i < n; i++)
+                {
+                    if(*dst != old)
+                    {
+                        if(*dst == 0x0) old = *dst;
+                        else
+                        {
+                            *dst = value;
+                            svcFlushDCache(cache_range, 0x100);
+                            break;
+                        }
+                    }else
+                    {
+                        svcInvalidateDCache(cache_range, 0x100);
+                        usleep(50);
+                    }
+                }
+            }
+            break;
+        default:
+            // unknown command
+            return -2;
+            break;
+    }
     
-	// no error !
-	command_buffer[0] = 0x00000000;
-	return out_length;
+    // no error !
+    command_buffer[0] = 0x00000000;
+    return out_length;
 }
 
 void serverClientHandler(int sock)
 {
-	u32 command_buffer[0x180];
+    u32 command_buffer[0x180];
 
-	while(!serverKilled)
-	{
-		int ret = recv(sock, command_buffer, sizeof(command_buffer), 0);
+    while(!serverKilled)
+    {
+        int ret = recv(sock, command_buffer, sizeof(command_buffer), 0);
 
-		if(ret <= 0) break;
+        if(ret <= 0) break;
 
-		ret = serverCommandHandler(command_buffer, ret, sock);
+        ret = serverCommandHandler(command_buffer, ret, sock);
 
-		if(ret > 0)
-		{
-			send(sock, command_buffer, ret, 0);
-		}else if(ret < 0)
-		{
-			send(sock, &ret, sizeof(int), 0);
-		}
-	}
+        if(ret > 0)
+        {
+            send(sock, command_buffer, ret, 0);
+        }else if(ret < 0)
+        {
+            send(sock, &ret, sizeof(int), 0);
+        }
+    }
 
-	closesocket(sock);
+    closesocket(sock);
 }
 
 void serverListenClients()
 {
-	serverKilled = false;
+    serverKilled = false;
 
-	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	struct sockaddr_in server;
+    struct sockaddr_in server;
 
-	memset(&server, 0x00, sizeof(server));
+    memset(&server, 0x00, sizeof(server));
 
-	server.sin_family = AF_INET;
-	server.sin_port = 1337;
-	server.sin_addr.s_addr = 0;
+    server.sin_family = AF_INET;
+    server.sin_port = 1337;
+    server.sin_addr.s_addr = 0;
 
-	int ret = bind(sock, (struct sockaddr *)&server, sizeof(server));
+    int ret = bind(sock, (struct sockaddr *)&server, sizeof(server));
 
-	while(!serverKilled)
-	{
-		ret = listen(sock, 1);
-		
-		if(ret >= 0)
-		{
-			int csock = accept(sock, NULL, NULL);
-			
-			// TODO : threading
-			serverClientHandler(csock);
-		}else usleep(1000);
-	}
+    while(!serverKilled)
+    {
+        ret = listen(sock, 1);
+        
+        if(ret >= 0)
+        {
+            int csock = accept(sock, NULL, NULL);
+            
+            // TODO : threading
+            serverClientHandler(csock);
+        }else usleep(1000);
+    }
 }
 
 void mount_sd(int fd, char* path)
@@ -354,9 +354,9 @@ void wait_storages_ready(int fd)
 
 //#define EMERGENCY_INSTALL
 
-void _main()
+u32 wupserver_main(void* arg)
 {
-	//clearScreen(0xFF0000FF);
+    //clearScreen(0xFF0000FF);
     /*
     // Get FSA ready.
     int fd = FSA_Open();
@@ -367,18 +367,18 @@ void _main()
         fd = FSA_Open();
         print(0, 8, "FSA open attempt %d %X\n", i++, fd);
     }
-	clearScreen(0x00FF00FF); // green on fsa open
+    clearScreen(0x00FF00FF); // green on fsa open
     
     mount_sd(fd, "/vol/sdcard/");
     //mount_mlc(fd, "/vol/storage_mlc01/");
     wait_storages_ready(fd);
     
-	clearScreen(0xBB00FFFF); // cute purple on copy ready
+    clearScreen(0xBB00FFFF); // cute purple on copy ready
     //fsa_copydir(fd, "/vol/storage_mlc01/", "/vol/sdcard/mlc01bak/"); // backup
     fsa_copydir(fd, "/vol/sdcard/mlc01/usr", "/vol/storage_mlc01/usr"); // restore
     fsa_copydir(fd, "/vol/sdcard/mlc01/sys", "/vol/storage_mlc01/sys"); // restore
     
-	clearScreen(0xFFBB00FF); // amber after copy
+    clearScreen(0xFFBB00FF); // amber after copy
     int ret = FSA_FlushVolume(fd, "/vol/storage_mlc01");
     print_log(0, 0, "Flush MLC returned %X\n", ret);
     ret = FSA_FlushVolume(fd, "/vol/system_slc");
@@ -428,42 +428,44 @@ void _main()
 #endif
     
     
-	clearScreen(0xBB00FFFF);
-	while(ifmgrnclInit() <= 0)
-	{
-		print(0, 0, "opening /dev/net/ifmgr/ncl...");
-		usleep(5*1000*1000);
-	}
+    clearScreen(0xBB00FFFF);
+    while(ifmgrnclInit() <= 0)
+    {
+        print(0, 0, "opening /dev/net/ifmgr/ncl...");
+        usleep(5*1000*1000);
+    }
 
-	while(true)
-	{
-		u16 out0, out1;
+    while(true)
+    {
+        u16 out0, out1;
 
-		int ret0 = IFMGRNCL_GetInterfaceStatus(0, &out0);
-		if(!ret0 && out0 == 1) break;
+        int ret0 = IFMGRNCL_GetInterfaceStatus(0, &out0);
+        if(!ret0 && out0 == 1) break;
 
-		int ret1 = IFMGRNCL_GetInterfaceStatus(1, &out1);
-		if(!ret1 && out1 == 1) break;
-		
-		print(0, 0, "initializing /dev/net/ifmgr/ncl... %08X %08X %08X %08X ", ret0, ret1, out0, out1);
+        int ret1 = IFMGRNCL_GetInterfaceStatus(1, &out1);
+        if(!ret1 && out1 == 1) break;
+        
+        print(0, 0, "initializing /dev/net/ifmgr/ncl... %08X %08X %08X %08X ", ret0, ret1, out0, out1);
 
-		usleep(5*1000*1000);
-	}
+        usleep(5*1000*1000);
+    }
 
-	while(socketInit() <= 0)
-	{
-		print(0, 0, "opening /dev/socket...");
-		usleep(1000*1000);
-	}
+    while(socketInit() <= 0)
+    {
+        print(0, 0, "opening /dev/socket...");
+        usleep(1000*1000);
+    }
 
-	print(0, 0, "opened /dev/socket !");
-	usleep(5*1000*1000);
-	print(0, 10, "attempting sockets !");
+    print(0, 0, "opened /dev/socket !");
+    usleep(5*1000*1000);
+    print(0, 10, "attempting sockets !");
 
-	serverListenClients();
+    serverListenClients();
 
-	while(1)
-	{
-		usleep(1000*1000);
-	}
+    while(1)
+    {
+        usleep(1000*1000);
+    }
+
+    return 0;
 }

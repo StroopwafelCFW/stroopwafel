@@ -1,18 +1,33 @@
+# IDA junk
+*.idb
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+
+# build junk
+*.o
+*.d
+
+# macOS junk
 .DS_Store
+
+# my junk
 salt-patch
 fw.img
 ios.img
 ios.patch
 fw550.txt
 fw550-sorted.txt
-*.idb
 test_vwii.bin
 test_vwii2.bin
 test_vwii.s
 test_vwii2.s
-*.o
 stash.s
+fat_mnt/
 
+# wupserver
 wupserver/build
 wupserver/slccmpt
 wupserver/vwii_ios
@@ -23,11 +38,19 @@ wupserver/*.elf
 wupserver/*.map
 wupserver/syslog.txt
 
+# ios_process
+ios_process/build
+ios_process/debug
+ios_process/*.img
+ios_process/*.bin
+ios_process/*.elf
+ios_process/*.map
+
+# extracted sections
 sections/*.bin
 
+# patched sections
 patched_sections/*.bin
 
-salt-patch-src/*.o
-
-fat_mnt/
+# IOS img
 bin/*.bin

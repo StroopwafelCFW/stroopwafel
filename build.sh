@@ -1,6 +1,7 @@
 #!/bin/zsh
 
-make wupserver/wupserver.bin
+rm ios_process/ios_process.elf
+make ios_process/ios_process.elf
 make ios.img
 make ios.patch
 

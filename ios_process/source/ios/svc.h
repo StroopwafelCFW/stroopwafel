@@ -32,5 +32,6 @@ int svcSuspendThread(int thread_id);
 int svcYieldThread();
 
 int svc_sys_write(char* str);
+void crash_and_burn();
 
 #endif

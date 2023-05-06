@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "svc.h"
+#include "ios/svc.h"
 #include "imports.h"
-#include "fsa.h"
+#include "services/fsa.h"
 
 int fsa_fd = 0;
 int FSA_Open()

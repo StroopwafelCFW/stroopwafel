@@ -8,5 +8,6 @@
 #define MCP_SVC_BASE ((void*)0x050567EC)
 
 void usleep(u32 time);
+void ios_abort(const char *format, ...);
 
 #endif

@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "imports.h"
-#include "font_bin.h"
-#include "svc.h"
+#include "wupserver/font_bin.h"
+#include "ios/svc.h"
 
 #define FRAMEBUFFER_ADDRESS (0x14000000+0x38C0000)
 #define FRAMEBUFFER_STRIDE (0xE00)

@@ -139,6 +139,12 @@ NEW_TIMEOUT equ (0xFFFFFFFF) ; over an hour
     mov r0, #0
     bx lr
 
+.if IOS_PROCESS
+; Shorten the RAMdisk area by 1MiB
+.org 0x0502365C
+	.word (0x7FFF800 - 0x100000)
+.endif ; IOS_PROCESS
+
 .if OTP_IN_MEM
 ; - Wii SEEPROM gets copied to 0xFFF07F00.
 ; - Hai params get copied to 0xFFFE7D00.
@@ -1081,22 +1087,18 @@ crypt_check_ret:
 		push {r0-r11,lr}
 		sub sp, #8
 
-		mov r0, #0x78
-		str r0, [sp] ; prio
-		mov r0, #1
-		str r0, [sp, #4] ; detached
-		ldr r0, =wupserver_entrypoint ; thread entrypoint
-		mov r1, #0 ; thread arg
-		ldr r2, =wupserver_stacktop ; thread stacktop
-		mov r3, #wupserver_stacktop - wupserver_stack ; thread stack size
-		bl MCP_SVC_CREATETHREAD
+		ldr r0, =0x27f00000 ; ELF
+		ldr r1, [r1] ; magic
+		ldr r2, =0x7F454C46
+		cmp r1, r2
+		bne skip_proc
 
-		cmp r0, #0
-		blge MCP_SVC_STARTTHREAD
+		add r1, r0, #0x18
+		ldr r1, [r1] ; thread entrypoint
+		add r0, r1, r0
+		bx r0
 
-		ldr r1, =0x050BD000 - 4
-		str r0, [r1]
-
+skip_proc:
 		add sp, #8
 		pop {r0-r11,pc}
 
@@ -1151,13 +1153,10 @@ ios_ledout:
 .word 0x0
 ; 0xA8C of space here to stack on 550!
 
-
-.org 0x050BD000
-	wupserver_stack:
-		.fill ((wupserver_stack + 0x1000) - .), 0x00
-	wupserver_stacktop:
-	wupserver_bss:
-		.fill ((wupserver_bss + 0x2000) - .), 0x00
+.align 0x10
+process_stack:
+	.fill ((process_stack + 0x200) - .), 0x00
+process_stacktop:
 
 .endarea
 .Close
@@ -1166,11 +1165,6 @@ ios_ledout:
 .open "sections/0x5100000.bin","patched_sections/0x5100000.bin",0x05100000
 .area (0x05380000 - 0x05100000)
 
-; append wupserver code
-.org 0x5116000
-	wupserver_entrypoint:
-		.incbin "wupserver/wupserver.bin"
-	.align 0x100
 
 .endarea
 
