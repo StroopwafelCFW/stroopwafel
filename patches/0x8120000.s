@@ -28,9 +28,16 @@ KERNEL_SMC_SET_PANIC equ 0xFFFFDF5C
 
 ; patch out restrictions on syscall 0x22 (otp_read)
 .org 0x08120374
+	.arm
 	mov r12, #0x3
 .org 0x081203C4
+	.arm
 	nop
+
+; kern main thread hook
+.org 0x0812A690
+	.arm
+	bl kern_main_hook
 
 .if HOOK_SEMIHOSTING
 .org 0x0812DD14
@@ -116,6 +123,24 @@ otp_jumpover:
 	bx r4
 
 .org CODE_BASE
+kern_main_hook:
+		mov r9, r2
+		push {r0-r11, lr} ; orig insn
+		ldr r0, =0x27f00000 ; ELF
+		ldr r1, [r0] ; magic
+		ldr r2, =0x7F454C46
+		cmp r1, r2
+		bne skip_proc
+
+		add r1, r0, #0x18
+		ldr r1, [r1] ; thread entrypoint
+		add r0, r1, r0
+		blx r0
+
+skip_proc:
+		pop {r0-r11, pc}
+
+
 map_mem_perm_fixup:
     ldr r6, [sp, #0x4C]
     ;bics r6, 0x18   ; clear kernel-only and user read-only flags

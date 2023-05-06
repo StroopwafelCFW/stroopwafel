@@ -2,8 +2,11 @@
 .arm
 .align 4
 
-.extern _main
-.type _main, %function
+.extern kern_main
+.type kern_main, %function
+
+.extern mcp_main
+.type mcp_main, %function
 
 .extern memset
 .type memset, %function
@@ -14,16 +17,15 @@
 .globl _start
 .type _start, %function
 _start:
+kern_entry:
+	b kern_setup
+mcp_entry:
+	b mcp_main
+	nop
+	nop
 
-	@ set sp
-	adr r2, _start
-	ldr r1, _start_offs
-	sub r2, r2, r1
-
-	ldr r0, =__stack_start
-	add r0, r2, r0
-	@mov sp, r0
-
+kern_setup:
+	push {lr}
 	@ get bss start addr
 	adr r2, _start
 	ldr r1, _start_offs
@@ -50,7 +52,8 @@ _start:
 	add r1, r0
 	bl __ios_dynamic
 
-	b _main
+	bl kern_main
+	pop {pc}
 
 _start_offs:
 	.word __start__

@@ -47,18 +47,29 @@ class elf32_phdr:
 	def __init__(self, file, offset, hdr, id):
 		if id >= hdr.e_phnum:
 			raise ValueError("id is invalid yo")
-		file.seek(offset + hdr.e_phoff + hdr.e_phentsize * id)
 		self.id = id
-		self.p_type = struct.unpack(">I", file.read(4))[0]
-		self.p_offset = struct.unpack(">I", file.read(4))[0]
-		self.p_vaddr = struct.unpack(">I", file.read(4))[0]
-		self.p_paddr = struct.unpack(">I", file.read(4))[0]
-		self.p_filesz = struct.unpack(">I", file.read(4))[0]
-		self.p_memsz = struct.unpack(">I", file.read(4))[0]
-		self.p_flags = struct.unpack(">I", file.read(4))[0]
-		self.p_align = struct.unpack(">I", file.read(4))[0]
-		file.seek(offset + self.p_offset)
-		self.content = file.read(self.p_filesz)
+		if file is not None:
+			file.seek(offset + hdr.e_phoff + hdr.e_phentsize * id)
+			self.p_type = struct.unpack(">I", file.read(4))[0]
+			self.p_offset = struct.unpack(">I", file.read(4))[0]
+			self.p_vaddr = struct.unpack(">I", file.read(4))[0]
+			self.p_paddr = struct.unpack(">I", file.read(4))[0]
+			self.p_filesz = struct.unpack(">I", file.read(4))[0]
+			self.p_memsz = struct.unpack(">I", file.read(4))[0]
+			self.p_flags = struct.unpack(">I", file.read(4))[0]
+			self.p_align = struct.unpack(">I", file.read(4))[0]
+			file.seek(offset + self.p_offset)
+			self.content = file.read(self.p_filesz)
+		else:
+			self.content = b''
+			self.p_type = 0
+			self.p_offset = 0
+			self.p_vaddr = 0
+			self.p_paddr = 0
+			self.p_filesz = 0
+			self.p_memsz = 0
+			self.p_flags = 0
+			self.p_align = 0
 
 	def replace_content(self, file):
 		file.seek(0)
@@ -98,6 +109,14 @@ class elf32:
 			special = (i == 0 or i == 2)
 			if not(special):
 				self.phdrs[i].p_offset = data_offset
+			if i == 0:
+				self.phdrs[i].p_filesz = self.hdr.e_phentsize * self.hdr.e_phnum
+				self.phdrs[i].p_memsz = self.phdrs[i].p_filesz
+			if i == 1:
+				self.phdrs[i].p_vaddr = self.phdrs[0].p_vaddr + self.phdrs[0].p_filesz
+				self.phdrs[i].p_paddr = self.phdrs[i].p_vaddr
+			if i == 2:
+				self.phdrs[i].p_filesz = (self.hdr.e_phentsize * self.hdr.e_phnum) + self.phdrs[i-1].p_filesz
 			data_offset += self.phdrs[i].write(file, offset, self.hdr, i, not(special))
 
 	def extract_sections(self, sections):
@@ -160,6 +179,9 @@ class ancast:
 		file.write(struct.pack(">I", total_size))
 		file.write(hash)
 
+	def write_elf(self, file):
+		self.elf.write(file, 0)
+
 	def extract_sections(self, sections):
 		self.elf.extract_sections(sections)
 
@@ -168,6 +190,34 @@ class ancast:
 
 	def bss_sections(self, sections):
 		self.elf.bss_sections(sections)
+
+	def elf_proc(self, addr, fpath):
+		f = open(fpath, "rb")
+		elf_dat = f.read()
+		f.close()
+
+		#self.elf.hdr.e_phnum
+		phdr_num = 0
+		for i in range(0, self.elf.hdr.e_phnum):
+			if self.elf.phdrs[i].p_vaddr > addr:
+				if phdr_num == 0:
+					phdr_num = i
+				self.elf.phdrs[i].id += 1
+		self.elf.hdr.e_phnum += 1
+		self.elf.phdrs[phdr_num-1].p_memsz -= 0x100000
+		phdr = elf32_phdr(None, 0, self.elf.hdr, phdr_num)
+		phdr.content = elf_dat
+		phdr.p_type = 1   # LOAD
+		phdr.p_offset = 0 # filled in
+		phdr.p_vaddr = addr
+		phdr.p_paddr = addr # ramdisk is consistent so we can do this.
+		phdr.p_filesz = len(elf_dat)
+		phdr.p_memsz = len(elf_dat)
+		phdr.p_flags = 7 | (0x1<<20) # RWX, MCP
+		phdr.p_align = 1
+		phdr.p_offset = self.elf.phdrs[self.elf.hdr.e_phnum-2].p_offset + self.elf.phdrs[self.elf.hdr.e_phnum-2].p_filesz
+
+		self.elf.phdrs = self.elf.phdrs[0:phdr_num] + [phdr] + self.elf.phdrs[phdr_num:]
 
 	def encrypt(self, file, offset, no_crypto):
 		key = base64.b16decode(b'00000000000000000000000000000000') # fill in if you need crypted images...
@@ -197,6 +247,8 @@ no_crypto = False
 replace_sections = {}
 extract_sections = {}
 bss_sections = {}
+proc_addr = 0x0
+proc_elf = ""
 
 i = 1
 while i < len(sys.argv):
@@ -215,6 +267,12 @@ while i < len(sys.argv):
 			i += 1
 			param = param.split(",")
 			bss_sections[int(param[0], 0)] = param[1]
+		elif option[1:] == "proc":
+			param = sys.argv[i+1]
+			i += 1
+			param = param.split(",")
+			proc_addr = int(param[0], 0)
+			proc_elf = param[1]
 		elif option[1:] == "r":
 			param = sys.argv[i+1]
 			i += 1
@@ -234,6 +292,10 @@ if input_fn != None:
 	fw.extract_sections(extract_sections)
 	fw.replace_sections(replace_sections)
 	fw.bss_sections(bss_sections)
+	if proc_elf != "":
+		fw.elf_proc(proc_addr, proc_elf)
 	if output_fn != None:
 		fw.write(open(output_fn, "w+b"))
-	# fw.elf._print()
+	if output_fn != None:
+		fw.write_elf(open(output_fn+".elf", "w+b"))
+	#fw.elf._print()

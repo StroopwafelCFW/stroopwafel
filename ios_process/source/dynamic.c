@@ -1,8 +1,9 @@
-#include <elf.h>
-#include <stddef.h>
+#include "dynamic.h"
+
 #include "types.h"
 #include "imports.h"
 #include "ios/svc.h"
+#include "utils.h"
 
 extern void debug_printf(const char *format, ...);
 
@@ -48,18 +49,21 @@ void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
         }
     }
     else {
-        svc_sys_write("Failed to find DT_RELA\n");
+        //svc_sys_write("Failed to find DT_RELA\n");
     }
 
     if (rel != NULL) {
         for (; relsz--; rel++)
         {
+            //debug_printf("%x %x %x\n", ELF32_R_TYPE(rel->r_info), (base + rel->r_offset), *(u32*)(base + rel->r_offset));
             switch (ELF32_R_TYPE(rel->r_info))
             {
                 case R_ARM_RELATIVE:
                 {
                     u32* ptr = (u32*)(base + rel->r_offset);
-                    *ptr += base;
+                    if (*ptr < base) {
+                        *ptr += base;
+                    }
                     break;
                 }
             }
@@ -69,3 +73,5 @@ void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
         svc_sys_write("Failed to find DT_REL\n");
     }
 }
+
+// TODO linking/symbol lookup

@@ -1,16 +1,13 @@
-#include "imports.h"
+#include "utils.h"
 
 #include "ios/svc.h"
+#include "imports.h"
 
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-void usleep(u32 time)
-{
-	((void (*const)(u32))0x050564E4)(time);
-}
-
-void ios_abort(const char *format, ...)
+void debug_printf(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -21,6 +18,4 @@ void ios_abort(const char *format, ...)
     svc_sys_write(buffer);
 
     va_end(args);
-
-    crash_and_burn();
 }

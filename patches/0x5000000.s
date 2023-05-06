@@ -1088,7 +1088,7 @@ crypt_check_ret:
 		sub sp, #8
 
 		ldr r0, =0x27f00000 ; ELF
-		ldr r1, [r1] ; magic
+		ldr r1, [r0] ; magic
 		ldr r2, =0x7F454C46
 		cmp r1, r2
 		bne skip_proc
@@ -1096,7 +1096,8 @@ crypt_check_ret:
 		add r1, r0, #0x18
 		ldr r1, [r1] ; thread entrypoint
 		add r0, r1, r0
-		bx r0
+		add r0, #0x4 ; mcp_main
+		blx r0
 
 skip_proc:
 		add sp, #8
