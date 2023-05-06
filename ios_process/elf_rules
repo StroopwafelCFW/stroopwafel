@@ -9,4 +9,4 @@ GCC_VERSION := $(shell $(CC) -dumpversion)
 #---------------------------------------------------------------------------------
 %.elf:
 	$(SILENTMSG) linking $(notdir $@) #$(SILENTCMD)
-	$(CC)  $(LDFLAGS) $(OFILES) $(LIBPATHS) $(LIBS) -o $@
+	$(CC)  $(LDFLAGS) $(LIBPATHS) $(LIBS) $(OFILES)  -o $@

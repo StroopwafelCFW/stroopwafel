@@ -28,9 +28,9 @@ DATA				:=
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH			:=	-march=armv5te -mcpu=arm926ej-s -marm -mthumb-interwork -mbig-endian -mfloat-abi=soft
+ARCH			:=	-march=armv5te -mcpu=arm926ej-s -marm -mthumb-interwork -mbig-endian -mfloat-abi=soft -fPIE -fno-plt -fno-jump-tables -export-dynamic -s
 
-CFLAGS			:=	-g -std=c11 -Os -fPIC -shared \
+CFLAGS			:=	-g -std=c11 -Os \
 					-fomit-frame-pointer -fdata-sections -ffunction-sections \
 					$(ARCH) -nostartfiles
 
@@ -39,11 +39,11 @@ CFLAGS			+=	$(INCLUDE) -D_GNU_SOURCE -DCAN_HAZ_IRQ -fno-builtin-printf -Wno-nonn
 CXXFLAGS		:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS			:=	-g $(ARCH)
-LDFLAGS			 =	-g -fPIC -shared --specs=$(MAKEFILE_ROOT_DIR)/ccd00.specs $(ARCH) -Wl,--gc-sections,-Map,$(TARGET).map \
+LDFLAGS			 =	-g --specs=$(MAKEFILE_ROOT_DIR)/ccd00.specs $(ARCH) -Wl,--gc-sections,-Map,$(TARGET).map \
 					-L$(DEVKITARM)/lib/gcc/arm-none-eabi/$(GCC_VERSION)/be -L$(DEVKITARM)/arm-none-eabi/lib/be \
 					-z max-page-size=4096 -nostartfiles
 
-LIBS			:=	
+LIBS			:=	-lnosys
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing

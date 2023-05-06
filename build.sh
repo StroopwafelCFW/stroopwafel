@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-rm ios_process/ios_process.elf
+make -C ios_process clean
 make ios_process/ios_process.elf
 make ios.img
 make ios.patch

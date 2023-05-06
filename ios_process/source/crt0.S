@@ -34,7 +34,7 @@ kern_setup:
 	add r0, r2, r0
 	
 	@ get size (why won't GCC allow me to subtract those two ptrs? is it trying to relocate them?)
-	ldr r2, =__bss_end__
+	ldr r2, =__bss_end__-4
 	ldr r1, =__bss_start__
 	sub r2, r2, r1
 

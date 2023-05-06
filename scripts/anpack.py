@@ -143,6 +143,20 @@ class elf32:
 					self.phdrs[i].p_memsz = f.tell()
 					break
 
+	def insert_phdr(self, addr):
+		phdr_num = 0
+		for i in range(0, self.hdr.e_phnum):
+			if self.phdrs[i].p_vaddr > addr:
+				if phdr_num == 0:
+					phdr_num = i
+				self.phdrs[i].id += 1
+		self.hdr.e_phnum += 1
+		self.phdrs[phdr_num-1].p_memsz -= 0x100000
+		phdr = elf32_phdr(None, 0, self.hdr, phdr_num)
+		
+		self.phdrs = self.phdrs[0:phdr_num] + [phdr] + self.phdrs[phdr_num:]
+		return phdr_num
+
 	def _print(self):
 		self.hdr._print()
 		for i in range(self.hdr.e_phnum):
@@ -196,29 +210,18 @@ class ancast:
 		elf_dat = f.read()
 		f.close()
 
-		#self.elf.hdr.e_phnum
-		phdr_num = 0
-		for i in range(0, self.elf.hdr.e_phnum):
-			if self.elf.phdrs[i].p_vaddr > addr:
-				if phdr_num == 0:
-					phdr_num = i
-				self.elf.phdrs[i].id += 1
-		self.elf.hdr.e_phnum += 1
-		self.elf.phdrs[phdr_num-1].p_memsz -= 0x100000
-		phdr = elf32_phdr(None, 0, self.elf.hdr, phdr_num)
-		phdr.content = elf_dat
-		phdr.p_type = 1   # LOAD
-		phdr.p_offset = 0 # filled in
-		phdr.p_vaddr = addr
-		phdr.p_paddr = addr # ramdisk is consistent so we can do this.
-		phdr.p_filesz = len(elf_dat)
-		phdr.p_memsz = len(elf_dat)
-		phdr.p_flags = 7 | (0x1<<20) # RWX, MCP
-		phdr.p_align = 1
-		phdr.p_offset = self.elf.phdrs[self.elf.hdr.e_phnum-2].p_offset + self.elf.phdrs[self.elf.hdr.e_phnum-2].p_filesz
+		phdr_num = self.elf.insert_phdr(addr)
 
-		self.elf.phdrs = self.elf.phdrs[0:phdr_num] + [phdr] + self.elf.phdrs[phdr_num:]
-
+		self.elf.phdrs[phdr_num].content = elf_dat
+		self.elf.phdrs[phdr_num].p_type = 1   # LOAD
+		self.elf.phdrs[phdr_num].p_offset = 0 # filled in
+		self.elf.phdrs[phdr_num].p_vaddr = addr
+		self.elf.phdrs[phdr_num].p_paddr = addr # ramdisk is consistent so we can do this.
+		self.elf.phdrs[phdr_num].p_filesz = 0x100000#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_memsz = 0x100000#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_flags = 7 | (0x1<<20) # RWX, MCP
+		self.elf.phdrs[phdr_num].p_align = 1
+		
 	def encrypt(self, file, offset, no_crypto):
 		key = base64.b16decode(b'00000000000000000000000000000000') # fill in if you need crypted images...
 		iv = base64.b16decode(b'00000000000000000000000000000000')  # ""
