@@ -14,6 +14,8 @@
 .extern __ios_dynamic
 .type __ios_dynamic, %function
 
+.globl kern_entry
+.globl mcp_entry
 .globl _start
 .type _start, %function
 _start:

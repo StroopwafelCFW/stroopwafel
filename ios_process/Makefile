@@ -18,7 +18,7 @@ export TARGET		:=	ios_process
 export BUILD		?=	debug
 
 R_SOURCES			:=	
-SOURCES				:=	source source/ios source/services source/wupserver
+SOURCES				:=	source source/ios source/services source/wupserver source/latte
 
 R_INCLUDES			:=	
 INCLUDES 			:=	source

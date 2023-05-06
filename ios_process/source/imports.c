@@ -5,11 +5,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-void usleep(u32 time)
-{
-	((void (*const)(u32))0x050564E4)(time);
-}
-
 void ios_abort(const char *format, ...)
 {
     va_list args;
