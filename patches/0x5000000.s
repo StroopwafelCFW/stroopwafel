@@ -1013,7 +1013,7 @@ ancast_no_crypt:
 		push {r0-r11,lr}
 		sub sp, #8
 
-		ldr r0, =0x06000000 ; ELF
+		ldr r0, =0x27F00000 ; ELF
 		ldr r1, [r0] ; magic
 		ldr r2, =0x7F454C46
 		cmp r1, r2

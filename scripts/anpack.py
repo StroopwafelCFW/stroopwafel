@@ -215,7 +215,7 @@ class ancast:
 		self.elf.phdrs[phdr_num].content = elf_dat
 		self.elf.phdrs[phdr_num].p_type = 1   # LOAD
 		self.elf.phdrs[phdr_num].p_offset = 0 # filled in
-		self.elf.phdrs[phdr_num].p_vaddr = 0x06000000
+		self.elf.phdrs[phdr_num].p_vaddr = addr #0x06000000
 		self.elf.phdrs[phdr_num].p_paddr = addr # ramdisk is consistent so we can do this.
 		self.elf.phdrs[phdr_num].p_filesz = 0x100000#len(elf_dat)
 		self.elf.phdrs[phdr_num].p_memsz = 0x100000#len(elf_dat)

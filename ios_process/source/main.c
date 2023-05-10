@@ -7,6 +7,7 @@
 #include "ios/memory.h"
 #include "latte/cache.h"
 #include "latte/irq.h"
+#include "latte/serial.h"
 #include "wupserver/wupserver.h"
 #include "dynamic.h"
 #include "utils.h"
@@ -19,6 +20,8 @@ static int kern_done = 0;
 
 u32 main_thread(void*);
 extern void kern_entry();
+extern void svc_handler_hook();
+extern void* old_svc_handler;
 
 #define U32_PATCH(_addr, _val) { \
     *(u32*)(_addr) = _val; \
@@ -52,6 +55,63 @@ int otp_read_replace(int which_word, void *pOut, unsigned int len)
     return 0;
 }
 
+void abt_replace(u32* stack, int which)
+{
+    for (int i = 0; i < 10; i++)
+    {
+        debug_printf("r%u  = %08X \n", i, stack[i+1]);
+    }
+
+    for (int i = 10; i < 16; i++)
+    {
+        debug_printf("r%u = %08X \n", i, stack[i+1]);
+    }
+
+    debug_printf("%08X\n", *(u32*)(stack[16] + ((which == 1) ? -8 : 0)));
+
+    // TODO: write RTC
+    // TODO: write screen?
+}
+
+void iabt_replace(u32* stack)
+{
+    debug_printf("GURU MEDITATION ERROR (prefetch abort)\n");
+    abt_replace(stack, 0);
+}
+
+void dabt_replace(u32* stack)
+{
+    debug_printf("GURU MEDITATION ERROR (data abort)\n");
+    abt_replace(stack, 1);
+}
+
+void undef_abt_replace(u32* stack)
+{
+    debug_printf("GURU MEDITATION ERROR (undefined instruction)\n");
+    abt_replace(stack, 2);
+}
+
+void ios_panic_replace(const char* str)
+{
+    debug_printf("%s\n", str);
+
+    // TODO: write RTC
+    // TODO: write screen?
+}
+
+void semihosting_write0(const char* str)
+{
+    serial_send_str(str);
+}
+
+void semihosting_handler(int which, void* arg0)
+{
+    if (which == 4) // write0
+    {
+        semihosting_write0((const char*)arg0);
+    }
+}
+
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
 // (ie to BSP, which launches before MCP)
@@ -82,6 +142,34 @@ void kern_main()
             "mov r2, r6\n"
             "mov r3, r7\n"
             "bx r4\n");
+
+        // insn abort
+        ASM_PATCH(0x0812A134, 
+            "ldr r3, _iabt_hook\n"
+            "bx r3\n"
+            "_iabt_hook: .word iabt_replace");
+
+        // data abort
+        ASM_PATCH(0x0812A1AC, 
+            "ldr r3, _dabt_hook\n"
+            "bx r3\n"
+            "_dabt_hook: .word dabt_replace");
+
+        // undef insn abort
+        ASM_PATCH(0x08129E50, 
+            "ldr r3, _undef_hook\n"
+            "bx r3\n"
+            "_undef_hook: .word undef_abt_replace");
+
+        // IOS panic hook
+        ASM_PATCH(0x8129AA0, 
+            "ldr r3, _panic_hook\n"
+            "bx r3\n"
+            "_panic_hook: .word ios_panic_replace");
+
+        // Hook SVC handler for semihosting
+        //old_svc_handler = (void*)(*(u32*)0xFFFF0028);
+        //*(u32*)0xFFFF0028 = (u32)svc_handler_hook;
     }
 
     // BSP

@@ -1,11 +1,5 @@
-/*
- *  minute - a port of the "mini" IOS replacement for the Wii U.
- *
- *  Copyright (C) 2008, 2009    Hector Martin "marcan" <marcan@marcansoft.com>
- *
- *  This code is licensed to you under the terms of the GNU GPL, version 2;
- *  see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
- */
+// this is all ripped from IOS, because no one can figure out just WTF is going on here
+
 #include "cache.h"
 
 #include "irq.h"
@@ -24,10 +18,10 @@ void _drain_write_buffer(void);
 #define CR_DCACHE   (1 << 2)
 #define CR_ICACHE   (1 << 12)
 
-// this is ripped from IOS, because no one can figure out just WTF this thing is doing
 void _ahb_flush_to(enum rb_client dev) {
     u32 mask;
-    switch(dev) {
+    switch(dev)
+    {
         case RB_IOD: mask = 0x8000; break;
         case RB_IOI: mask = 0x4000; break;
         case RB_AIM: mask = 0x0001; break;
@@ -40,12 +34,9 @@ void _ahb_flush_to(enum rb_client dev) {
         case RB_SD0: mask = 0x0080; break;
         case RB_SD1: mask = 0x0100; break;
         default:
-            // ahb_flush_to() does this now
-            //debug_printf("_ahb_flush_to(%d): Invalid device\n", dev);
             return;
     }
 
-    //NOTE: 0xd8b000x, not 0xd8b400x!
     if(read32(0xd8b0008) & mask) {
         return;
     }
@@ -59,8 +50,9 @@ void _ahb_flush_to(enum rb_client dev) {
         case RB_OHCI1:
         case RB_SD0:
         case RB_SD1:
-            while((read32(LT_BOOT0) & 0xF) == 9)
+            while((read32(LT_BOOT0) & 0xF) == 9) {
                 set32(LT_COMPAT_MEMCTRL_WORKAROUND, 0x10000);
+            }
             clear32(LT_COMPAT_MEMCTRL_WORKAROUND, 0x10000);
             set32(LT_COMPAT_MEMCTRL_WORKAROUND, 0x2000000);
             mask32(LT_AHB_UNK124, 0x7C0, 0x280);
@@ -134,8 +126,9 @@ void ahb_flush_to(enum rb_client dev)
     write32(AHMN_RDBI_MASK, mask);
 
     _ahb_flush_to(dev);
-    if(dev != RB_IOD)
+    if(dev != RB_IOD) {
         _ahb_flush_to(RB_IOD);
+    }
 
     irq_restore(cookie);
 }
@@ -190,15 +183,18 @@ void ahb_flush_from(enum wb_client dev)
 
     write16(MEM_FLUSH_MASK, req);
 
-    for(i = 0; i < 1000000; i++) {
-        if(!(read16(MEM_FLUSH_MASK) & req)) {
+    for(i = 0; i < 1000000; i++)
+    {
+        if(!(read16(MEM_FLUSH_MASK) & req))
+        {
             done = true;
             break;
         }
         //udelay(1);
     }
 
-    if(!done) {
+    if(!done)
+    {
         debug_printf("ahb_flush(%d): Flush (0x%x) did not ack!\n", dev, req);
     }
 done:
@@ -208,9 +204,12 @@ done:
 void dc_flushrange(const void *start, u32 size)
 {
     u32 cookie = irq_kill();
-    if(size > 0x4000) {
+    if(size > 0x4000) 
+    {
         _dc_flush();
-    } else {
+    } 
+    else
+    {
         void *end = ALIGN_FORWARD(((u8*)start) + size, LINESIZE);
         start = ALIGN_BACKWARD(start, LINESIZE);
         _dc_flush_entries(start, (end - start) / LINESIZE);

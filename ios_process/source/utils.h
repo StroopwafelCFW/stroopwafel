@@ -169,6 +169,21 @@ static inline u8 mask8(u32 addr, u8 clear, u8 set)
     return data;
 }
 
+void udelay(u32 d);
 void debug_printf(const char *format, ...);
+
+#define PTR_OFFS(a, b) ((void*)(((intptr_t)a) + b))
+
+#define max(a, b) \
+    ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+       _a > _b ? _a : _b; })
+
+#define min(a, b) \
+    ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+       _a < _b ? _a : _b; })
+
+#define BIT(n) (1<<n)
 
 #endif // UTILS_H
