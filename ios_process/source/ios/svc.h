@@ -33,6 +33,8 @@ int iosRestartTimer(int timerid, int time_us, int repeat_time_us);
 int iosStopTimer(int timerid);
 int iosDestroyTimer(int timerid);
 
+int iosPanic(const char* msg, u32 msg_size);
+
 void* svcAlloc(u32 heapid, u32 size);
 void* svcAllocAlign(u32 heapid, u32 size, u32 align);
 void svcFree(u32 heapid, void* ptr);

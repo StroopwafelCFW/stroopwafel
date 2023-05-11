@@ -158,9 +158,9 @@ SECTIONS
 		__tls_end = .;
 
 		/* Reserve space for the stack */
-		__stack_start = .;
-		. += 0x2000;
-		__stack_end = .;
+		__heap_start = .;
+		. += 0x10000;
+		__heap_end = .;
 	} : data
 	__bss_end__ = .;
 

@@ -133,7 +133,7 @@ void serial_disallow_zeros()
 
 void serial_send(u8 val)
 {
-    //u32 cookie = irq_kill();
+    u32 cookie = irq_kill();
 
     u8 read_val = 0;
     u8 read_val_valid = 0;
@@ -149,8 +149,6 @@ void serial_send(u8 val)
         udelay(SERIAL_DELAY);
         read_val <<= 1;
         read_val |= gpio_debug_serial_read();
-        //gpio_debug_serial_send(0x0 | bit);
-        //udelay(SERIAL_DELAY);
     }
 
     if (((read_val || _serial_allow_zeros) && read_val_valid) && serial_len < sizeof(serial_buffer)-1) {
@@ -159,12 +157,12 @@ void serial_send(u8 val)
 
     serial_force_terminate();
 
-    //irq_restore(cookie);
+    irq_restore(cookie);
 }
 
 int serial_send_str(const char* str)
 {
-    //u32 cookie = irq_kill();
+    u32 cookie = irq_kill();
 
     const char* str_iter = str;
     while (*str_iter)
@@ -176,7 +174,7 @@ int serial_send_str(const char* str)
         str_iter++;
     }
 
-    //irq_restore(cookie);
+    irq_restore(cookie);
 
     return 0;
 }

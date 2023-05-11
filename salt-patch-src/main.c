@@ -470,6 +470,13 @@ int main(int argc, char* argv[])
     size_t ios_proc_sz = fread(ios_proc_elf, 1, 0x100000, f_ios_proc_elf);
     patch_add_diff(f_patch, ios_proc_elf, ios_proc_sz/4, 0x27F00000);
     fclose(f_ios_proc_elf);
+
+    // TODO: make a trampoline at 0x27FFFFF0 instead?
+    u32 jump_addr;
+    putbe32((u8*)&jump_addr, 0x27F00000 + getbe32((u8*)ios_proc_elf+0x18));
+
+    // TODO: verify this is consistent
+    patch_add_diff(f_patch, &jump_addr, 1, 0xFFFF0020);
     
     write_patch_footer_and_hash(f_patch);
     fclose(f_patch);

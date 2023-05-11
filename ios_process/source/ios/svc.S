@@ -180,6 +180,27 @@ svcFlushDCache:
 	bx lr
 
 .arm
+.global svcFlushIPCServer
+.type svcFlushIPCServer, %function
+svcFlushIPCServer:
+	.word (0xE7F000F0 | 0x5B << 8)
+	bx lr
+
+.arm
+.global iosPanic
+.type iosPanic, %function
+iosPanic:
+	.word (0xE7F000F0 | 0x73 << 8)
+	bx lr
+
+.arm
+.global iosLoadPpcKernel
+.type iosLoadPpcKernel, %function
+iosLoadPpcKernel:
+	.word (0xE7F000F0 | 0x77 << 8)
+	bx lr
+
+.arm
 .global svcBackdoor
 .type svcBackdoor, %function
 svcBackdoor:

@@ -151,7 +151,6 @@ class elf32:
 					phdr_num = i
 				self.phdrs[i].id += 1
 		self.hdr.e_phnum += 1
-		self.phdrs[phdr_num-1].p_memsz -= 0x100000
 		phdr = elf32_phdr(None, 0, self.hdr, phdr_num)
 		
 		self.phdrs = self.phdrs[0:phdr_num] + [phdr] + self.phdrs[phdr_num:]
@@ -210,15 +209,28 @@ class ancast:
 		elf_dat = f.read()
 		f.close()
 
+		carveout_sz = 0x100000
 		phdr_num = self.elf.insert_phdr(addr)
-
 		self.elf.phdrs[phdr_num].content = elf_dat
 		self.elf.phdrs[phdr_num].p_type = 1   # LOAD
 		self.elf.phdrs[phdr_num].p_offset = 0 # filled in
-		self.elf.phdrs[phdr_num].p_vaddr = addr #0x06000000
+		self.elf.phdrs[phdr_num].p_vaddr = addr
 		self.elf.phdrs[phdr_num].p_paddr = addr # ramdisk is consistent so we can do this.
-		self.elf.phdrs[phdr_num].p_filesz = 0x100000#len(elf_dat)
-		self.elf.phdrs[phdr_num].p_memsz = 0x100000#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_filesz = carveout_sz#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_memsz = carveout_sz#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_flags = 7 | (0x1<<20) # RWX, MCP
+		self.elf.phdrs[phdr_num].p_align = 1
+		self.elf.phdrs[phdr_num-1].p_memsz -= 0x100000
+
+		# Add mirror at 0x05800000 for trampolines
+		phdr_num = self.elf.insert_phdr(addr)
+		self.elf.phdrs[phdr_num].content = elf_dat
+		self.elf.phdrs[phdr_num].p_type = 1   # LOAD
+		self.elf.phdrs[phdr_num].p_offset = 0 # filled in
+		self.elf.phdrs[phdr_num].p_vaddr = 0x05200000
+		self.elf.phdrs[phdr_num].p_paddr = addr # ramdisk is consistent so we can do this.
+		self.elf.phdrs[phdr_num].p_filesz = carveout_sz#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_memsz = carveout_sz#len(elf_dat)
 		self.elf.phdrs[phdr_num].p_flags = 7 | (0x1<<20) # RWX, MCP
 		self.elf.phdrs[phdr_num].p_align = 1
 		

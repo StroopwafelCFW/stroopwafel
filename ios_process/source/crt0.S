@@ -22,12 +22,12 @@ _start:
 kern_entry:
 	b kern_setup
 mcp_entry:
-	b mcp_main
+	b mcp_setup
 	nop
 	nop
 
 kern_setup:
-	push {lr}
+	ldr sp, =(0x28000000-0x80)
 	@ get bss start addr
 	adr r2, _start
 	ldr r1, _start_offs
@@ -55,7 +55,18 @@ kern_setup:
 	bl __ios_dynamic
 
 	bl kern_main
-	pop {pc}
+	ldr r0, =0xFFFF0060
+	bx r0
+
+.pool
+
+mcp_setup:
+	mov r11, r0
+	push {r0-r11,lr}
+	bl mcp_main
+	pop {r0-r11,pc}
 
 _start_offs:
 	.word __start__
+
+.pool

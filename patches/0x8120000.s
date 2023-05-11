@@ -26,11 +26,6 @@ KERNEL_MCP_IOMAPPINGS_STRUCT equ 0x08140DE0
 
 KERNEL_SMC_SET_PANIC equ 0xFFFFDF5C
 
-; kern main thread hook
-.org 0x0812A690
-	.arm
-	bl kern_main_hook
-
 .if HOOK_SEMIHOSTING
 .org 0x0812DD14
 semihost_pocket:
@@ -39,7 +34,7 @@ semihost_pocket:
 .pool
 .org 0x0812DD68
 	b semihost_pocket
-.endif
+.endif ; HOOK_SEMIHOSTING
 
 ; patch domains
 .org 0x081253C4
@@ -61,31 +56,18 @@ semihost_pocket:
 .org 0x08124D88
     mov r12, #3
 
+.org 0x081223FC
+	bx lr
+
 ; take down the hardware memory protection (XN) driver just as it's finished initializing
 .org 0x8122490
     bl 0x08122374   ; __iosMemMapDisableProtection
 
 .org CODE_BASE
-kern_main_hook:
-		mov r9, r2
-		push {r0-r11, lr} ; orig insn
-		ldr r0, =0x27F00000 ; ELF
-		ldr r1, [r0] ; magic
-		ldr r2, =0x7F454C46
-		cmp r1, r2
-		bne skip_proc
-
-		add r1, r0, #0x18
-		ldr r1, [r1] ; thread entrypoint
-		add r0, r1, r0
-		blx r0
-
-skip_proc:
-		pop {r0-r11, pc}
-
 
 .area (0x08140000 - CODE_BASE)
 
+.if GPIO_SERIAL_CONSOLE
 .align 4
 .arm
 delay_ticks:
@@ -209,6 +191,8 @@ BIC             R1, R1, #0xC0
 ORR             R1, R1, R0
 .word 0xE121F001 ;MSR             CPSR_c, R1
 BX              LR
+
+.endif ; GPIO_SERIAL_CONSOLE
 
 .align 4
 serial_send_str:

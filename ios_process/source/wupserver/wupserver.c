@@ -386,6 +386,8 @@ u32 wupserver_main(void* arg)
     while(1) ;
     */
 
+    usleep(5*1000*1000);
+
 #ifdef EMERGENCY_INSTALL
     // Get FSA ready.
     int fsa_fd = FSA_Open();
