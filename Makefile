@@ -1,6 +1,6 @@
 INPUT := bin/fw.img.full.bin
-SECTIONS := 0x10700000 0x10800000 0x8120000 0x5000000 0x5100000 0x8140000 0x4000000
-BSS_SECTIONS := 0x10835000 0x5074000 0x8150000
+SECTIONS := 0x10700000
+BSS_SECTIONS := 0x10835000
 INPUT_SECTIONS := $(addprefix sections/, $(addsuffix .bin, $(SECTIONS)))
 PATCHED_SECTIONS := $(addprefix patched_sections/, $(addsuffix .bin, $(SECTIONS)))
 

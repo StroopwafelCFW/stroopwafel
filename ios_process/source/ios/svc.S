@@ -207,9 +207,18 @@ svcBackdoor:
 	.word (0xE7F000F0 | 0x81 << 8)
 	bx lr
 
+.arm
+.global svc_sys_write
+.global svc_sys_write_arm
+.type svc_sys_write_arm, %function
+svc_sys_write_arm:
+	adr r12, svc_sys_write+1
+	bx r12
+
+.pool
+
 .thumb_func
 .thumb
-.global svc_sys_write
 .type svc_sys_write, %function
 svc_sys_write:
 	mov r2, lr

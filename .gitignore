@@ -26,6 +26,17 @@ test_vwii.s
 test_vwii2.s
 stash.s
 fat_mnt/
+ios.elf
+ios.img.elf
+otp.bin
+wupserver/fw.img.full.bin.556
+wupserver/new_save/
+wupserver/old_save/
+crash_A.txt
+crash_B.txt
+after_sect.txt
+before_sect.txt
+ios_orig.patch
 
 # wupserver
 wupserver/build

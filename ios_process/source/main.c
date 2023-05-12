@@ -13,6 +13,7 @@
 #include "utils.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
+#define MCP_SYSLOG_OUTPUT (0x0503DCF8)
 
 volatile int bss_var;
 volatile int data_var = 0x12345678;
@@ -25,7 +26,42 @@ extern void svc_handler_hook();
 extern void* old_svc_handler;
 extern void ancast_crypt_check();
 extern void launch_os_hook();
+extern void syslog_hook();
+extern void hai_shift_data_offsets_t();
+extern void boot_dirs_clear_t();
+extern void crypto_keychange_hook();
+extern void crypto_disable_hook();
+extern void c2w_seeprom_hook_t();
+extern void c2w_boot_hook_t();
 const char* fw_img_path = "/vol/sdcard";
+
+const u32 mcpIoMappings_patch[6*3] = 
+{
+    // mapping 1
+    0x0D000000, // vaddr
+    0x0D000000, // paddr
+    0x001C0000, // size
+    0x00000000, // ?
+    0x00000003, // ?
+    0x00000000, // ?
+    
+    // mapping 2
+    0x0D800000, // vaddr
+    0x0D800000, // paddr
+    0x001C0000, // size
+    0x00000000, // ?
+    0x00000003, // ?
+    0x00000000, // ?
+
+    // mapping 3
+    0x0C200000, // vaddr
+    0x0C200000, // paddr
+    0x00100000, // size
+    0x00000000, // ?
+    0x00000003, // ?
+    0x00000000, // ?
+};
+        
 
 #define _U32_PATCH(_addr, _val, _copy_fn) { \
     _copy_fn((uintptr_t)_addr, (u32)_val); \
@@ -55,6 +91,11 @@ const char* fw_img_path = "/vol/sdcard";
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
     debug_printf("%08x %08x %08x %08x\n", _addr, _dst, bl_offs, bl_insn); \
 }
+#define _BRANCH_PATCH(_addr, _dst, _copy_fn) { \
+    u32 bl_offs = (((u32)_dst - (u32)_addr) - 8) / 4; \
+    u32 bl_insn = 0xEA000000 | (bl_offs & 0xFFFFFF); \
+    _U32_PATCH(_addr, bl_insn, _copy_fn); \
+}
 
 //
 // Pre-MMU -- Lookups done manually
@@ -73,6 +114,7 @@ static void _patch_copy_k(uintptr_t dst, uintptr_t src, size_t sz)
 #define ASM_PATCH_K(_addr, _str) _ASM_PATCH(_addr, _str, _patch_copy_k)
 #define BL_TRAMPOLINE_K(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32_k)
 #define BL_T_TRAMPOLINE_K(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32_k)
+#define BRANCH_PATCH_K(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32_k)
 
 //
 // Post-MMU
@@ -92,6 +134,7 @@ static void _patch_copy(uintptr_t dst, uintptr_t src, size_t sz)
 #define ASM_PATCH(_addr, _str) _ASM_PATCH(_addr, _str, _patch_copy)
 #define BL_TRAMPOLINE(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32)
 #define BL_T_TRAMPOLINE(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32)
+#define BRANCH_PATCH(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32)
 
 extern u32 otp_store[0x400/4];
 
@@ -193,9 +236,42 @@ void kern_main()
 
     // KERNEL
     {
+        // take down the hardware memory protection (XN) driver just as it's finished initializing
+        //BL_TRAMPOLINE_K(0x08122490, 0x08122374); // __iosMemMapDisableProtection
+
+        //
+        U32_PATCH_K(0x08140DE0, (u32)mcpIoMappings_patch); // ptr to iomapping structs
+        U32_PATCH_K(0x08140DE4, 0x00000003); // number of iomappings
+        U32_PATCH_K(0x08140DE8, 0x00000001); // pid (MCP)
+
+        // patch domains
+        ASM_PATCH_K(0x081253C4,
+            "str r3, [r7,#0x10]\n"
+            "str r3, [r7,#0x0C]\n"
+            "str r3, [r7,#0x04]\n"
+            "str r3, [r7,#0x14]\n"
+            "str r3, [r7,#0x08]\n"
+            "str r3, [r7,#0x34]\n"
+        );
+
+        // ARM MMU Access Permissions patches
+        // set AP bits for 1MB pages to r/w for all
+        ASM_PATCH_K(0x08124678, "mov r6, #3");
+        // set AP bits for section descriptors to r/w for all
+        ASM_PATCH_K(0x08125270, "orr r3, #0x650");
+        // set AP bits for second-level table entries to be r/w for all
+        ASM_PATCH_K(0x08124D88, "mov r12, #3");
+
+        // Don't enable system protection
+        ASM_PATCH_K(0x081223FC, "bx lr");
+
         // patch out restrictions on syscall 0x22 (otp_read)
         ASM_PATCH_K(0x08120374, "mov r12, #0x3");
         ASM_PATCH_K(0x081203C4, "nop");
+
+        // Always pass pointer checks
+        //ASM_PATCH_K(0x081249C0, "mov r0, #0x0\nbx lr\n");
+        ASM_PATCH_K(0x08124AD8, "mov r0, #0x0\nbx lr\n");
 
         // patch OTP to read from memory
         ASM_PATCH_K(0x08120248, 
@@ -271,19 +347,44 @@ void kern_main()
         // MCP main thread hook
         BL_TRAMPOLINE_K(0x05056718, MCP_ALTBASE_ADDR(mcp_entry));
 
+
+        // some selective logging function : enable all the logging !
+        BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT);
+
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
         // launch OS hook (fw.img -> sdcard)
         BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
 
+        // Nop SHA1 checks on fw.img
+        //U32_PATCH_K(0x0500A84C, 0);
+
         // patch pointer to fw.img loader path
         U32_PATCH_K(0x050284D8, fw_img_path);
 
+        // syslog -> semihosting write
+        BL_TRAMPOLINE_K(0x05055328, MCP_ALTBASE_ADDR(syslog_hook));
+
+#ifdef USB_SHRINKSHIFT
+        BL_T_TRAMPOLINE_K(0x050078A0, MCP_ALTBASE_ADDR(hai_shift_data_offsets_t));
+#endif
 
         // hooks to allow custom PPC kernel.img
         //BL_T_TRAMPOLINE_K(0x050340A0, MCP_ALTBASE_ADDR(ppc_hook_pre));
         //BL_T_TRAMPOLINE_K(0x05034118, MCP_ALTBASE_ADDR(ppc_hook_post));
+
+        // hook in a few dirs to delete on mcp startup
+        ASM_PATCH_K(0x05016C8C,
+            ".thumb\n"
+            "push {lr}\n"
+        );
+        BL_T_TRAMPOLINE_K(0x05016C8E, MCP_ALTBASE_ADDR(boot_dirs_clear_t));
+        ASM_PATCH_K(0x05016C92,
+            ".thumb\n"
+            "mov r0, #0\n"
+            "pop {pc}\n"
+        );
 
         // fix 10 minute timeout that crashes MCP after 10 minutes of booting
         U32_PATCH_K(0x05022474, NEW_TIMEOUT);
@@ -307,6 +408,21 @@ void kern_main()
             "mov r0, #0\n"
             "bx lr\n"
         );
+
+        // remove SHA1/RSA Ancast checks
+        //ASM_PATCH_K(0x0500A81C, ".thumb\nmov r4, #0x0\nmov r0, #0x0\nnop\n");
+        //ASM_PATCH_K(0x0500A838, ".thumb\nmov r4, #0x0\nmov r0, #0x0\nnop\n");
+        //ASM_PATCH_K(0x0500A84A, ".thumb\nmov r4, #0x0\nmov r0, #0x0\nnop\n");
+        //ASM_PATCH_K(0x0500A896, ".thumb\nmov r4, #0x0\nmov r0, #0x0\nnop\n");
+
+        // TODO: why are these needed now???
+        // remove various Ancast header size checks
+        ASM_PATCH_K(0x0500A7C8, ".thumb\nnop\nnop\n");
+        ASM_PATCH_K(0x0500A7D0, ".thumb\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
+        ASM_PATCH_K(0x0500A7F4, ".thumb\nnop\nnop\nnop\nnop\nnop\nmov r3, #0x2");
+
+        // Force a crash to inspect junk
+        //ASM_PATCH_K(0x0500A778, ".thumb\nldr r0, [r0]\nbx pc\n.word 0xFFFFFFFF\n");
 
         // nop "COS encountered unrecoverable error..." IOS panic
         /*ASM_PATCH_K(0x05056B84,
@@ -362,6 +478,30 @@ void kern_main()
 
         // Shorten the RAMdisk area by 1MiB
         U32_PATCH_K(0x0502365C, (*(u32*)ios_elf_vaddr_to_paddr(0x0502365C)) - 0x100000);
+
+//#ifdef OTP_IN_MEM
+        // - Wii SEEPROM gets copied to 0xFFF07F00.
+        // - Hai params get copied to 0xFFFE7D00.
+        // - We want to place our OTP at 0xFFF07C80, and our payload pocket at 0xFFF07B00
+        //   so we move the SEEPROM +0x400 in its buffer,
+        //   And repoint 0xFFF07F00->0xFFF07B00.
+        // - Since Hai params get copied after SEEPROM, bytes 0x200~0x3FF will get clobbered, but that's fine.
+        //   The maximum buffer size for SEEPROM is 0x1000 (even though it could never fit at 0xFFF07F00).
+
+        // Shift Wii SEEPROM up 0x300 and read in OTP
+        BL_T_TRAMPOLINE_K(0x05008BB6, MCP_ALTBASE_ADDR(c2w_seeprom_hook_t));
+        ASM_PATCH_K(0x05008C18,
+            ".thumb\n"
+            "mov r4, #0x50\n"
+            "lsl r4, r4, #0x4\n"
+        );
+
+        //U32_PATCH_K(0x050087F0, 0xFFFFFFFF);
+        //U32_PATCH_K(0x05008802, 0xFFFFFFFF);
+        //U32_PATCH_K(0x05008814, 0xFFFFFFFF);
+        BL_T_TRAMPOLINE_K(0x05008810, MCP_ALTBASE_ADDR(c2w_boot_hook_t));
+        ASM_PATCH_K(0x05008814, ".thumb\nnop\n");
+//#endif // OTP_IN_MEM
     }
     
     // ACP
@@ -393,7 +533,31 @@ void kern_main()
 
     // CRYPTO
     {
-        //TODO
+        // nop out memcmp hash checks
+        ASM_PATCH_K(0x040017E0, "mov r0, #0");
+        ASM_PATCH_K(0x040019C4, "mov r0, #0");
+        ASM_PATCH_K(0x04001BB0, "mov r0, #0");
+        ASM_PATCH_K(0x04001D40, "mov r0, #0");
+
+        // hook IOSC_Decrypt after it sanity-checks input (mov r0, r5)
+        BL_TRAMPOLINE_K(0x04002D5C, MCP_ALTBASE_ADDR(crypto_keychange_hook));
+
+        // hook IOSC_Decrypt after crypto engine acquired, after r3 setup (mov r1, r6)
+        BL_TRAMPOLINE_K(0x04002EE8, MCP_ALTBASE_ADDR(crypto_disable_hook));
+
+        // hook IOSC_Encrypt after it sanity-checks input (mov r0, r5)
+        BL_TRAMPOLINE_K(0x04003120, MCP_ALTBASE_ADDR(crypto_keychange_hook));
+
+        // hook IOSC_Encrypt after crypto engine acquired, after r3 setup (mov r1, r6)
+        BL_TRAMPOLINE_K(0x040032A0, MCP_ALTBASE_ADDR(crypto_disable_hook));
+
+        // allow USB seeds which don't match otp
+        ASM_PATCH_K(0x040045A8, "mov r2, #0\nmov r3, #0");
+
+        // hook USB key generation's call to seeprom read to use a replacement seed
+#ifdef USB_SEED_SWAP
+        BL_TRAMPOLINE_K(0x04004584, MCP_ALTBASE_ADDR(usb_seedswap));
+#endif
     }
 
     // Make sure bss and such doesn't get initted again.
