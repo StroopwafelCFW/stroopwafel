@@ -12,4 +12,7 @@ extern uintptr_t dynamic_phys_base_addr;
 #define MCP_ALT_BASE (0x05200000)
 #define MCP_ALTBASE_ADDR(_addr) (((u32)_addr) - dynamic_phys_base_addr + MCP_ALT_BASE)
 
+#define FS_ALT_BASE (0x10600000)
+#define FS_ALTBASE_ADDR(_addr) (((u32)_addr) - dynamic_phys_base_addr + FS_ALT_BASE)
+
 #endif // DYNAMIC_H

@@ -77,30 +77,9 @@ FS_ISFS_READWRITEBLOCKS equ 0x10720324
 FS_CRYPTO_HMAC equ 0x107F3798
 FS_RAW_READ1 equ 0x10732BC0
 FS_REGISTER_FS_DRIVER equ 0x10732D70
-FS_GET_SPECIFIC_DEVNAME_HOOK equ 0x107112B0
-FS_DEVTYPE_TO_NAME equ 0x107111A8
 FS_REGISTERMDPHYSICALDEVICE equ 0x10718860
 
 ; patches start here
-.if DUMP_LOG
-.org 0x107F0B68
-	bl syslogOutput_hook
-.endif
-
-.if FAT32_USB
-.org 0x1078F5D8
-.arm
-    bl fat_register_hook
-
-; extra check? lol
-.org 0x1078E074
-.arm
-    b 0x1078E084
-
-.org FS_GET_SPECIFIC_DEVNAME_HOOK
-.arm
-    bl fsa_dev_register_hook
-.endif
 
 ; null out references to slcSomething1 and slcSomething2
 ; (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
@@ -216,49 +195,6 @@ opendir_base equ 0x1070B7F4
 .org CODE_BASE
 .area (0x10800000-CODE_BASE)
 .arm
-
-.if FAT32_USB
-.align 4
-fat_register_hook:
-.arm
-    mov r1, #0x6 ; SDcard
-    strb r1, [r0, #0xC]
-    mov r1, #0x11 ; USB
-    strb r1, [r0, #0xD]
-    mov r1, #0x0 ; terminating 0
-    strb r1, [r0, #0xE]
-    b FS_REGISTER_FS_DRIVER
-
-.align 4
-fsa_dev_register_hook:
-.arm
-    push {lr}
-    cmp r0, #0x11
-    bne skip_changes
-    ldr r1, [r4, #0x5c]
-    add r1, #0x8
-    ldr r0, =target_fsname
-    mov r2, #0x4
-    bl FS_MEMCMP
-    cmp r0, #0x0
-    bne skip_changes
-    ldr r0, =new_devname
-    pop {pc}
-
-skip_changes:
-    ldr r0, [r4, #0x70]
-    bl FS_DEVTYPE_TO_NAME
-    pop {pc}
-
-.align 4
-target_fsname:
-    .ascii "fat"
-    .byte 0x0
-
-new_devname:
-    .ascii "ext"
-    .byte 0x0
-.endif
 
 .if MLC_ACCELERATE
 SCFM_FSA_HANDLE_PTR equ 0x1108B8B4
@@ -1292,39 +1228,6 @@ dump_lots_data:
 		cmp r6, #0
 		bne dump_lots_data_loop
 	pop {r4-r6,pc}
-
-dump_syslog:
-	push {r1,r2,r3,lr}
-	ldr r0, =syslog_buffer
-	ldr r1, =0x05095ECC ; data_ptr (syslog ptr)
-	ldr r1, [r1]
-    
-    ldr r4, [r1] ; get current log size
-    mov r2, r4
-	bl FS_MEMCPY
-    
-	ldr r0, =SYSLOG_OFFS_SECTORS ; offset_sectors
-    ldr r1, =sdcard_num_sectors
-    ldr r1, [r1]
-    sub r1, r0
-	str r1, [sp]
-	mov r0, #0
-	str r0, [sp, #0x4] ; out_callback_arg2
-	mov r0, #0xDA
-	str r0, [sp, #0x8] ; device id
-	mov r0, #0 ; write
-	ldr r1, =syslog_buffer
-	lsr r2, r4, #9 ; num_sectors (log size rounded to nearest 0x200)
-    add r2, #1
-	mov r3, #0x200 ; block_size
-	bl sdcard_readwrite
-	add sp, #0xC
-	pop {pc}
-
-syslogOutput_hook:
-	push {r0}
-	bl dump_syslog
-	pop {r0,r4-r8,r10,pc}
 
 ; r0 : device id
 getPhysicalDeviceHandle:

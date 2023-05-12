@@ -233,6 +233,18 @@ class ancast:
 		self.elf.phdrs[phdr_num].p_memsz = carveout_sz#len(elf_dat)
 		self.elf.phdrs[phdr_num].p_flags = 7 | (0x1<<20) # RWX, MCP
 		self.elf.phdrs[phdr_num].p_align = 1
+
+		# Add mirror at 0x05800000 for trampolines
+		phdr_num = self.elf.insert_phdr(addr)
+		self.elf.phdrs[phdr_num].content = elf_dat
+		self.elf.phdrs[phdr_num].p_type = 1   # LOAD
+		self.elf.phdrs[phdr_num].p_offset = 0 # filled in
+		self.elf.phdrs[phdr_num].p_vaddr = 0x10600000
+		self.elf.phdrs[phdr_num].p_paddr = addr # ramdisk is consistent so we can do this.
+		self.elf.phdrs[phdr_num].p_filesz = carveout_sz#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_memsz = carveout_sz#len(elf_dat)
+		self.elf.phdrs[phdr_num].p_flags = 7 | (0x1<<20) # RWX, MCP
+		self.elf.phdrs[phdr_num].p_align = 1
 		
 	def encrypt(self, file, offset, no_crypto):
 		key = base64.b16decode(b'00000000000000000000000000000000') # fill in if you need crypted images...

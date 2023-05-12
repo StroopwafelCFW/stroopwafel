@@ -14,10 +14,8 @@
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 #define MCP_SYSLOG_OUTPUT (0x0503DCF8)
-
-volatile int bss_var;
-volatile int data_var = 0x12345678;
-static int kern_done = 0;
+#define FS_GET_SPECIFIC_DEVNAME_HOOK (0x107112B0)
+#define FAT32_USB (0)
 
 u32 main_thread(void*);
 extern void kern_entry();
@@ -165,6 +163,7 @@ void abt_replace(u32* stack, int which)
 
     // TODO: write RTC
     // TODO: write screen?
+    while (1);
 }
 
 void iabt_replace(u32* stack)
@@ -290,6 +289,32 @@ void c2w_patches()
     //c2w_oc_hax_patch();
 }
 
+u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
+const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
+
+u32 fat_register_hook(u8* opaque)
+{
+    opaque[0xc] = 0x6; // sdcard
+    opaque[0xd] = 0x11; // usb
+    opaque[0xe] = 0x0; // terminating 0
+
+    return FS_REGISTER_FS_DRIVER(opaque);
+}
+
+const char* fsa_dev_register_hook(int a)
+{
+    register u8* hax __asm__("r4");
+    if (a == 0x11)
+    {
+        u8* opaque = (u8*)read32((u32)(hax+0x5C));
+        opaque += 8;
+        if (!memcmp(opaque, "fat", 4)) {
+            return "ext";
+        }
+    }
+    return FS_DEVTYPE_TO_NAME(a);
+}
+
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
 // (ie to BSP and kernel, which launches before MCP)
@@ -299,8 +324,6 @@ void kern_main()
 {
     // Make sure relocs worked fine and mappings are good
     debug_printf("we in here kern %p\n", kern_main);
-    bss_var = 0x12345678;
-    data_var = 0;
 
     init_heap();
 
@@ -634,8 +657,21 @@ void kern_main()
 #endif
     }
 
+    // FS
+    {
+
+#if FAT32_USB
+        BL_TRAMPOLINE_K(0x1078F5D8, FS_ALTBASE_ADDR(fat_register_hook));
+
+        // extra check? lol
+        BRANCH_PATCH_K(0x1078E074, 0x1078E084);
+
+        BL_TRAMPOLINE_K(FS_GET_SPECIFIC_DEVNAME_HOOK, FS_ALTBASE_ADDR(fsa_dev_register_hook));
+#endif
+    }
+
     // Make sure bss and such doesn't get initted again.
-    ASM_PATCH_K(kern_entry, "bx lr");
+    //ASM_PATCH_K(kern_entry, "bx lr");
 
     ic_invalidateall();
     debug_printf("done\n");
@@ -648,8 +684,6 @@ void mcp_main()
 {
     // Make sure relocs worked fine and mappings are good
 	debug_printf("we in here MCP %p\n", mcp_main);
-    bss_var = 0x87654321;
-    data_var = 0x12345678;
 
     debug_printf("done\n");
 
