@@ -43,6 +43,14 @@ extern void usbWrite_patch();
 extern void usb_sector_spoof();
 extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
+extern void slcRead1_patch();
+extern void slcRead2_patch();
+extern void slcWrite1_patch();
+extern void slcWrite2_patch();
+extern void sdcardRead_patch();
+extern void sdcardWrite_patch();
+extern void getMdDeviceById_hook();
+extern void registerMdDevice_hook();
 
 const char* fw_img_path = "/vol/sdcard";
 
@@ -92,18 +100,18 @@ const u32 mcpIoMappings_patch[6*3] =
     _copy_fn((uintptr_t)_addr, (uintptr_t)pre_##_addr, (u32)post_##_addr - (u32)pre_##_addr); \
 }
 #define _BL_TRAMPOLINE(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)_addr) - 8) / 4; \
+    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \
     u32 bl_insn = 0xEB000000 | (bl_offs & 0xFFFFFF); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
 }
 #define _BL_T_TRAMPOLINE(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)_addr) - 4) / 2; \
+    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 4) / 2; \
     u32 bl_insn = 0xF000F800 | (bl_offs & 0x7FF) | (((bl_offs >> 11) & 0x3FF) << 16); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
     debug_printf("%08x %08x %08x %08x\n", _addr, _dst, bl_offs, bl_insn); \
 }
 #define _BRANCH_PATCH(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)_addr) - 8) / 4; \
+    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \
     u32 bl_insn = 0xEA000000 | (bl_offs & 0xFFFFFF); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
 }
@@ -688,15 +696,16 @@ void kern_main()
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
+#if USE_REDNAND
+        // in createDevThread
+        BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
+#endif
 
         // null out references to slcSomething1 and slcSomething2
         // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
 #if USE_REDNAND
         U32_PATCH_K(0x107B96B8, 0);
         U32_PATCH_K(0x107B96BC, 0);
-
-        // in createDevThread
-        BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
 
         // slc redirection
         BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));

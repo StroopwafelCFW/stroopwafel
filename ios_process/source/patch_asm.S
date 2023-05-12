@@ -6,8 +6,13 @@
 .extern memcpy
 .extern debug_printf
 .extern font_bin
-.extern udelay
+.extern msleep
 .extern snprintf
+.extern iosCreateSemaphore
+.extern iosWaitSemaphore
+.extern iosSignalSemaphore
+.extern iosDestroySemaphore
+
 
 @ jump here on add r7, sp, #0x24
 .global ancast_crypt_check
@@ -925,6 +930,14 @@ ios_ledout:
 .global usb_sector_spoof
 .global opendir_hook
 .global fsaopen_fullstr_dump_hook
+.global slcRead1_patch
+.global slcRead2_patch
+.global slcWrite1_patch
+.global slcWrite2_patch
+.global sdcardRead_patch
+.global sdcardWrite_patch
+.global getMdDeviceById_hook
+.global registerMdDevice_hook
 
 @ our own custom code starts here
 
@@ -1385,13 +1398,9 @@ sdcard_init:
     ldr r1, =sdcard_access_mutex
     str r0, [r1]
 
-    ldr r1, =dumpdata_offset
-    mov r0, #0
-    str r0, [r1]
-
     @ then we sleep until /dev/mmc is done initializing sdcard (TODO : better synchronization here)
     mov r0, #1000
-    bl udelay
+    bl msleep
 
     @ finally we set some flags to indicate sdcard is ready for use
     ldr r0, =FS_MMC_SDCARD_STRUCT
@@ -1419,7 +1428,7 @@ sdcard_init:
 
 mlc_init:
     @ this should run *after* /dev/mmc thread is created (and after sdcard_init)
-    @ this should also only be run when you want to dump mlc@ this will cause the physical mlc device to be inaccessible to regular FS code
+    @ this should also only be run when you want to dump mlc; this will cause the physical mlc device to be inaccessible to regular FS code
     push {lr}
 
     @ finally we set some flags to indicate sdcard is ready for use
@@ -1924,103 +1933,6 @@ rw_data_offset:
     bl sdcard_readwrite
     add sp, #0xC
     pop {r4,pc}
-
-@ r0 : data ptr
-@ r1 : size
-dump_data:
-    push {r1,r2,r3,r4,lr}
-    mov r3, r1, lsr #9 @ size /= 0x200
-    cmp r3, #0
-    moveq r3, #1
-    mov r1, r0 @ data_ptr
-    ldr r2, =DUMPDATA_OFFS_SECTORS @ offset_sectors
-    ldr r0, =sdcard_num_sectors
-    ldr r0, [r0]
-    sub r0, r2
-    ldr r4, =dumpdata_offset
-    ldr r2, [r4]
-    add r0, r2
-    str r0, [sp]
-    add r2, r3
-    str r2, [r4]
-    mov r0, #0
-    str r0, [sp, #0x4] @ out_callback_arg2
-    mov r0, #0xDA
-    str r0, [sp, #0x8] @ device id
-    mov r0, #0 @ write
-    mov r2, r3 @ num_sectors
-    mov r3, #0x200 @ block_size
-    bl sdcard_readwrite
-    add sp, #0xC
-    pop {r4,pc}
-
-dump_lots_data:
-    push {r4-r6,lr}
-    mov r4, r0 @ addr
-    mov r5, r1 @ size
-    dump_lots_data_loop:
-        mov r6, #0x40000 @ cur_size
-        cmp r6, r5
-        movgt r6, r5
-        ldr r0, =sdcard_read_buffer
-        mov r1, r4
-        mov r2, r6
-        bl memcpy
-        ldr r0, =sdcard_read_buffer @ data_ptr
-        mov r1, r6 @ size
-        bl dump_data
-        add r4, r6
-        sub r5, r6
-        cmp r6, #0
-        bne dump_lots_data_loop
-    pop {r4-r6,pc}
-
-@ r0 : device id
-getPhysicalDeviceHandle:
-    ldr r1, =0x1091C2EC
-    mov r2, #0x204
-    mla r1, r2, r0, r1
-    ldrh r1, [r1, #6]
-    orr r0, r1, r0, lsl #16
-    bx lr
-
-@ r0 : dst, r1 : offset, r2 : sectors, r3 : device id
-@ rawRead1PhysicalDevice_(int physical_device_handle, unsigned int offset_high, unsigned int offset_low, unsigned int size, void *outptr, int (__fastcall *callback)(unsigned int, int), int callback_arg)
-read_slc:
-    push {lr}
-    sub sp, #0xC
-    str r0, [sp] @ outptr
-    mov r0, #0
-    str r0, [sp, #4] @ callback
-    str r0, [sp, #8] @ callback_arg
-    push {r1-r3}
-    mov r0, r3
-    bl getPhysicalDeviceHandle
-    pop {r1-r3}
-    mov r3, r2 @ cnt
-    mov r2, r1 @ offset_low
-    mov r1, #0 @ offset_high
-    bl REL_FS_RAW_READ1
-    add sp, #0xC
-    pop {pc}
-
-@ r0 : data ptr
-@ r1 : num_sectors
-@ r2 : offset_sectors
-read_mlc:
-    push {r1,r2,r3,r4,lr}
-    str r2, [sp]
-    mov r2, r1 @ num_sectors
-    mov r1, r0 @ data_ptr
-    ldr r0, =mlc_out_callback_arg2
-    str r0, [sp, #0x4] @ out_callback_arg2
-    mov r0, #0xAB
-    str r0, [sp, #0x8] @ device id
-    mov r0, #1 @ read
-    mov r3, #0x200 @ block_size
-    bl sdcard_readwrite
-    add sp, #0xC
-    pop {r4,pc}
 .pool
 
 .equ FRAMEBUFFER_ADDRESS, (0x14000000+0x38C0000)
@@ -2119,8 +2031,6 @@ drawCharacter:
 sdcard_num_sectors:
     .word 0x00000000
 sdcard_access_mutex:
-    .word 0x00000000
-dumpdata_offset:
     .word 0x00000000
 mlc_out_callback_arg2:
     .word 0x00000000
