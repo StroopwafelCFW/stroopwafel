@@ -180,6 +180,34 @@ svcFlushDCache:
 	bx lr
 
 .arm
+.global iosCreateSemaphore
+.type iosCreateSemaphore, %function
+iosCreateSemaphore:
+	.word (0xE7F000F0 | 0x57 << 8)
+	bx lr
+
+.arm
+.global iosWaitSemaphore
+.type iosWaitSemaphore, %function
+iosWaitSemaphore:
+	.word (0xE7F000F0 | 0x58 << 8)
+	bx lr
+
+.arm
+.global iosSignalSemaphore
+.type iosSignalSemaphore, %function
+iosSignalSemaphore:
+	.word (0xE7F000F0 | 0x59 << 8)
+	bx lr
+
+.arm
+.global iosDestroySemaphore
+.type iosDestroySemaphore, %function
+iosDestroySemaphore:
+	.word (0xE7F000F0 | 0x5A << 8)
+	bx lr
+
+.arm
 .global svcFlushIPCServer
 .type svcFlushIPCServer, %function
 svcFlushIPCServer:

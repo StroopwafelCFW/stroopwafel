@@ -11,11 +11,12 @@
 #include "wupserver/wupserver.h"
 #include "dynamic.h"
 #include "utils.h"
+#include "config.h"
+#include "addrs_55x.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 #define MCP_SYSLOG_OUTPUT (0x0503DCF8)
 #define FS_GET_SPECIFIC_DEVNAME_HOOK (0x107112B0)
-#define FAT32_USB (0)
 
 u32 main_thread(void*);
 extern void kern_entry();
@@ -33,6 +34,16 @@ extern void c2w_seeprom_hook_t();
 extern void c2w_boot_hook_t();
 extern void c2w_otp_replacement_t();
 extern void c2w_otp_replacement_t_end();
+
+extern void wfs_crypto_hook();
+extern void createDevThread_hook();
+extern void scfm_try_slc_cache_migration();
+extern void usbRead_patch();
+extern void usbWrite_patch();
+extern void usb_sector_spoof();
+extern void opendir_hook();
+extern void fsaopen_fullstr_dump_hook();
+
 const char* fw_img_path = "/vol/sdcard";
 
 const u32 mcpIoMappings_patch[6*3] = 
@@ -286,7 +297,10 @@ void c2w_patches()
     c2w_boot_hook_fixup_c2w_ptrs();
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
-    //c2w_oc_hax_patch();
+
+#if VWII_OVERCLOCK
+    c2w_oc_hax_patch();
+#endif
 }
 
 u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
@@ -370,11 +384,13 @@ void kern_main()
         //ASM_PATCH_K(0x081249C0, "mov r0, #0x0\nbx lr\n");
         ASM_PATCH_K(0x08124AD8, "mov r0, #0x0\nbx lr\n");
 
+#if OTP_IN_MEM
         // patch OTP to read from memory
         ASM_PATCH_K(0x08120248, 
             "ldr r3, _otp_read_hook\n"
             "bx r3\n"
             "_otp_read_hook: .word otp_read_replace");
+#endif
 
         // skip 49mb memclear for faster loading.
         ASM_PATCH_K(0x812A088, 
@@ -414,7 +430,7 @@ void kern_main()
         // Early MMU mapping
         // (For some reason they map 0x28000000 twice, so it's really easy for us)
         ASM_PATCH_K(0x08122768,
-            "mov r2, #0x100000\n"
+            "mov r2, #0x400000\n"
             "sub r1, r0, r2\n"
             "mov r0, r1\n"
         );
@@ -463,7 +479,7 @@ void kern_main()
         // syslog -> semihosting write
         BL_TRAMPOLINE_K(0x05055328, MCP_ALTBASE_ADDR(syslog_hook));
 
-#ifdef USB_SHRINKSHIFT
+#if USB_SHRINKSHIFT
         BL_T_TRAMPOLINE_K(0x050078A0, MCP_ALTBASE_ADDR(hai_shift_data_offsets_t));
 #endif
 
@@ -574,9 +590,9 @@ void kern_main()
         );
 
         // Shorten the RAMdisk area by 1MiB
-        U32_PATCH_K(0x0502365C, (*(u32*)ios_elf_vaddr_to_paddr(0x0502365C)) - 0x100000);
+        U32_PATCH_K(0x0502365C, (*(u32*)ios_elf_vaddr_to_paddr(0x0502365C)) - CARVEOUT_SZ);
 
-//#ifdef OTP_IN_MEM
+#if OTP_IN_MEM
         // - Wii SEEPROM gets copied to 0xFFF07F00.
         // - Hai params get copied to 0xFFFE7D00.
         // - We want to place our OTP at 0xFFF07C80, and our payload pocket at 0xFFF07B00
@@ -593,12 +609,9 @@ void kern_main()
             "lsl r4, r4, #0x4\n"
         );
 
-        //U32_PATCH_K(0x050087F0, 0xFFFFFFFF);
-        //U32_PATCH_K(0x05008802, 0xFFFFFFFF);
-        //U32_PATCH_K(0x05008814, 0xFFFFFFFF);
         BL_T_TRAMPOLINE_K(0x05008810, MCP_ALTBASE_ADDR(c2w_boot_hook_t));
         ASM_PATCH_K(0x05008814, ".thumb\nnop\n");
-//#endif // OTP_IN_MEM
+#endif // OTP_IN_MEM
     }
     
     // ACP
@@ -652,7 +665,7 @@ void kern_main()
         ASM_PATCH_K(0x040045A8, "mov r2, #0\nmov r3, #0");
 
         // hook USB key generation's call to seeprom read to use a replacement seed
-#ifdef USB_SEED_SWAP
+#if USB_SEED_SWAP
         BL_TRAMPOLINE_K(0x04004584, MCP_ALTBASE_ADDR(usb_seedswap));
 #endif
     }
@@ -667,6 +680,88 @@ void kern_main()
         BRANCH_PATCH_K(0x1078E074, 0x1078E084);
 
         BL_TRAMPOLINE_K(FS_GET_SPECIFIC_DEVNAME_HOOK, FS_ALTBASE_ADDR(fsa_dev_register_hook));
+#endif
+
+        //  usb redirection and crypto disable
+        BRANCH_PATCH_K(FS_USB_READ, FS_ALTBASE_ADDR(usbRead_patch));
+        BRANCH_PATCH_K(FS_USB_WRITE, FS_ALTBASE_ADDR(usbWrite_patch));
+        BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
+        BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
+
+
+        // null out references to slcSomething1 and slcSomething2
+        // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
+#if USE_REDNAND
+        U32_PATCH_K(0x107B96B8, 0);
+        U32_PATCH_K(0x107B96BC, 0);
+
+        // in createDevThread
+        BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
+
+        // slc redirection
+        BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
+        BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
+        BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
+        BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
+        ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
+
+        // mlc redirection
+        BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
+        BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
+        // FS_GETMDDEVICEBYID
+        BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
+        // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
+        BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
+        // mdExit : patch out sdcard deinitialization
+        ASM_PATCH_K(0x107BD374, "bx lr");
+#endif // USE_REDNAND
+
+        // mlcRead1 logging
+#if PRINT_MLC_READ
+        BL_TRAMPOLINE_K(FS_MLC_READ1 + 0x4, FS_ALTBASE_ADDR(mlcRead1_dbg));
+#endif // PRINT_MLC_READ
+#if PRINT_MLC_WRITE
+        BL_TRAMPOLINE_K(FS_MLC_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
+#endif // PRINT_MLC_WRITE
+
+        // some selective logging function : enable all the logging!
+        BRANCH_PATCH_K(0x107F5720, FS_SYSLOG_OUTPUT);
+
+//open_base equ 0x1070AF0C
+//opendir_base equ 
+#if PRINT_FSAOPEN
+        BL_TRAMPOLINE_K(0x1070AC94, FS_ALTBASE_ADDR(fsaopen_fullstr_dump_hook));
+
+        // opendir_base
+        BRANCH_PATCH_K(FS_OPENDIR_BASE, FS_ALTBASE_ADDR(opendir_hook));
+#endif // PRINT_FSAOPEN
+    
+        // FSA general permissions patch
+        ASM_PATCH_K(0x107043E4,
+            "mov r3, #-1\n"
+            "mov r2, #-1\n"
+        );
+    
+#if PRINT_FSAREADWRITE
+        BL_TRAMPOLINE_K(0x1070AA1C, FS_ALTBASE_ADDR(fread_hook));
+        BL_TRAMPOLINE_K(0x1070A7A8, FS_ALTBASE_ADDR(fwrite_hook));
+#endif // PRINT_FSAREADWRITE
+
+#if PRINT_FSASEEKFILE
+        BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
+#endif // PRINT_FSASEEKFILE
+
+#if MLC_ACCELERATE
+        // hooks for supporting scfm.img on sys-slccmpt instead of on the sd card
+        // e.g. doing sd->slc caching instead of sd->sd caching which dramatically slows down ALL i/o
+        
+        // disable scfmInit's slc format on name/partition type error
+        ASM_PATCH_K(0x107E8178, 
+            "mov r0, #0xFFFFFFFE\n"
+        );
+    
+        //hook scfmInit right after fsa initialization, before main thread creation
+        BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
 #endif
     }
 
