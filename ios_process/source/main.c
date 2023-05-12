@@ -33,6 +33,8 @@ extern void crypto_keychange_hook();
 extern void crypto_disable_hook();
 extern void c2w_seeprom_hook_t();
 extern void c2w_boot_hook_t();
+extern void c2w_otp_replacement_t();
+extern void c2w_otp_replacement_t_end();
 const char* fw_img_path = "/vol/sdcard";
 
 const u32 mcpIoMappings_patch[6*3] = 
@@ -130,6 +132,7 @@ static void _patch_copy(uintptr_t dst, uintptr_t src, size_t sz)
     memcpy((void*)dst, (void*)src, sz);
     dc_flushrange((void*)dst, sizeof(u32));
 }
+#define MEMCPY_PATCH(_addr, _dst, _sz) _patch_copy(_addr, _dst, _sz)
 #define U32_PATCH(_addr, _val) _U32_PATCH(_addr, _val, _patch_u32)
 #define ASM_PATCH(_addr, _str) _ASM_PATCH(_addr, _str, _patch_copy)
 #define BL_TRAMPOLINE(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32)
@@ -214,6 +217,77 @@ void init_heap()
 
     fake_heap_start = (char*)__heap_start;
     fake_heap_end   = (char*)__heap_end;
+}
+
+// Replace all instances of 0xFFF07F00 (Wii SEEPROM addr) with 0xFFF07B00 in c2w.elf
+void c2w_boot_hook_fixup_c2w_ptrs()
+{
+    for (uintptr_t a = 0x01000000; a < 0x01F80000; a += 4)
+    {
+        if (read32(a) == 0xFFF07F00) {
+            write32(a, 0xFFF07B00);
+            debug_printf("SEEPROM ptr at: 0x%08x\n", a);
+            break;
+        }
+    }
+}
+
+void c2w_boot_hook_find_and_replace_otpread()
+{
+    uintptr_t ios_paddr = read32(0x1018);
+    uintptr_t ios_end = ios_paddr + 0x260000;
+
+    for (uintptr_t a = ios_paddr; a < ios_end; a += 4)
+    {
+        if (read32(a) == 0x0D8001EC) {
+            for (uintptr_t b = a; b >= a-0x1000; b -= 2)
+            {
+                if (read16(b) == 0xB5F0) // PUSH {R4-R7,LR}
+                {
+                    memcpy((void*)b, (void*)c2w_otp_replacement_t, (u32)c2w_otp_replacement_t_end-(u32)c2w_otp_replacement_t);
+                    debug_printf("OTP read at: 0x%08x\n", b);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// Search for 0xFFFE7CC0 in IOS and change it to 0xFFFE7B00
+void c2w_boot_hook_fixup_ios_ptrs()
+{
+    uintptr_t ios_paddr = read32(0x1018);
+    uintptr_t ios_end = ios_paddr + 0x260000;
+
+    for (uintptr_t a = ios_paddr; a < ios_end; a += 4)
+    {
+        if (read32(a) == 0xFFFE7CC0) {
+            write32(a, 0xFFFE7B00);
+            debug_printf("IOS SEEPROM ptr at: 0x%08x\n", a);
+            break;
+        }
+    }
+}
+
+// Search for E3C22020 E3822020 and replace the second instruction with a nop
+void c2w_oc_hax_patch()
+{
+    for (uintptr_t a = 0x01000000; a < 0x01F80000; a += 4)
+    {
+        if (read32(a) == 0xE3C22020 && read32(a+4) == 0xE3822020) {
+            write32(a+4, 0);
+            debug_printf("Overclock ptr at: 0x%08x\n", a+4);
+            break;
+        }
+    }
+}
+
+void c2w_patches()
+{
+    c2w_boot_hook_fixup_c2w_ptrs();
+    c2w_boot_hook_find_and_replace_otpread();
+    c2w_boot_hook_fixup_ios_ptrs();
+    //c2w_oc_hax_patch();
 }
 
 // This fn runs before everything else in kernel mode.

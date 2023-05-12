@@ -534,8 +534,18 @@ usb_seed:
 .equ WIP_VWII_JUNK, 0
 .equ MCP_C2W_LAUNCH_FAIL, 0x5008824
 
+.global c2w_otp_replacement_t
+.global c2w_otp_replacement_t_end
 .global c2w_seeprom_hook_t
 .global c2w_boot_hook_t
+.extern c2w_patches
+
+c2w_patches_t:
+    .thumb
+    bx pc
+    .align 4
+    .arm
+    b c2w_patches
 
 memset_t:
     .thumb
@@ -619,135 +629,6 @@ c2w_seeprom_hook_t:
 vwii_pocket_patches_start:
 #include "vwii_pocket_patches.inc"
 vwii_pocket_end:
-
-.align 4
-c2w_boot_hook_fixup_c2w_ptrs:
-    .thumb
-    push {r4-r5, lr}
-    ldr r0, =0x01000000
-    ldr r1, =0x01F80000
-    ldr r3, =0xFFF07F00
-    ldr r4, =0xFFF07B00
-
-    @ Replace all instances of 0xFFF07F00 (Wii SEEPROM addr) with 0xFFF07B00 in c2w.elf
-c2w_boot_hook_search:
-    cmp r0, r1
-    bge c2w_boot_hook_search_done
-    ldr r2, [r0]
-    cmp r2, r3
-    bne c2w_boot_hook_search_skip_replace
-    str r4, [r0]
-
-    push {r0-r5}
-    mov r4, r0
-    ldr r0, =c2w_boot_hook_print_1
-    mov r1, r4
-    bl debug_printf_t
-    pop {r0-r5}
-
-c2w_boot_hook_search_skip_replace:
-    add r0, r0, #0x4
-    b c2w_boot_hook_search
-
-c2w_boot_hook_search_done:
-    pop {r4-r5, pc}
-
-.align 4
-c2w_boot_hook_find_and_replace_otpread:
-    .thumb
-    push {r4-r5, lr}
-    ldr r0, =0x1018
-    ldr r0, [r0] @ ios paddr
-    ldr r1, =0x260000
-    ldr r3, =0x0D8001EC
-
-    add r1, r0, r1
-
-    @ Replace OTP read routine w/ memcpy
-c2w_boot_hook_search_2:
-    cmp r0, r1
-    bge c2w_boot_hook_search_2_done
-    ldr r2, [r0]
-    cmp r2, r3
-    bne c2w_boot_hook_search_skip_replace_2
-
-    bl c2w_boot_hook_replace_3
-
-    b c2w_boot_hook_search_2_done
-    
-c2w_boot_hook_search_skip_replace_2:
-    add r0, r0, #0x4
-    b c2w_boot_hook_search_2
-
-c2w_boot_hook_search_2_done:
-    pop {r4-r5, pc}
-
-
-.align 4
-c2w_boot_hook_replace_3:
-    .thumb
-    push {r0-r5, lr}
-
-    ldr r3, =0xB5F0 @ PUSH {R4-R7,LR}
-
-    @sub r1, r0, #0x200
-c2w_boot_hook_search_3:
-
-    ldrh r2, [r0]
-    cmp r2, r3
-    bne c2w_boot_hook_search_skip_replace_3
-
-    @ We found the OTP read, now to patch it and exit
-    mov r4, r0
-    ldr r1, =c2w_otp_replacement_t
-    ldr r2, =c2w_otp_replacement_t_end
-    sub r2, r2, r1
-    bl memcpy_t
-
-    ldr r0, =c2w_boot_hook_print_2
-    mov r1, r4
-    bl debug_printf_t
-
-    pop {r0-r5, pc}
-
-c2w_boot_hook_search_skip_replace_3:
-    sub r0, r0, #0x2
-    b c2w_boot_hook_search_3
-
-.align 4
-c2w_boot_hook_fixup_ios_ptrs:
-    .thumb
-    push {r4-r5, lr}
-
-    @ Search for 0xFFFE7CC0 in IOS and change it to 0xFFFE7B00
-    ldr r0, =0x1018
-    ldr r0, [r0] @ ios paddr
-    ldr r1, =0x260000
-    ldr r3, =0xFFFE7CC0
-    ldr r4, =0xFFFE7B00
-c2w_boot_hook_search_4:
-    cmp r0, r1
-    bge c2w_boot_hook_search_4_done
-    ldr r2, [r0]
-    cmp r2, r3
-    bne c2w_boot_hook_search_skip_replace_4
-
-    str r4, [r0]
-    @push {r0-r5, lr}
-    @mov r4, r0
-    @ldr r0, =c2w_boot_hook_print_3
-    @mov r1, r4
-    @bl debug_printf_t
-    @pop {r0-r5, r14}
-
-    b c2w_boot_hook_search_4_done
-
-c2w_boot_hook_search_skip_replace_4:
-    add r0, r0, #0x4
-    b c2w_boot_hook_search_4
-
-c2w_boot_hook_search_4_done:
-    pop {r4-r5, pc}
 
 .if WIP_VWII_JUNK
 
@@ -974,46 +855,6 @@ c2w_boot_hook_search_7_done:
 
 .endif @ WIP_VWII_JUNK
 
-@  
-
-.if VWII_PPC_OC
-.align 4
-c2w_oc_hax_patch:
-    .thumb
-    push {r4-r5, lr}
-    ldr r0, =0x01000000
-    ldr r1, =0x01F80000
-    ldr r3, =0xE3C22020
-    ldr r4, =0xE3822020
-
-    @ Search for E3C22020 E3822020 and replace the second instruction with a nop
-c2w_oc_hax_search:
-    cmp r0, r1
-    bge c2w_oc_hax_search_done
-    ldr r2, [r0]
-    cmp r2, r3
-    bne c2w_oc_hax_search_skip_replace
-    ldr r2, [r0, #0x4]
-    cmp r2, r4
-    bne c2w_oc_hax_search_skip_replace
-    mov r4, #0x0
-    str r4, [r0, #0x4]
-
-    push {r0-r5}
-    mov r4, r0
-    ldr r0, =c2w_boot_hook_print_1
-    mov r1, r4
-    bl debug_printf_t
-    pop {r0-r5}
-
-c2w_oc_hax_search_skip_replace:
-    add r0, r0, #0x4
-    b c2w_oc_hax_search
-
-c2w_oc_hax_search_done:
-    pop {r4-r5, pc}
-.endif @ VWII_PPC_OC
-
 .align 4
 c2w_boot_hook_t:
     .thumb
@@ -1021,21 +862,17 @@ c2w_boot_hook_t:
     push {lr}
     push {r0-r7}
 
-    bl c2w_boot_hook_fixup_c2w_ptrs
-    bl c2w_boot_hook_find_and_replace_otpread
-    bl c2w_boot_hook_fixup_ios_ptrs
+    bl c2w_patches_t
+
 .if WIP_VWII_JUNK
     bl c2w_boot_hook_fixup_ios_reload
     bl c2w_boot_hook_ios_semihosting
     bl c2w_boot_hook_ios_semihosting_ledaddr
     bl c2w_boot_hook_ios_semihosting_2
 .endif
-.if VWII_PPC_OC
-    bl c2w_oc_hax_patch
-.endif @ VWII_PPC_OC
 
     pop {r0-r7}
-    pop {r1} @ bug in armips??
+    pop {r1}
     cmp r4, #0x0 @ orig instr
     bne c2w_boot_hook_fail
     bx r1
