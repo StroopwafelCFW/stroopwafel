@@ -4,6 +4,7 @@
 #include "imports.h"
 #include "ios/svc.h"
 #include "utils.h"
+#include <string.h>
 
 extern void debug_printf(const char *format, ...);
 
@@ -73,6 +74,56 @@ uintptr_t ios_elf_vaddr_to_paddr(uintptr_t addr)
     debug_printf("Failed to translate vaddr %08x!\n", addr);
 
     return addr;
+}
+
+Elf32_Phdr* ios_elf_add_phdr(uintptr_t addr)
+{
+    Elf32_Phdr* phdrs = (Elf32_Phdr*)0x1D000000;
+    u32 num_phdrs = phdrs[0].p_memsz / sizeof(Elf32_Phdr);
+
+    int i;
+    for (i = 2; i < num_phdrs; i++)
+    {
+        if (addr < phdrs[i].p_vaddr) {
+            break;
+        }
+    }
+
+    memmove(phdrs[1].p_vaddr+sizeof(Elf32_Phdr), phdrs[1].p_vaddr, phdrs[1].p_memsz);
+    phdrs[1].p_vaddr += sizeof(Elf32_Phdr);
+    phdrs[1].p_paddr += sizeof(Elf32_Phdr);
+
+    memmove(&phdrs[i+1], &phdrs[i], (num_phdrs-i)*sizeof(Elf32_Phdr));
+    phdrs[0].p_memsz += sizeof(Elf32_Phdr);
+    phdrs[0].p_filesz += sizeof(Elf32_Phdr);
+    phdrs[2].p_filesz += sizeof(Elf32_Phdr);
+
+    debug_printf("Inserted %08x before %08x and after %08x!\n", addr, phdrs[i+1].p_vaddr, phdrs[i-1].p_vaddr);
+
+    return &phdrs[i];
+}
+
+void ios_elf_print_map()
+{
+    Elf32_Phdr* phdrs = (Elf32_Phdr*)0x1D000000;
+    u32 num_phdrs = phdrs[0].p_memsz / sizeof(Elf32_Phdr);
+
+    debug_printf("  Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align\n");
+    for (int i = 0; i < num_phdrs; i++)
+    {
+        const char* type_str = "UNK";
+        if (phdrs[i].p_type == PT_LOAD) {
+            type_str = "LOAD";
+        }
+        else if (phdrs[i].p_type == PT_PHDR) {
+            type_str = "PHDR";
+        }
+        else if (phdrs[i].p_type == PT_NOTE) {
+            type_str = "NOTE";
+        }
+        debug_printf("%-14s 0x%06x 0x%08x 0x%08x 0x%05x 0x%05x     0x%x\n", type_str, phdrs[i].p_offset, phdrs[i].p_vaddr, phdrs[i].p_paddr, phdrs[i].p_filesz, phdrs[i].p_memsz, phdrs[i].p_flags, phdrs[i].p_align);
+    }
+    
 }
 
 // TODO linking/symbol lookup

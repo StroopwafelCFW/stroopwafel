@@ -461,8 +461,8 @@ int main(int argc, char* argv[])
     fclose(f_img);
     
     // write phdrs and notes to file as a diff overwrite
-    patch_add_diff(f_patch, elf_phdrs, tbl_size/4, 0x1D000000);
-    patch_add_diff(f_patch, elf_notes, notes_size/4, 0x1D000000+tbl_size);
+    //patch_add_diff(f_patch, elf_phdrs, tbl_size/4, 0x1D000000);
+    //patch_add_diff(f_patch, elf_notes, notes_size/4, 0x1D000000+tbl_size);
 
     // Add in ios_process (TODO: do this in minute instead?)
     #define CARVEOUT_SZ (0x400000)
@@ -470,15 +470,8 @@ int main(int argc, char* argv[])
     void* ios_proc_elf = malloc(CARVEOUT_SZ);
     FILE* f_ios_proc_elf = fopen("ios_process/ios_process.elf", "rb");
     size_t ios_proc_sz = fread(ios_proc_elf, 1, CARVEOUT_SZ, f_ios_proc_elf);
-    patch_add_diff(f_patch, ios_proc_elf, ios_proc_sz/4, 0x28000000-CARVEOUT_SZ);
+    //patch_add_diff(f_patch, ios_proc_elf, ios_proc_sz/4, 0x28000000-CARVEOUT_SZ);
     fclose(f_ios_proc_elf);
-
-    // TODO: make a trampoline at 0x27FFFFF0 instead?
-    u32 jump_addr;
-    putbe32((u8*)&jump_addr, (0x28000000-CARVEOUT_SZ) + getbe32((u8*)ios_proc_elf+0x18));
-
-    // TODO: verify this is consistent
-    patch_add_diff(f_patch, &jump_addr, 1, 0xFFFF0020);
     
     write_patch_footer_and_hash(f_patch);
     fclose(f_patch);

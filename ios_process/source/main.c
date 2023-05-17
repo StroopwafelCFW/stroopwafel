@@ -337,6 +337,51 @@ const char* fsa_dev_register_hook(int a)
     return FS_DEVTYPE_TO_NAME(a);
 }
 
+void init_phdrs()
+{
+    // Init memory mappings
+    Elf32_Phdr* phdr_base = ios_elf_add_phdr(dynamic_phys_base_addr);
+
+    size_t carveout_sz = 0x400000; // TODO
+    size_t code_trampoline_sz = 0x100000; // TODO?
+
+    phdr_base->p_type = 1;   // LOAD
+    phdr_base->p_offset = 0; // doesn't matter
+    phdr_base->p_vaddr = dynamic_phys_base_addr;
+    phdr_base->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
+    phdr_base->p_filesz = carveout_sz;
+    phdr_base->p_memsz = carveout_sz;
+    phdr_base->p_flags = 7 | (0x1<<20); // RWX, MCP
+    phdr_base->p_align = 1;
+    phdr_base[-1].p_memsz -= carveout_sz;
+
+    Elf32_Phdr* phdr_mcp = ios_elf_add_phdr(dynamic_phys_base_addr);
+
+    // Add mirror at 0x05800000 for MCP trampolines
+    phdr_mcp->p_type = 1;   // LOAD
+    phdr_mcp->p_offset = 0; // doesn't matter
+    phdr_mcp->p_vaddr = MCP_ALT_BASE;
+    phdr_mcp->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
+    phdr_mcp->p_filesz = 0;
+    phdr_mcp->p_memsz = code_trampoline_sz;
+    phdr_mcp->p_flags = 7 | (0x1<<20); // RWX, MCP
+    phdr_mcp->p_align = 1;
+
+    Elf32_Phdr* phdr_fs = ios_elf_add_phdr(dynamic_phys_base_addr);
+
+    // Add mirror at 0x10600000 for FS trampolines
+    phdr_fs->p_type = 1;   // LOAD
+    phdr_fs->p_offset = 0; // doesn't matter
+    phdr_fs->p_vaddr = FS_ALT_BASE;
+    phdr_fs->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
+    phdr_fs->p_filesz = 0;
+    phdr_fs->p_memsz = code_trampoline_sz;
+    phdr_fs->p_flags = 7 | (0x1<<20); // RWX, MCP
+    phdr_fs->p_align = 1;
+
+    ios_elf_print_map();
+}
+
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
 // (ie to BSP and kernel, which launches before MCP)
@@ -348,6 +393,7 @@ void kern_main()
     debug_printf("we in here kern %p\n", kern_main);
 
     init_heap();
+    init_phdrs();
 
     // TODO verify the bytes that are overwritten?
     // and/or search for instructions where critical (OTP)
@@ -546,7 +592,8 @@ void kern_main()
         //ASM_PATCH_K(0x0500A778, ".thumb\nldr r0, [r0]\nbx pc\n.word 0xFFFFFFFF\n");
 
         // nop "COS encountered unrecoverable error..." IOS panic
-        /*ASM_PATCH_K(0x05056B84,
+        /*ASM_PATCH_K(0x05034554, //0x05056B84,
+            "nop\n"
             "nop\n"
         );*/
 

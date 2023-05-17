@@ -55,7 +55,7 @@ kern_setup:
 	bl __ios_dynamic
 
 	bl kern_main
-	ldr r0, =0xFFFF0060
+	ldr r0, =0xFFFF0000
 	bx r0
 
 .pool

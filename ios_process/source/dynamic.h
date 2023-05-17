@@ -6,6 +6,8 @@
 
 void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn);
 uintptr_t ios_elf_vaddr_to_paddr(uintptr_t addr);
+Elf32_Phdr* ios_elf_add_phdr(uintptr_t addr);
+void ios_elf_print_map();
 
 extern uintptr_t dynamic_phys_base_addr;
 
