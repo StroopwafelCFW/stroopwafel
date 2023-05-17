@@ -108,7 +108,6 @@ const u32 mcpIoMappings_patch[6*3] =
     u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 4) / 2; \
     u32 bl_insn = 0xF000F800 | (bl_offs & 0x7FF) | (((bl_offs >> 11) & 0x3FF) << 16); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
-    debug_printf("%08x %08x %08x %08x\n", _addr, _dst, bl_offs, bl_insn); \
 }
 #define _BRANCH_PATCH(_addr, _dst, _copy_fn) { \
     u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \

@@ -66,7 +66,7 @@ uintptr_t ios_elf_vaddr_to_paddr(uintptr_t addr)
     {
         if (addr >= phdrs[i].p_vaddr && addr <= phdrs[i].p_vaddr + phdrs[i].p_memsz) {
             uintptr_t ret = addr - phdrs[i].p_vaddr + phdrs[i].p_paddr;
-            debug_printf("translated vaddr %08x -> %08x\n", addr, ret);
+            //debug_printf("translated vaddr %08x -> %08x\n", addr, ret);
             return ret;
         }
     }
@@ -108,7 +108,7 @@ void ios_elf_print_map()
     Elf32_Phdr* phdrs = (Elf32_Phdr*)0x1D000000;
     u32 num_phdrs = phdrs[0].p_memsz / sizeof(Elf32_Phdr);
 
-    debug_printf("  Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align\n");
+    debug_printf("  Type           Offset   VirtAddr   PhysAddr   FileSiz    MemSiz     Flg      Align\n");
     for (int i = 0; i < num_phdrs; i++)
     {
         const char* type_str = "UNK";
@@ -121,7 +121,7 @@ void ios_elf_print_map()
         else if (phdrs[i].p_type == PT_NOTE) {
             type_str = "NOTE";
         }
-        debug_printf("%-14s 0x%06x 0x%08x 0x%08x 0x%05x 0x%05x     0x%x\n", type_str, phdrs[i].p_offset, phdrs[i].p_vaddr, phdrs[i].p_paddr, phdrs[i].p_filesz, phdrs[i].p_memsz, phdrs[i].p_flags, phdrs[i].p_align);
+        debug_printf("  %-14s 0x%06x 0x%08x 0x%08x 0x%08x 0x%08x 0x%06x 0x%x\n", type_str, phdrs[i].p_offset, phdrs[i].p_vaddr, phdrs[i].p_paddr, phdrs[i].p_filesz, phdrs[i].p_memsz, phdrs[i].p_flags, phdrs[i].p_align);
     }
     
 }
