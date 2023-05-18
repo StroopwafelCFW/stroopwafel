@@ -65,6 +65,7 @@ wafel_plugin_example/*.img
 wafel_plugin_example/*.bin
 wafel_plugin_example/*.elf
 wafel_plugin_example/*.map
+wafel_plugin_example.ipx
 
 # extracted sections
 sections/*.bin

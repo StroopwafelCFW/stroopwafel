@@ -381,6 +381,53 @@ void init_phdrs()
     ios_elf_print_map();
 }
 
+void init_linking()
+{
+    wafel_register_plugin(dynamic_phys_base_addr);
+    debug_printf("kern_main symbol at: %08x\n", wafel_get_symbol_addr(dynamic_phys_base_addr, "kern_main"));
+    debug_printf("our module mem size is: %08x\n", wafel_plugin_max_addr(dynamic_phys_base_addr)-dynamic_phys_base_addr);
+    
+    uintptr_t next_plugin = dynamic_phys_base_addr;
+    while (next_plugin)
+    {
+        next_plugin = wafel_plugin_next(next_plugin);
+        
+        if (next_plugin) {
+            debug_printf("registering plugin: %08x\n", next_plugin);
+            wafel_register_plugin(next_plugin);
+        }
+    }
+
+    next_plugin = dynamic_phys_base_addr;
+    while (next_plugin)
+    {
+        next_plugin = wafel_plugin_next(next_plugin);
+        
+        if (next_plugin) {
+            debug_printf("linking plugin: %08x\n", next_plugin);
+            wafel_link_plugin(next_plugin);
+        }
+    }
+}
+
+void init_plugins()
+{
+    uintptr_t next_plugin = dynamic_phys_base_addr;
+    while (next_plugin)
+    {
+        next_plugin = wafel_plugin_next(next_plugin);
+        
+        if (next_plugin) {
+            debug_printf("initializing plugin: %08x\n", next_plugin);
+            uintptr_t km = wafel_get_symbol_addr(next_plugin, "kern_entry");
+            if (!km) continue;
+
+            void (*plug_kern_entry)() = (void*)km;
+            plug_kern_entry();
+        }
+    }
+}
+
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
 // (ie to BSP and kernel, which launches before MCP)
@@ -393,6 +440,7 @@ void kern_main()
 
     init_heap();
     init_phdrs();
+    init_linking();
 
     // TODO verify the bytes that are overwritten?
     // and/or search for instructions where critical (OTP)
@@ -833,6 +881,8 @@ void kern_main()
 
     ic_invalidateall();
     debug_printf("done\n");
+
+    init_plugins();
 }
 
 // This fn runs before MCP's main thread, and can be used

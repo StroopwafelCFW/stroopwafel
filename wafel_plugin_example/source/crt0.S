@@ -35,7 +35,7 @@ next_plugin:
 	nop
 
 kern_setup:
-	ldr sp, =(0x28000000-0x80)
+	push {lr}
 	@ get bss start addr
 	adr r2, _start
 	ldr r1, _start_offs
@@ -63,8 +63,7 @@ kern_setup:
 	bl __ios_dynamic
 
 	bl kern_main
-	ldr r0, =0xFFFF0000
-	bx r0
+	pop {pc}
 
 .pool
 
