@@ -89,7 +89,7 @@ Elf32_Phdr* ios_elf_add_phdr(uintptr_t addr)
         }
     }
 
-    memmove(phdrs[1].p_vaddr+sizeof(Elf32_Phdr), phdrs[1].p_vaddr, phdrs[1].p_memsz);
+    memmove((void*)(phdrs[1].p_vaddr+sizeof(Elf32_Phdr)), (void*)phdrs[1].p_vaddr, phdrs[1].p_memsz);
     phdrs[1].p_vaddr += sizeof(Elf32_Phdr);
     phdrs[1].p_paddr += sizeof(Elf32_Phdr);
 
@@ -123,7 +123,6 @@ void ios_elf_print_map()
         }
         debug_printf("  %-14s 0x%06x 0x%08x 0x%08x 0x%08x 0x%08x 0x%06x 0x%x\n", type_str, phdrs[i].p_offset, phdrs[i].p_vaddr, phdrs[i].p_paddr, phdrs[i].p_filesz, phdrs[i].p_memsz, phdrs[i].p_flags, phdrs[i].p_align);
     }
-    
 }
 
 // TODO linking/symbol lookup

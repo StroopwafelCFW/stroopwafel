@@ -22,7 +22,7 @@ patched_sections/%.bin: sections/%.bin patches/%.s
 	@echo patches/$*.s
 	@armips patches/$*.s
 
-patch: $(PATCHED_SECTIONS)
+patch: ios.patch $(PATCHED_SECTIONS)
 
 ios.img: $(INPUT) $(PATCHED_SECTIONS) ios_process/ios_process.elf
 	python3 scripts/anpack.py -nc -in $(INPUT) -out ios.img $(foreach s,$(SECTIONS),-r $(s),patched_sections/$(s).bin) $(foreach s,$(BSS_SECTIONS),-b $(s),patched_sections/$(s).bin) -proc 0x27C00000,ios_process/ios_process.elf

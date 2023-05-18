@@ -45,6 +45,7 @@ void serial_fatal()
 
 void serial_force_terminate()
 {
+#if GPIO_SERIAL_CONSOLE
     gpio_debug_serial_send(0x0F);
     udelay(SERIAL_DELAY);
 
@@ -54,6 +55,7 @@ void serial_force_terminate()
     gpio_debug_serial_send(0x0F);
     gpio_debug_serial_send(0x00);
     udelay(SERIAL_DELAY);
+#endif
 }
 
 void serial_send_u32(u32 val)
@@ -133,6 +135,7 @@ void serial_disallow_zeros()
 
 void serial_send(u8 val)
 {
+#if GPIO_SERIAL_CONSOLE
     u32 cookie = irq_kill();
 
     u8 read_val = 0;
@@ -158,6 +161,7 @@ void serial_send(u8 val)
     serial_force_terminate();
 
     irq_restore(cookie);
+#endif
 }
 
 int serial_send_str(const char* str)

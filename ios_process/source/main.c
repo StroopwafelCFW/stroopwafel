@@ -476,9 +476,11 @@ void kern_main()
             "bx r3\n"
             "_panic_hook: .word ios_panic_replace");
 
+#if HOOK_SEMIHOSTING
         // Hook SVC handler for semihosting
         old_svc_handler = (void*)(*(u32*)0xFFFF0028);
         *(u32*)0xFFFF0028 = (u32)svc_handler_hook;
+#endif
 
         // Early MMU mapping
         // (For some reason they map 0x28000000 twice, so it's really easy for us)
@@ -491,9 +493,11 @@ void kern_main()
 
     // BSP
     {
+#if DISABLE_DISK_DRIVE
         // Disk drive disable
         ASM_PATCH_K(0xE60085F8, "mov r3, #2");
         ASM_PATCH_K(0xE6008BEC, "mov r3, #2");
+#endif
 
         // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
         ASM_PATCH_K(0xE600CF5C, 
@@ -529,8 +533,10 @@ void kern_main()
         // patch pointer to fw.img loader path
         U32_PATCH_K(0x050284D8, fw_img_path);
 
+#if SYSLOG_SEMIHOSTING_WRITE
         // syslog -> semihosting write
         BL_TRAMPOLINE_K(0x05055328, MCP_ALTBASE_ADDR(syslog_hook));
+#endif
 
 #if USB_SHRINKSHIFT
         BL_T_TRAMPOLINE_K(0x050078A0, MCP_ALTBASE_ADDR(hai_shift_data_offsets_t));
@@ -591,7 +597,7 @@ void kern_main()
         //ASM_PATCH_K(0x0500A778, ".thumb\nldr r0, [r0]\nbx pc\n.word 0xFFFFFFFF\n");
 
         // nop "COS encountered unrecoverable error..." IOS panic
-        /*ASM_PATCH_K(0x05034554, //0x05056B84,
+        /*ASM_PATCH_K(0x05034554,
             "nop\n"
             "nop\n"
         );*/
