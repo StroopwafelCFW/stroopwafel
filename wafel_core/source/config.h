@@ -83,9 +83,6 @@
 // Don't use MCP patches (useful for MenuChangers)
 #define MCP_PATCHES 1
 
-// WIP IOS process
-#define IOS_PROCESS 1
-
 // *****************************
 // Crypto config
 // *****************************

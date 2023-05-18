@@ -512,11 +512,12 @@ void kern_main()
         );
     }
 
+#if MCP_PATCHES
     // MCP
     {
         // MCP main thread hook
+        // TODO pull this from NOTES segment
         BL_TRAMPOLINE_K(0x05056718, MCP_ALTBASE_ADDR(mcp_entry));
-
 
         // some selective logging function : enable all the logging !
         BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT);
@@ -673,6 +674,7 @@ void kern_main()
         ASM_PATCH_K(0x05008814, ".thumb\nnop\n");
 #endif // OTP_IN_MEM
     }
+#endif // MCP_PATCHES
     
     // ACP
     {

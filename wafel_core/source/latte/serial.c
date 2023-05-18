@@ -1,6 +1,6 @@
-
 #include "serial.h"
 
+#include "config.h"
 #include "gpio.h"
 #include "utils.h"
 #include <string.h>

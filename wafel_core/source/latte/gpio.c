@@ -1,5 +1,6 @@
-
 #include "gpio.h"
+
+#include "config.h"
 #include "latte.h"
 #include "utils.h"
 #include <string.h>

@@ -49,13 +49,22 @@ wupserver/*.elf
 wupserver/*.map
 wupserver/syslog.txt
 
-# ios_process
-ios_process/build
-ios_process/debug
-ios_process/*.img
-ios_process/*.bin
-ios_process/*.elf
-ios_process/*.map
+# wafel_core
+wafel_core/build
+wafel_core/debug
+wafel_core/*.img
+wafel_core/*.bin
+wafel_core/*.elf
+wafel_core/*.map
+wafel_core.ipx
+
+# wafel_plugin_example
+wafel_plugin_example/build
+wafel_plugin_example/debug
+wafel_plugin_example/*.img
+wafel_plugin_example/*.bin
+wafel_plugin_example/*.elf
+wafel_plugin_example/*.map
 
 # extracted sections
 sections/*.bin

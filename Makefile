@@ -6,26 +6,25 @@ PATCHED_SECTIONS := $(addprefix patched_sections/, $(addsuffix .bin, $(SECTIONS)
 
 .PHONY: all clean
 
-all: ios.img ios.patch
+all: wafel_core.ipx
 
 sections/%.bin: $(INPUT)
 	@mkdir -p sections
 	python3 scripts/anpack.py -in $(INPUT) -e $*,$@
 
-extract: $(INPUT_SECTIONS)
+wafel_core.ipx: wafel_core/wafel_core.elf
+	@cp wafel_core/wafel_core.elf wafel_core.ipx
 
-ios_process/ios_process.elf:
-	@cd ios_process && make
+wafel_core/wafel_core.elf:
+	@cd wafel_core && make
 
 patched_sections/%.bin: sections/%.bin patches/%.s
 	@mkdir -p patched_sections
 	@echo patches/$*.s
 	@armips patches/$*.s
 
-patch: ios.patch $(PATCHED_SECTIONS)
-
-ios.img: $(INPUT) $(PATCHED_SECTIONS) ios_process/ios_process.elf
-	python3 scripts/anpack.py -nc -in $(INPUT) -out ios.img $(foreach s,$(SECTIONS),-r $(s),patched_sections/$(s).bin) $(foreach s,$(BSS_SECTIONS),-b $(s),patched_sections/$(s).bin) -proc 0x27C00000,ios_process/ios_process.elf
+ios.img: $(INPUT) $(PATCHED_SECTIONS) wafel_core/wafel_core.elf
+	python3 scripts/anpack.py -nc -in $(INPUT) -out ios.img $(foreach s,$(SECTIONS),-r $(s),patched_sections/$(s).bin) $(foreach s,$(BSS_SECTIONS),-b $(s),patched_sections/$(s).bin)
     
 ios.patch: ios.img salt-patch
 	./salt-patch
@@ -34,15 +33,18 @@ ifeq ($(OS),Windows_NT)
     SP_EXECNAME :=salt-patch.exe
 else
     SP_EXECNAME :=salt-patch
-    endif
+endif
 
 salt-patch: salt-patch-src/main.c
 	$(MAKE) -C salt-patch-src
 	cp salt-patch-src/$(SP_EXECNAME) .
 	chmod 755 ./$(SP_EXECNAME)
 
+extract: $(INPUT_SECTIONS)
+patch: ios.patch $(PATCHED_SECTIONS)
+
 clean:
 	@$(MAKE) -C salt-patch-src clean
-	@$(MAKE) -C ios_process clean
-	@rm -f fw.img ios.img ios.patch $(SP_EXECNAME)
+	@$(MAKE) -C wafel_core clean
+	@rm -f fw.img ios.img ios.patch wafel_core.ipx $(SP_EXECNAME)
 	@rm -rf patched_sections

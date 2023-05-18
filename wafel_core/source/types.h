@@ -1,6 +1,9 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+	// HACK/just in case
+	#include "config.h"
+
 	#include <stdint.h>
 	#include <stdbool.h>
 	#include <stddef.h>
