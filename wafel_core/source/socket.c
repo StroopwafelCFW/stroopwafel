@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "config.h"
 #include "socket.h"
 #include "ios/svc.h"
 

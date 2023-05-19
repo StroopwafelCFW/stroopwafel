@@ -1,5 +1,7 @@
 #!/bin/zsh
 
+export STROOPWAFEL_ROOT=$(pwd)
+
 make -C wafel_core clean
 make -C wafel_plugin_example clean
 make wafel_core.ipx

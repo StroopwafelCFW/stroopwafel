@@ -21,7 +21,7 @@ R_SOURCES			:=
 SOURCES				:=	source source/ios source/services source/wupserver source/latte
 
 R_INCLUDES			:=	
-INCLUDES 			:=	source
+INCLUDES 			:=	source include/wafel
 
 DATA				:=	
 

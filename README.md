@@ -22,6 +22,18 @@ Warnings:
   - `PRINT_FSAOPEN` is useful, but extremely slow
   - This is only tested on 5.5.x fw.imgs, I haven't ported to anything before that.
 
+## building
+```
+# Needed for plugins
+export STROOPWAFEL_ROOT=$(pwd)
+
+# wafel_core
+make wafel_core.ipx
+
+# plugin example
+make -C wafel_plugin_example
+```
+
 ## plugins
 TODO
 

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include "dynamic.h"
+#include <wafel/dynamic.h>
 
 #define LINKABLE __attribute__ ((weak))
 LINKABLE void debug_printf(const char *format, ...);

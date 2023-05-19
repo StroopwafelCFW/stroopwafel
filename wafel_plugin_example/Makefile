@@ -28,7 +28,7 @@ DATA				:=
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH			:=	-march=armv5te -mcpu=arm926ej-s -marm -mthumb-interwork -mbig-endian -mfloat-abi=soft -fPIE -fno-plt -fno-jump-tables -export-dynamic -s
+ARCH			:=	-march=armv5te -mcpu=arm926ej-s -marm -mthumb-interwork -mbig-endian -mfloat-abi=soft -fPIE -fno-jump-tables -export-dynamic -s -isystem $(STROOPWAFEL_ROOT)/wafel_core/include
 
 CFLAGS			:=	-g -std=c11 -Os \
 					-fomit-frame-pointer -fdata-sections -ffunction-sections \

@@ -1,5 +1,6 @@
 #include "dynamic.h"
 
+#include "config.h"
 #include "types.h"
 #include "imports.h"
 #include "ios/svc.h"
@@ -8,17 +9,33 @@
 
 extern void debug_printf(const char *format, ...);
 
-static int is_relocated = 0;
-uintptr_t dynamic_phys_base_addr = 0;
+extern int is_relocated;
+u32 _wafel_is_relocated(uintptr_t base);
+void _wafel_set_relocated(uintptr_t base);
 
-void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
+u32 _wafel_is_relocated(uintptr_t base)
+{
+    Elf32_Ehdr* hdr = (Elf32_Ehdr*)base;
+    uintptr_t base_entry = base + hdr->e_entry;
+
+    u32 ret = *(u32*)(base_entry + 0x14);
+    return ret;
+}
+
+void _wafel_set_relocated(uintptr_t base)
+{
+    Elf32_Ehdr* hdr = (Elf32_Ehdr*)base;
+    uintptr_t base_entry = base + hdr->e_entry;
+
+    *(u32*)(base_entry + 0x14) = 1;
+}
+
+void __wafel_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
 {
     const Elf32_Rel* rel = NULL;
     u64 relsz = 0;
 
-    if (is_relocated) return;
-
-    dynamic_phys_base_addr = base;
+    if (_wafel_is_relocated(base)) return;
 
     for (; dyn->d_tag != DT_NULL; dyn++)
     {
@@ -54,7 +71,7 @@ void __ios_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
         svc_sys_write("Failed to find DT_REL\n");
     }
 
-    is_relocated = 1;
+    _wafel_set_relocated(base);
 }
 
 uintptr_t ios_elf_vaddr_to_paddr(uintptr_t addr)

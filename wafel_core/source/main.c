@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+
+#include "config.h"
 #include "imports.h"
 #include "ios/svc.h"
 #include "ios/memory.h"
@@ -11,7 +13,6 @@
 #include "wupserver/wupserver.h"
 #include "dynamic.h"
 #include "utils.h"
-#include "config.h"
 #include "addrs_55x.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
@@ -339,39 +340,39 @@ const char* fsa_dev_register_hook(int a)
 void init_phdrs()
 {
     // Init memory mappings
-    Elf32_Phdr* phdr_base = ios_elf_add_phdr(dynamic_phys_base_addr);
+    Elf32_Phdr* phdr_base = ios_elf_add_phdr(wafel_plugin_base_addr);
 
     size_t code_trampoline_sz = 0x100000; // TODO?
 
     phdr_base->p_type = 1;   // LOAD
     phdr_base->p_offset = 0; // doesn't matter
-    phdr_base->p_vaddr = dynamic_phys_base_addr;
-    phdr_base->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
+    phdr_base->p_vaddr = wafel_plugin_base_addr;
+    phdr_base->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_base->p_filesz = CARVEOUT_SZ;
     phdr_base->p_memsz = CARVEOUT_SZ;
     phdr_base->p_flags = 7 | (0x1<<20); // RWX, MCP
     phdr_base->p_align = 1;
     phdr_base[-1].p_memsz -= CARVEOUT_SZ;
 
-    Elf32_Phdr* phdr_mcp = ios_elf_add_phdr(dynamic_phys_base_addr);
+    Elf32_Phdr* phdr_mcp = ios_elf_add_phdr(wafel_plugin_base_addr);
 
     // Add mirror at 0x05800000 for MCP trampolines
     phdr_mcp->p_type = 1;   // LOAD
     phdr_mcp->p_offset = 0; // doesn't matter
     phdr_mcp->p_vaddr = MCP_ALT_BASE;
-    phdr_mcp->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
+    phdr_mcp->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_mcp->p_filesz = 0;
     phdr_mcp->p_memsz = code_trampoline_sz;
     phdr_mcp->p_flags = 7 | (0x1<<20); // RWX, MCP
     phdr_mcp->p_align = 1;
 
-    Elf32_Phdr* phdr_fs = ios_elf_add_phdr(dynamic_phys_base_addr);
+    Elf32_Phdr* phdr_fs = ios_elf_add_phdr(wafel_plugin_base_addr);
 
     // Add mirror at 0x10600000 for FS trampolines
     phdr_fs->p_type = 1;   // LOAD
     phdr_fs->p_offset = 0; // doesn't matter
     phdr_fs->p_vaddr = FS_ALT_BASE;
-    phdr_fs->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
+    phdr_fs->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_fs->p_filesz = 0;
     phdr_fs->p_memsz = code_trampoline_sz;
     phdr_fs->p_flags = 7 | (0x1<<20); // RWX, MCP
@@ -382,11 +383,11 @@ void init_phdrs()
 
 void init_linking()
 {
-    wafel_register_plugin(dynamic_phys_base_addr);
-    debug_printf("kern_main symbol at: %08x\n", wafel_get_symbol_addr(dynamic_phys_base_addr, "kern_main"));
-    debug_printf("our module mem size is: %08x\n", wafel_plugin_max_addr(dynamic_phys_base_addr)-dynamic_phys_base_addr);
+    wafel_register_plugin(wafel_plugin_base_addr);
+    debug_printf("kern_main symbol at: %08x\n", wafel_get_symbol_addr(wafel_plugin_base_addr, "kern_main"));
+    debug_printf("our module mem size is: %08x\n", wafel_plugin_max_addr(wafel_plugin_base_addr)-wafel_plugin_base_addr);
     
-    uintptr_t next_plugin = dynamic_phys_base_addr;
+    uintptr_t next_plugin = wafel_plugin_base_addr;
     while (next_plugin)
     {
         next_plugin = wafel_plugin_next(next_plugin);
@@ -397,7 +398,7 @@ void init_linking()
         }
     }
 
-    next_plugin = dynamic_phys_base_addr;
+    next_plugin = wafel_plugin_base_addr;
     while (next_plugin)
     {
         next_plugin = wafel_plugin_next(next_plugin);
@@ -411,7 +412,7 @@ void init_linking()
 
 void init_plugins()
 {
-    uintptr_t next_plugin = dynamic_phys_base_addr;
+    uintptr_t next_plugin = wafel_plugin_base_addr;
     while (next_plugin)
     {
         next_plugin = wafel_plugin_next(next_plugin);
@@ -435,7 +436,7 @@ __attribute__((target("arm")))
 void kern_main()
 {
     // Make sure relocs worked fine and mappings are good
-    debug_printf("we in here kern %p\n", kern_main);
+    debug_printf("we in here kern %p, base %p\n", kern_main, wafel_plugin_base_addr);
 
     init_heap();
     init_phdrs();

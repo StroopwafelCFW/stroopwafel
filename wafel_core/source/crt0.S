@@ -11,10 +11,11 @@
 .extern memset
 .type memset, %function
 
-.extern __ios_dynamic
-.type __ios_dynamic, %function
+.extern __wafel_dynamic
+.type __wafel_dynamic, %function
 
 .globl next_plugin
+.globl wafel_plugin_base_addr
 
 .globl kern_entry
 .globl mcp_entry
@@ -30,8 +31,10 @@ mcp_entry:
 
 next_plugin:
 	.word 0x0
-	nop
-	nop
+is_relocated:
+	.word 0x0
+wafel_plugin_base_addr:
+	.word 0x0
 	nop
 
 kern_setup:
@@ -58,9 +61,14 @@ kern_setup:
 	adr r0, _start
 	ldr r1, _start_offs
 	sub r0, r0, r1
+
+	@ set base addr
+	adr r1, wafel_plugin_base_addr
+	str r0, [r1]
+
 	ldr r1, =__dynamic_start__
 	add r1, r0
-	bl __ios_dynamic
+	bl __wafel_dynamic
 
 	bl kern_main
 	ldr r0, =0xFFFF0000
