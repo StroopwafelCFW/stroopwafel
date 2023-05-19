@@ -28,4 +28,6 @@ extern uintptr_t dynamic_phys_base_addr;
 #define MCP_ALTBASE_ADDR(_addr) (((u32)_addr) - dynamic_phys_base_addr + MCP_ALT_BASE)
 #define FS_ALTBASE_ADDR(_addr) (((u32)_addr) - dynamic_phys_base_addr + FS_ALT_BASE)
 
+#define CARVEOUT_SZ (dynamic_phys_base_addr - 0x28000000)
+
 #endif // DYNAMIC_H

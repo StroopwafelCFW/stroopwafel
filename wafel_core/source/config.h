@@ -10,7 +10,6 @@
 
 #define MCP_ALT_BASE (0x05200000)
 #define FS_ALT_BASE (0x10600000)
-#define CARVEOUT_SZ (0x400000)
 
 // *****************************
 // Filesystem config

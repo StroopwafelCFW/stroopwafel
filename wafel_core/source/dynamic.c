@@ -167,7 +167,7 @@ uintptr_t wafel_plugin_max_addr(uintptr_t base)
             ret = end;
         }
     }
-    return ret;
+    return ALIGN_FORWARD(ret, 0x1000);
 }
 
 uintptr_t wafel_plugin_next(uintptr_t base)

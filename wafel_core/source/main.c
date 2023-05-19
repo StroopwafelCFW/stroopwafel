@@ -341,18 +341,17 @@ void init_phdrs()
     // Init memory mappings
     Elf32_Phdr* phdr_base = ios_elf_add_phdr(dynamic_phys_base_addr);
 
-    size_t carveout_sz = 0x400000; // TODO
     size_t code_trampoline_sz = 0x100000; // TODO?
 
     phdr_base->p_type = 1;   // LOAD
     phdr_base->p_offset = 0; // doesn't matter
     phdr_base->p_vaddr = dynamic_phys_base_addr;
     phdr_base->p_paddr = dynamic_phys_base_addr; // ramdisk is consistent so we can do this.
-    phdr_base->p_filesz = carveout_sz;
-    phdr_base->p_memsz = carveout_sz;
+    phdr_base->p_filesz = CARVEOUT_SZ;
+    phdr_base->p_memsz = CARVEOUT_SZ;
     phdr_base->p_flags = 7 | (0x1<<20); // RWX, MCP
     phdr_base->p_align = 1;
-    phdr_base[-1].p_memsz -= carveout_sz;
+    phdr_base[-1].p_memsz -= CARVEOUT_SZ;
 
     Elf32_Phdr* phdr_mcp = ios_elf_add_phdr(dynamic_phys_base_addr);
 
