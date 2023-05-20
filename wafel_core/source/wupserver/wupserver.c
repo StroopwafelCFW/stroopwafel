@@ -7,6 +7,7 @@
 #include "services/fsa.h"
 #include "ios/svc.h"
 #include "wupserver/text.h"
+#include "addrs_55x.h"
 
 void fsa_copydir(int fd, char* src, char* dst)
 {
@@ -27,7 +28,7 @@ void fsa_copydir(int fd, char* src, char* dst)
     }
     print_log(0, 0, "Created %s\n", dst);
     
-    directoryEntry_s *dir_entry = svcAlloc(0x00001, sizeof(directoryEntry_s));
+    directoryEntry_s *dir_entry = iosAlloc(0x00001, sizeof(directoryEntry_s));
     if(dir_entry == NULL)
     {
         print_log(0, 8, "Dir entry alloc failed, Aborting...\n", ret);
@@ -40,16 +41,16 @@ void fsa_copydir(int fd, char* src, char* dst)
     {
         print_log(0, 0, "read dir\n");
         // get new dst strs
-        char *src_str = svcAlloc(0x00001,0x100);
-        char *dst_str = svcAlloc(0x00001, 0x100);
+        char *src_str = iosAlloc(0x00001,0x100);
+        char *dst_str = iosAlloc(0x00001, 0x100);
         snprintf(src_str, 0x100, "%s/%s", src, dir_entry->name);
         snprintf(dst_str, 0x100, "%s/%s", dst, dir_entry->name);
         if(!src_str || !dst_str)
         {
             print_log(0, 8, "Failed to allocate copy stringnames!\n");
             FSA_CloseDir(fd, src_dir);
-            svcFree(0x00001, src_str);
-            svcFree(0x00001, dst_str);
+            iosFree(0x00001, src_str);
+            iosFree(0x00001, dst_str);
             return;
         }
         
@@ -57,14 +58,14 @@ void fsa_copydir(int fd, char* src, char* dst)
         if(dir_entry->dirStat.flags & 0x80000000)
         {
             fsa_copydir(fd, src_str, dst_str);
-            svcFree(0x00001, src_str);
-            svcFree(0x00001, dst_str);
+            iosFree(0x00001, src_str);
+            iosFree(0x00001, dst_str);
         }
         // copy a file
         else
         {
             u32 block_size = 2*1024*1024; // 2MB
-            u8* filebuf = svcAlloc(0x00001, block_size);
+            u8* filebuf = iosAlloc(0x00001, block_size);
             if(!filebuf)
             {
                 print_log(0, 8, "Failed to allocate filebuf!\n");
@@ -76,7 +77,7 @@ void fsa_copydir(int fd, char* src, char* dst)
             if(ret)
             {
                 print_log(0, 8, "Open src file %s failed! %X\n", src_str, ret);
-                svcFree(0x00001, filebuf);
+                iosFree(0x00001, filebuf);
                 FSA_CloseDir(fd, src_dir);
                 return;
             }
@@ -84,7 +85,7 @@ void fsa_copydir(int fd, char* src, char* dst)
             if(ret)
             {
                 print_log(0, 8, "Open dst file %s failed! %X\n", dst_str, ret);
-                svcFree(0x00001, filebuf);
+                iosFree(0x00001, filebuf);
                 FSA_CloseFile(fd, f_src);
                 FSA_CloseDir(fd, src_dir);
                 return;
@@ -93,8 +94,8 @@ void fsa_copydir(int fd, char* src, char* dst)
             // print filename and free all our strings
             size_t fsize = dir_entry->dirStat.size;
             print_log(0, 16, "%s size: 0x%X\n", dst_str, fsize);
-            svcFree(0x00001, src_str);
-            svcFree(0x00001, dst_str);
+            iosFree(0x00001, src_str);
+            iosFree(0x00001, dst_str);
             
             // copy!!
             u32 cur_offset = 0;
@@ -121,12 +122,12 @@ void fsa_copydir(int fd, char* src, char* dst)
             }
             FSA_CloseFile(fd, f_dst);
             FSA_CloseFile(fd, f_src);
-            svcFree(0x00001, filebuf);
+            iosFree(0x00001, filebuf);
             ret = FSA_ChangeMode(fd, dst, 0x666);
             if(ret) print_log(0, 8, "FSA_ChangeMode returned %d\n", ret);
         }
     }
-    svcFree(0x00001, dir_entry);
+    iosFree(0x00001, dir_entry);
     FSA_CloseDir(fd, src_dir);
 }
 
@@ -180,7 +181,7 @@ int serverCommandHandler(u32* command_buffer, u32 length, int sock)
 
                 // return error code as data
                 out_length = 8;
-                command_buffer[1] = ((int (*const)(u32, u32, u32, u32, u32, u32, u32, u32))(MCP_SVC_BASE + svc_id * 8))(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], arguments[7]);
+                command_buffer[1] = ((int (*const)(u32, u32, u32, u32, u32, u32, u32, u32))(wafel_SyscallTable[svc_id]))(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], arguments[7]);
             }
             break;
         case 3:
@@ -220,12 +221,12 @@ int serverCommandHandler(u32* command_buffer, u32 length, int sock)
                         else
                         {
                             *dst = value;
-                            svcFlushDCache(cache_range, 0x100);
+                            iosFlushDCache(cache_range, 0x100);
                             break;
                         }
                     }else
                     {
-                        svcInvalidateDCache(cache_range, 0x100);
+                        iosInvalidateDCache(cache_range, 0x100);
                         usleep(50);
                     }
                 }
@@ -412,7 +413,7 @@ u32 wupserver_main(void* arg)
         mount_sd(fsa_fd, "/vol/sdcard/");
         wait_storages_ready(fsa_fd);
 
-        int mcp_handle = svcOpen("/dev/mcp", 0);
+        int mcp_handle = iosOpen("/dev/mcp", 0);
         print(0,8,"%08x", mcp_handle);
 
         int ret = MCP_InstallTarget(mcp_handle, 0);
@@ -424,8 +425,8 @@ u32 wupserver_main(void* arg)
         ret = MCP_Install(mcp_handle, "/vol/sdcard/test_install");
         print(0,16,"install : %08x", ret);
 
-        svcClose(mcp_handle);
-        //svcClose(fd);
+        iosClose(mcp_handle);
+        //iosClose(fd);
     }
 #endif
     

@@ -13,6 +13,29 @@
 .extern iosSignalSemaphore
 .extern iosDestroySemaphore
 
+.extern otp_store
+
+.globl otp_read_replace_hacky
+.globl otp_read_replace_hacky_end
+otp_read_replace_hacky:
+     ldr r3, =otp_store
+     bic r2, r2, #3
+     add r0, r3, r0,lsl#2
+     add r2, r1, r2
+
+otp_read_replace_hacky_label1:
+     cmp r1, r2
+     bne otp_read_replace_hacky_label2
+     mov r0, #0
+     bx lr
+
+otp_read_replace_hacky_label2:
+     ldr r3, [r0],#4
+     str r3, [r1],#4
+     b otp_read_replace_hacky_label1
+.pool
+otp_read_replace_hacky_end:
+.word 0x0
 
 @ jump here on add r7, sp, #0x24
 .global ancast_crypt_check
@@ -155,7 +178,7 @@ ppc_jump_stub:
     str r2, [r3]
 
     mov r1, #0x18 @ size
-    b svcFlushDCache
+    b iosFlushDCache
 
 @ r0 = location, r1 = entry
 ppc_wait_stub:
@@ -242,7 +265,7 @@ ppc_wait_stub:
 
     mov r1, #0x3C   @ size
     pop {lr}
-    b svcFlushDCache
+    b iosFlushDCache
 
 .pool
 
@@ -322,7 +345,7 @@ ppc_hook_post:
     _ppc_wait_race:
         mov r0, r5
         mov r1, #4
-        bl svcInvalidateDCache
+        bl iosInvalidateDCache
         ldr r6, [r5]
         cmp r4, r6
         @ bang!
@@ -331,7 +354,7 @@ ppc_hook_post:
         @ check the rom-trace code for a panic
         mov r0, r7
         mov r1, #4
-        bl svcInvalidateDCache
+        bl iosInvalidateDCache
         ldr r6, [r7]
         lsr r6, r6, #24
         cmp r6, #0
@@ -367,7 +390,7 @@ ppc_hook_post:
     _ppc_wait_entry:
         mov r0, r7
         mov r1, #4
-        bl svcInvalidateDCache
+        bl iosInvalidateDCache
 
         mov r0, r7
         mov r1, #0
@@ -407,7 +430,7 @@ ppc_hook_post:
     @ flush it to MEM0
         ldr r0, =0x08000000
         ldr r1, =0x120000
-        bl svcFlushDCache
+        bl iosFlushDCache
 
     @ unmap the kernel memory
         ldr r0, =0x08000000
@@ -419,10 +442,10 @@ ppc_hook_post:
         mov r0, r7
         str r1, [r0]
         mov r1, #4
-        bl svcFlushDCache
+        bl iosFlushDCache
 
     @ we replace this and now its time to run it
-        bl svcFlushIPCServer
+        bl iosFlushIPCServer
 
     @ return to the original code
         add sp, #12

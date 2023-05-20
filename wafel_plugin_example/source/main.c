@@ -3,9 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <wafel/dynamic.h>
-
-#define LINKABLE __attribute__ ((weak))
-LINKABLE void debug_printf(const char *format, ...);
+#include <wafel/utils.h>
 
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches

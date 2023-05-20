@@ -10,7 +10,7 @@ int ifmgrnclInit()
 {
 	if(ifmgrncl_handle) return ifmgrncl_handle;
 	
-	int ret = svcOpen("/dev/net/ifmgr/ncl", 0);
+	int ret = iosOpen("/dev/net/ifmgr/ncl", 0);
 
 	if(ret > 0)
 	{
@@ -23,7 +23,7 @@ int ifmgrnclInit()
 
 int ifmgrnclExit()
 {
-	int ret = svcClose(ifmgrncl_handle);
+	int ret = iosClose(ifmgrncl_handle);
 
 	ifmgrncl_handle = 0;
 
@@ -32,7 +32,7 @@ int ifmgrnclExit()
 
 static void* allocIobuf(u32 size)
 {
-	void* ptr = svcAlloc(0xCAFF, size);
+	void* ptr = iosAlloc(0xCAFF, size);
 
 	if(ptr) memset(ptr, 0x00, size);
 
@@ -41,7 +41,7 @@ static void* allocIobuf(u32 size)
 
 static void freeIobuf(void* ptr)
 {
-	svcFree(0xCAFF, ptr);
+	iosFree(0xCAFF, ptr);
 }
 
 int	IFMGRNCL_GetInterfaceStatus(u16 interface_id, u16* out_status)
@@ -53,7 +53,7 @@ int	IFMGRNCL_GetInterfaceStatus(u16 interface_id, u16* out_status)
 
 	inbuf[0] = interface_id;
 
-	int ret = svcIoctl(ifmgrncl_handle, 0x14, inbuf, 0x2, outbuf, 0x8);
+	int ret = iosIoctl(ifmgrncl_handle, 0x14, inbuf, 0x2, outbuf, 0x8);
 
 	if(!ret && out_status) *out_status = outbuf[2];
 

@@ -169,8 +169,8 @@ static inline u8 mask8(u32 addr, u8 clear, u8 set)
     return data;
 }
 
-void udelay(u32 d);
-void debug_printf(const char *format, ...);
+LINKABLE void udelay(u32 d);
+LINKABLE void debug_printf(const char *format, ...);
 
 #define PTR_OFFS(a, b) ((void*)(((intptr_t)a) + b))
 

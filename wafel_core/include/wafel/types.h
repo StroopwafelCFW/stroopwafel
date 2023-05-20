@@ -1,5 +1,5 @@
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef WAFEL_TYPES_H
+#define WAFEL_TYPES_H
 
 	#include <stdint.h>
 	#include <stdbool.h>
@@ -27,4 +27,6 @@
 	typedef volatile s32 vs32;
 	typedef volatile s64 vs64;
 
-#endif
+	#define LINKABLE __attribute__ ((weak)) __attribute__((used))
+
+#endif // WAFEL_TYPES_H

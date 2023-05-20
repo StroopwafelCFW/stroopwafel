@@ -4,6 +4,7 @@
 #include <stdarg.h>
 
 #include "config.h"
+#include "bm.h"
 #include "imports.h"
 #include "ios/svc.h"
 #include "ios/memory.h"
@@ -12,18 +13,19 @@
 #include "latte/serial.h"
 #include "wupserver/wupserver.h"
 #include "dynamic.h"
+#include "ios_dynamic.h"
 #include "utils.h"
 #include "addrs_55x.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
-#define MCP_SYSLOG_OUTPUT (0x0503DCF8)
-#define FS_GET_SPECIFIC_DEVNAME_HOOK (0x107112B0)
 
 u32 main_thread(void*);
 extern void kern_entry();
 extern void mcp_entry();
 extern void svc_handler_hook();
 extern void* old_svc_handler;
+extern int otp_read_replace_hacky(int which_word, u32 *pOut, unsigned int len);
+extern void otp_read_replace_hacky_end();
 extern void ancast_crypt_check();
 extern void launch_os_hook();
 extern void syslog_hook();
@@ -55,6 +57,8 @@ extern void registerMdDevice_hook();
 
 const char* fw_img_path = "/vol/sdcard";
 
+static int is_55x = 0;
+
 const u32 mcpIoMappings_patch[6*3] = 
 {
     // mapping 1
@@ -81,7 +85,6 @@ const u32 mcpIoMappings_patch[6*3] =
     0x00000003, // ?
     0x00000000, // ?
 };
-        
 
 #define _U32_PATCH(_addr, _val, _copy_fn) { \
     _copy_fn((uintptr_t)_addr, (u32)_val); \
@@ -116,6 +119,21 @@ const u32 mcpIoMappings_patch[6*3] =
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
 }
 
+#define ARRARG(...) {__VA_ARGS__}
+#define _SEARCH_PATCH(_search, _start_addr, _next_macro, ...) {                                            \
+    u8 search[] = ARRARG _search;                                                                          \
+    uintptr_t _addr = (uintptr_t)boyer_moore_search((void*)_start_addr, 0x200000, search, sizeof(search)); \
+    if (!_addr) {                                                                                          \
+        debug_printf("Failed to find search pattern!\n");                                                  \
+        for (int i = 0; i < sizeof(search); i++) {                                                         \
+            debug_printf("%02x ", search[i]);                                                              \
+        }                                                                                                  \
+        debug_printf("\n");                                                                                \
+        while(1);                                                                                          \
+    }                                                                                                      \
+    _next_macro(_addr, __VA_ARGS__);                                                                       \
+}
+
 //
 // Pre-MMU -- Lookups done manually
 //
@@ -134,6 +152,14 @@ static void _patch_copy_k(uintptr_t dst, uintptr_t src, size_t sz)
 #define BL_TRAMPOLINE_K(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32_k)
 #define BL_T_TRAMPOLINE_K(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32_k)
 #define BRANCH_PATCH_K(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32_k)
+
+#define MEMCPY_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, MEMCPY_K, __VA_ARGS__)
+#define U32_PATCH_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, U32_PATCH_K, __VA_ARGS__)
+#define ASM_PATCH_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, ASM_PATCH_K, __VA_ARGS__)
+#define BL_TRAMPOLINE_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_TRAMPOLINE_K, __VA_ARGS__)
+#define BL_T_TRAMPOLINE_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_T_TRAMPOLINE_K, __VA_ARGS__)
+#define BRANCH_PATCH_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BRANCH_PATCH_K, __VA_ARGS__)
+
 
 //
 // Post-MMU
@@ -155,6 +181,14 @@ static void _patch_copy(uintptr_t dst, uintptr_t src, size_t sz)
 #define BL_TRAMPOLINE(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32)
 #define BL_T_TRAMPOLINE(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32)
 #define BRANCH_PATCH(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32)
+
+#define MEMCPY_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, MEMCPY, __VA_ARGS__)
+#define U32_PATCH_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, U32_PATCH, __VA_ARGS__)
+#define ASM_PATCH_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, ASM_PATCH, __VA_ARGS__)
+#define BL_TRAMPOLINE_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_TRAMPOLINE, __VA_ARGS__)
+#define BL_T_TRAMPOLINE_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_T_TRAMPOLINE, __VA_ARGS__)
+#define BRANCH_PATCH_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BRANCH_PATCH, __VA_ARGS__)
+
 
 extern u32 otp_store[0x400/4];
 
@@ -350,7 +384,7 @@ void init_phdrs()
     phdr_base->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_base->p_filesz = CARVEOUT_SZ;
     phdr_base->p_memsz = CARVEOUT_SZ;
-    phdr_base->p_flags = 7 | (0x1<<20); // RWX, MCP
+    phdr_base->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_MCP); // RWX, MCP
     phdr_base->p_align = 1;
     phdr_base[-1].p_memsz -= CARVEOUT_SZ;
 
@@ -363,7 +397,7 @@ void init_phdrs()
     phdr_mcp->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_mcp->p_filesz = 0;
     phdr_mcp->p_memsz = code_trampoline_sz;
-    phdr_mcp->p_flags = 7 | (0x1<<20); // RWX, MCP
+    phdr_mcp->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_MCP);
     phdr_mcp->p_align = 1;
 
     Elf32_Phdr* phdr_fs = ios_elf_add_phdr(wafel_plugin_base_addr);
@@ -375,7 +409,7 @@ void init_phdrs()
     phdr_fs->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_fs->p_filesz = 0;
     phdr_fs->p_memsz = code_trampoline_sz;
-    phdr_fs->p_flags = 7 | (0x1<<20); // RWX, MCP
+    phdr_fs->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_MCP); // RWX, MCP
     phdr_fs->p_align = 1;
 
     ios_elf_print_map();
@@ -428,24 +462,64 @@ void init_plugins()
     }
 }
 
-// This fn runs before everything else in kernel mode.
-// It should be used to do extremely early patches
-// (ie to BSP and kernel, which launches before MCP)
-// It jumps to the real IOS kernel entry on exit.
-__attribute__((target("arm")))
-void kern_main()
+void patch_general()
 {
-    // Make sure relocs worked fine and mappings are good
-    debug_printf("we in here kern %p, base %p\n", kern_main, wafel_plugin_base_addr);
+    // KERNEL
+    {
+#if OTP_IN_MEM
+        u8 otp_pattern[8] = {0xE5, 0x85, 0x31, 0xEC, 0xE0, 0x84, 0x00, 0x07};
+        uintptr_t otp_read_addr = (uintptr_t)boyer_moore_search((void*)0x08100000, 0x100000, otp_pattern, sizeof(otp_pattern));
 
-    init_heap();
-    init_phdrs();
-    init_linking();
+        debug_printf("wafel_core: found OTP read pattern 1 at %08x...\n", otp_read_addr);
+        u32* search_2 = (u32*)otp_read_addr;
+        for (int i = 0; i < 0x100; i++) {
+            if (*search_2 == 0xE92D47F0) // push {r4-r10, lr}
+            {
+                break;
+            }
 
-    // TODO verify the bytes that are overwritten?
-    // and/or search for instructions where critical (OTP)
-    // TODO don't hardcode ramdisk carveout size
+            otp_read_addr -= 4;
+            search_2--;
+        }
+        debug_printf("wafel_core: found OTP read at %08x.\n", otp_read_addr);
 
+        // patch OTP to read from memory
+#if 0
+        ASM_PATCH_K(otp_read_addr, 
+            "ldr r3, _otp_read_hook\n"
+            "bx r3\n"
+            "_otp_read_hook: .word otp_read_replace");
+#endif
+
+        // Hacky: copy an ASM stub instead, because our permissions might not be
+        // kosher w/o more patches generalized
+        memcpy(otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
+#endif // OTP_IN_MEM
+
+        // Early MMU mapping
+        // (For some reason they map 0x28000000 twice, so it's really easy for us)
+        ASM_PATCH_SK(
+            (0xE1, 0xA0, 0x10, 0x00, 0xE3, 0xA0, 0x23, 0x2A),
+            0x08100000,
+            "mov r2, #0x400000\n"
+            "sub r1, r0, r2\n"
+            "mov r0, r1\n"
+        );
+    }
+
+    // MCP
+    {
+        // MCP main thread hook
+        //BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
+    }
+    
+
+    // search 
+    // then search back 
+}
+
+void patch_55x()
+{
     // KERNEL
     {
         // take down the hardware memory protection (XN) driver just as it's finished initializing
@@ -454,7 +528,7 @@ void kern_main()
         //
         U32_PATCH_K(0x08140DE0, (u32)mcpIoMappings_patch); // ptr to iomapping structs
         U32_PATCH_K(0x08140DE4, 0x00000003); // number of iomappings
-        U32_PATCH_K(0x08140DE8, 0x00000001); // pid (MCP)
+        U32_PATCH_K(0x08140DE8, IOS_MCP); // pid
 
         // patch domains
         ASM_PATCH_K(0x081253C4,
@@ -484,14 +558,6 @@ void kern_main()
         // Always pass pointer checks
         //ASM_PATCH_K(0x081249C0, "mov r0, #0x0\nbx lr\n");
         ASM_PATCH_K(0x08124AD8, "mov r0, #0x0\nbx lr\n");
-
-#if OTP_IN_MEM
-        // patch OTP to read from memory
-        ASM_PATCH_K(0x08120248, 
-            "ldr r3, _otp_read_hook\n"
-            "bx r3\n"
-            "_otp_read_hook: .word otp_read_replace");
-#endif
 
         // skip 49mb memclear for faster loading.
         ASM_PATCH_K(0x812A088, 
@@ -529,14 +595,6 @@ void kern_main()
         old_svc_handler = (void*)(*(u32*)0xFFFF0028);
         *(u32*)0xFFFF0028 = (u32)svc_handler_hook;
 #endif
-
-        // Early MMU mapping
-        // (For some reason they map 0x28000000 twice, so it's really easy for us)
-        ASM_PATCH_K(0x08122768,
-            "mov r2, #0x400000\n"
-            "sub r1, r0, r2\n"
-            "mov r0, r1\n"
-        );
     }
 
     // BSP
@@ -563,12 +621,12 @@ void kern_main()
 #if MCP_PATCHES
     // MCP
     {
+        // TODO: move this to general patches after early MMU stuff is generalized
         // MCP main thread hook
-        // TODO pull this from NOTES segment
-        BL_TRAMPOLINE_K(0x05056718, MCP_ALTBASE_ADDR(mcp_entry));
+        BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
 
         // some selective logging function : enable all the logging !
-        BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT);
+        BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT_ADDR);
 
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
@@ -789,7 +847,7 @@ void kern_main()
         // extra check? lol
         BRANCH_PATCH_K(0x1078E074, 0x1078E084);
 
-        BL_TRAMPOLINE_K(FS_GET_SPECIFIC_DEVNAME_HOOK, FS_ALTBASE_ADDR(fsa_dev_register_hook));
+        BL_TRAMPOLINE_K(FS_GET_SPECIFIC_DEVNAME_HOOK_ADDR, FS_ALTBASE_ADDR(fsa_dev_register_hook));
 #endif
 
         //  usb redirection and crypto disable
@@ -875,6 +933,31 @@ void kern_main()
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
 #endif
     }
+}
+
+// This fn runs before everything else in kernel mode.
+// It should be used to do extremely early patches
+// (ie to BSP and kernel, which launches before MCP)
+// It jumps to the real IOS kernel entry on exit.
+__attribute__((target("arm")))
+void kern_main()
+{
+    // Make sure relocs worked fine and mappings are good
+    debug_printf("we in here kern %p, base %p\n", kern_main, wafel_plugin_base_addr);
+
+    init_heap();
+    init_phdrs();
+    init_linking();
+
+    // TODO verify the bytes that are overwritten?
+    // and/or search for instructions where critical (OTP)
+    // TODO don't hardcode ramdisk carveout size
+
+    is_55x = (ios_elf_get_module_entrypoint(IOS_MCP) == 0x05056718);
+    patch_general();
+    if (is_55x) {
+        patch_55x();
+    }
 
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
@@ -902,16 +985,16 @@ void mcp_main()
 
     // Start up iosuhax service
     u8* main_stack = (u8*)malloc_global(0x1000);
-    int main_threadhand = svcCreateThread(main_thread, NULL, (u32*)(main_stack+0x1000), 0x1000, 0x78, 1);
+    int main_threadhand = iosCreateThread(main_thread, NULL, (u32*)(main_stack+0x1000), 0x1000, 0x78, 1);
     if (main_threadhand >= 0) {
-        svcStartThread(main_threadhand);
+        iosStartThread(main_threadhand);
     }
 
     // Start up wupserver
     u8* wupserver_stack = (u8*)malloc_global(0x1000);
-    int wupserver_threadhand = svcCreateThread(wupserver_main, NULL, (u32*)(wupserver_stack+0x1000), 0x1000, 0x78, 1);
+    int wupserver_threadhand = iosCreateThread(wupserver_main, NULL, (u32*)(wupserver_stack+0x1000), 0x1000, 0x78, 1);
     if (wupserver_threadhand >= 0) {
-        svcStartThread(wupserver_threadhand);
+        iosStartThread(wupserver_threadhand);
     }
 }
 

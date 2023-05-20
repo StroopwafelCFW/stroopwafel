@@ -2,238 +2,293 @@
 .arm
 .align 4
 
+.macro SVC_MACRO _idx,_name
+.arm
+.global \_name
+.type \_name, %function
+.weak \_name
+\_name\():
+	.word (0xE7F000F0 | \_idx << 8)
+	bx lr
+.endm
+
 .extern semihosting_handler
 
-.arm
-.global svcCreateThread
-.type svcCreateThread, %function
-svcCreateThread:
-	.word (0xE7F000F0 | 0x0 << 8)
-	bx lr
+.global _wafel_SyscallStart
+_wafel_SyscallStart:
 
-.arm
-.global svcJoinThread
-.type svcJoinThread, %function
-svcJoinThread:
-	.word (0xE7F000F0 | 0x1 << 8)
-	bx lr
+SVC_MACRO 0x00, iosCreateThread
+SVC_MACRO 0x01, iosJoinThread
+SVC_MACRO 0x02, iosCancelThread
+SVC_MACRO 0x03, iosGetThreadId
+SVC_MACRO 0x04, iosAccessIpcBufferPool
+SVC_MACRO 0x05, iosGetProcessId
+SVC_MACRO 0x07, iosStartThread
+SVC_MACRO 0x08, iosStopThread
+SVC_MACRO 0x09, iosYieldThread
+SVC_MACRO 0x0A, iosGetThreadPriority
+SVC_MACRO 0x0B, iosSetThreadPriority
+SVC_MACRO 0x0C, iosCreateMessageQueue
+SVC_MACRO 0x0D, iosDestroyMessageQueue
+SVC_MACRO 0x0E, iosSendMessage
+SVC_MACRO 0x0F, iosJamMessage
+SVC_MACRO 0x10, iosReceiveMessage
+SVC_MACRO 0x11, iosHandleEvent
+SVC_MACRO 0x12, iosUnhandleEvent
+SVC_MACRO 0x13, iosCreateTimer
+SVC_MACRO 0x14, iosRestartTimer
+SVC_MACRO 0x15, iosStopTimer
+SVC_MACRO 0x16, iosDestroyTimer
+SVC_MACRO 0x17, iosGetTimestamp
+SVC_MACRO 0x18, iosTimeNow
+SVC_MACRO 0x19, iosGetUpTimeStruct
+SVC_MACRO 0x1A, iosGetUpTime64
+SVC_MACRO 0x1B, iosSetRtcCounter
+SVC_MACRO 0x1C, iosGetAbsTimeCalendar
+SVC_MACRO 0x1D, iosGetAbsTime64
+SVC_MACRO 0x1E, iosGetAbsTimeStruct
+SVC_MACRO 0x1F, iosset_fault_behavior
+SVC_MACRO 0x20, iosCheckDebugMode
+SVC_MACRO 0x21, iosCheckJTAG
+SVC_MACRO 0x22, iosReadOTP
+SVC_MACRO 0x23, iosCreateHeap
+SVC_MACRO 0x24, iosCreateLocalProcessHeap
+SVC_MACRO 0x25, iosCreateCrossProcessHeap
+SVC_MACRO 0x26, iosDestroyHeap
+SVC_MACRO 0x27, iosAlloc
+SVC_MACRO 0x28, iosAllocAligned
+SVC_MACRO 0x29, iosFree
+SVC_MACRO 0x2A, iosFreeAndClear
+SVC_MACRO 0x2B, iosExpandHeap
+SVC_MACRO 0x2C, iosRegisterResourceManager
+SVC_MACRO 0x2D, iosDeviceAssociate
+SVC_MACRO 0x2E, iosDeviceSetFlags
+SVC_MACRO 0x2F, iosSetClient_capabilities
+SVC_MACRO 0x30, iosClearClientCapabilities
+SVC_MACRO 0x31, iosQueryClientCapabilities
+SVC_MACRO 0x32, iosQueryFeatureId
+SVC_MACRO 0x33, iosOpen
+SVC_MACRO 0x34, iosClose
+SVC_MACRO 0x35, iosRead
+SVC_MACRO 0x36, iosWrite
+SVC_MACRO 0x37, iosSeek
+SVC_MACRO 0x38, iosIoctl
+SVC_MACRO 0x39, iosIoctlv
+SVC_MACRO 0x3A, iosOpenAsync
+SVC_MACRO 0x3B, iosCloseAsync
+SVC_MACRO 0x3C, iosReadAsync
+SVC_MACRO 0x3D, iosWriteAsync
+SVC_MACRO 0x3E, iosSeekAsync
+SVC_MACRO 0x3F, iosIoctlAsync
+SVC_MACRO 0x40, iosIoctlvAsync
+SVC_MACRO 0x41, iosopen_as_async
+SVC_MACRO 0x42, ioswrite_as_async
+SVC_MACRO 0x43, iosIpcResume
+SVC_MACRO 0x44, iosIpcSuspend
+SVC_MACRO 0x45, iosIpcSvcMsg
+SVC_MACRO 0x46, iosIpcResumeAsync
+SVC_MACRO 0x47, iosIpcSuspendAsync
+SVC_MACRO 0x48, iosIpcSvcmsgAsync
+SVC_MACRO 0x49, iosResourceReply
+SVC_MACRO 0x4A, iosSetProcUnkParams
+SVC_MACRO 0x4B, iosGetProcUnkParams
+SVC_MACRO 0x4C, iosAhbMemFlush
+SVC_MACRO 0x4D, iosAhbFlushFrom
+SVC_MACRO 0x4E, iosAhbFlushCheck
+SVC_MACRO 0x4F, iosAhbFlushTo
+SVC_MACRO 0x50, iosIrqEnable
+SVC_MACRO 0x51, iosInvalidateDCache
+SVC_MACRO 0x52, iosFlushDCache
+SVC_MACRO 0x53, iosExecutePrivileged
+SVC_MACRO 0x54, iosget_unk_flags1
+SVC_MACRO 0x55, iosget_unk_flags2
+SVC_MACRO 0x56, iosVirtToPhys
+SVC_MACRO 0x57, iosCreateSemaphore
+SVC_MACRO 0x58, iosWaitSemaphore
+SVC_MACRO 0x59, iosSignalSemaphore
+SVC_MACRO 0x5A, iosDestroySemaphore
+SVC_MACRO 0x5B, iosFlushIPCServer
+SVC_MACRO 0x5C, iosSetBspReady
+SVC_MACRO 0x5D, iosCheckIosAddrRange
+SVC_MACRO 0x5E, iosCheckPpcAddrRange
+SVC_MACRO 0x5F, iosInitMem1Ppc
+SVC_MACRO 0x60, iosGetIopCpuUtilization
+SVC_MACRO 0x61, iosGetThreadStackInfo
+SVC_MACRO 0x62, iosThreadProfileCommand
+SVC_MACRO 0x63, iosGetThreadUtilization
+SVC_MACRO 0x64, iosDumpThreadContext
+SVC_MACRO 0x65, iosDumpThreadProfile
+SVC_MACRO 0x66, iosGetMessageUtilization
+SVC_MACRO 0x67, iosGetAggregateResourceUtilization
+SVC_MACRO 0x68, iosGetPerProcessResourceUtilization
+SVC_MACRO 0x69, iosGetTimerUtilization
+SVC_MACRO 0x6A, iosGetSemaphoreUtilization
+SVC_MACRO 0x6B, iosGetHeapProfile
+SVC_MACRO 0x6C, iosSetIop2x
+SVC_MACRO 0x6D, iosSetPpcBootParams
+SVC_MACRO 0x6E, iosGetSyscfgRegisterValue
+SVC_MACRO 0x6F, iosClearSyscfgRegisterValue
+SVC_MACRO 0x70, iosSetSyscfgRegisterValue
+SVC_MACRO 0x71, iosCheckSyscfgFlag
+SVC_MACRO 0x72, iosShutdown
+SVC_MACRO 0x73, iosPanic
+SVC_MACRO 0x74, iosReset
+SVC_MACRO 0x75, iosSetPanicBehavior
+SVC_MACRO 0x76, iosSetSyslogBuffer
+SVC_MACRO 0x77, iosLoadPpcKernel
+SVC_MACRO 0x78, iosLoadPpcApp
+SVC_MACRO 0x79, iosSetSecurityLevel
+SVC_MACRO 0x7A, iosGetSecurityLevel
+SVC_MACRO 0x7B, iosGetOpenResourceHandles
+SVC_MACRO 0x7C, iosSetMainTitleSdkVersion
+SVC_MACRO 0x7D, iosGetMainTitleSdkVersion
+SVC_MACRO 0x7E, iosGetDynamicHeapAccess
+SVC_MACRO 0x7F, iosStartGpuConfigValidation
+SVC_MACRO 0x80, iosFinishGpuConfigValidation
+SVC_MACRO 0x81, iosreturn_null
+SVC_MACRO 0x82, iosGetResourceViolations
+SVC_MACRO 0x83, iosDeviceGetClientHandles
+SVC_MACRO 0x84, iosDeviceDisableRegistration
+SVC_MACRO 0x85, iosGetPendingResourceRequests
+SVC_MACRO 0x86, iosLaunchOS
+SVC_MACRO 0x87, iosEXIReset
 
-.arm
-.global svcCancelThread
-.type svcCancelThread, %function
-svcCancelThread:
-	.word (0xE7F000F0 | 0x2 << 8)
-	bx lr
-
-.arm
-.global svcGetThreadId
-.type svcGetThreadId, %function
-svcGetThreadId:
-	.word (0xE7F000F0 | 0x3 << 8)
-	bx lr
-
-.arm
-.global svcStartThread
-.type svcStartThread, %function
-svcStartThread:
-	.word (0xE7F000F0 | 0x7 << 8)
-	bx lr
-
-.arm
-.global svcSuspendThread
-.type svcSuspendThread, %function
-svcSuspendThread:
-	.word (0xE7F000F0 | 0x8 << 8)
-	bx lr
-
-.arm
-.global svcYieldThread
-.type svcYieldThread, %function
-svcYieldThread:
-	.word (0xE7F000F0 | 0x9 << 8)
-	bx lr
-
-.arm
-.global iosCreateMessageQueue
-.type iosCreateMessageQueue, %function
-iosCreateMessageQueue:
-	.word (0xE7F000F0 | 0xC << 8)
-	bx lr
-
-.arm
-.global iosDestroyMessageQueue
-.type iosDestroyMessageQueue, %function
-iosDestroyMessageQueue:
-	.word (0xE7F000F0 | 0xD << 8)
-	bx lr
-
-.arm
-.global iosSendMessage
-.type iosSendMessage, %function
-iosSendMessage:
-	.word (0xE7F000F0 | 0xE << 8)
-	bx lr
-
-.arm
-.global iosJamMessage
-.type iosJamMessage, %function
-iosJamMessage:
-	.word (0xE7F000F0 | 0xF << 8)
-	bx lr
-
-.arm
-.global iosReceiveMessage
-.type iosReceiveMessage, %function
-iosReceiveMessage:
-	.word (0xE7F000F0 | 0x10 << 8)
-	bx lr
-
-.arm
-.global iosCreateTimer
-.type iosCreateTimer, %function
-iosCreateTimer:
-	.word (0xE7F000F0 | 0x13 << 8)
-	bx lr
-
-.arm
-.global iosRestartTimer
-.type iosRestartTimer, %function
-iosRestartTimer:
-	.word (0xE7F000F0 | 0x14 << 8)
-	bx lr
-
-.arm
-.global iosStopTimer
-.type iosStopTimer, %function
-iosStopTimer:
-	.word (0xE7F000F0 | 0x15 << 8)
-	bx lr
-
-.arm
-.global iosDestroyTimer
-.type iosDestroyTimer, %function
-iosDestroyTimer:
-	.word (0xE7F000F0 | 0x16 << 8)
-	bx lr
-
-.arm
-.global svcAlloc
-.type svcAlloc, %function
-svcAlloc:
-	.word (0xE7F000F0 | 0x27 << 8)
-	bx lr
-
-.arm
-.global svcAllocAlign
-.type svcAllocAlign, %function
-svcAllocAlign:
-	.word (0xE7F000F0 | 0x28 << 8)
-	bx lr
-
-.arm
-.global svcFree
-.type svcFree, %function
-svcFree:
-	.word (0xE7F000F0 | 0x29 << 8)
-	bx lr
-
-.arm
-.global svcOpen
-.type svcOpen, %function
-svcOpen:
-	.word (0xE7F000F0 | 0x33 << 8)
-	bx lr
-
-.arm
-.global svcClose
-.type svcClose, %function
-svcClose:
-	.word (0xE7F000F0 | 0x34 << 8)
-	bx lr
-
-.arm
-.global svcIoctl
-.type svcIoctl, %function
-svcIoctl:
-	.word (0xE7F000F0 | 0x38 << 8)
-	bx lr
-
-.arm
-.global svcIoctlv
-.type svcIoctlv, %function
-svcIoctlv:
-	.word (0xE7F000F0 | 0x39 << 8)
-	bx lr
-
-.arm
-.global svcInvalidateDCache
-.type svcInvalidateDCache, %function
-svcInvalidateDCache:
-	.word (0xE7F000F0 | 0x51 << 8)
-	bx lr
-
-.arm
-.global svcFlushDCache
-.type svcFlushDCache, %function
-svcFlushDCache:
-	.word (0xE7F000F0 | 0x52 << 8)
-	bx lr
-
-.arm
-.global iosCreateSemaphore
-.type iosCreateSemaphore, %function
-iosCreateSemaphore:
-	.word (0xE7F000F0 | 0x57 << 8)
-	bx lr
-
-.arm
-.global iosWaitSemaphore
-.type iosWaitSemaphore, %function
-iosWaitSemaphore:
-	.word (0xE7F000F0 | 0x58 << 8)
-	bx lr
-
-.arm
-.global iosSignalSemaphore
-.type iosSignalSemaphore, %function
-iosSignalSemaphore:
-	.word (0xE7F000F0 | 0x59 << 8)
-	bx lr
-
-.arm
-.global iosDestroySemaphore
-.type iosDestroySemaphore, %function
-iosDestroySemaphore:
-	.word (0xE7F000F0 | 0x5A << 8)
-	bx lr
-
-.arm
-.global svcFlushIPCServer
-.type svcFlushIPCServer, %function
-svcFlushIPCServer:
-	.word (0xE7F000F0 | 0x5B << 8)
-	bx lr
-
-.arm
-.global iosPanic
-.type iosPanic, %function
-iosPanic:
-	.word (0xE7F000F0 | 0x73 << 8)
-	bx lr
-
-.arm
-.global iosLoadPpcKernel
-.type iosLoadPpcKernel, %function
-iosLoadPpcKernel:
-	.word (0xE7F000F0 | 0x77 << 8)
-	bx lr
-
-.arm
-.global svcBackdoor
-.type svcBackdoor, %function
-svcBackdoor:
-	.word (0xE7F000F0 | 0x81 << 8)
-	bx lr
+wafel_SyscallTable:
+.word iosCreateThread
+.word iosJoinThread
+.word iosCancelThread
+.word iosGetThreadId
+.word iosAccessIpcBufferPool
+.word iosGetProcessId
+.word iosStartThread
+.word iosStopThread
+.word iosYieldThread
+.word iosGetThreadPriority
+.word iosSetThreadPriority
+.word iosCreateMessageQueue
+.word iosDestroyMessageQueue
+.word iosSendMessage
+.word iosJamMessage
+.word iosReceiveMessage
+.word iosHandleEvent
+.word iosUnhandleEvent
+.word iosCreateTimer
+.word iosRestartTimer
+.word iosStopTimer
+.word iosDestroyTimer
+.word iosGetTimestamp
+.word iosTimeNow
+.word iosGetUpTimeStruct
+.word iosGetUpTime64
+.word iosSetRtcCounter
+.word iosGetAbsTimeCalendar
+.word iosGetAbsTime64
+.word iosGetAbsTimeStruct
+.word iosset_fault_behavior
+.word iosCheckDebugMode
+.word iosCheckJTAG
+.word iosReadOTP
+.word iosCreateHeap
+.word iosCreateLocalProcessHeap
+.word iosCreateCrossProcessHeap
+.word iosDestroyHeap
+.word iosAlloc
+.word iosAllocAligned
+.word iosFree
+.word iosFreeAndClear
+.word iosExpandHeap
+.word iosRegisterResourceManager
+.word iosDeviceAssociate
+.word iosDeviceSetFlags
+.word iosSetClient_capabilities
+.word iosClearClientCapabilities
+.word iosQueryClientCapabilities
+.word iosQueryFeatureId
+.word iosOpen
+.word iosClose
+.word iosRead
+.word iosWrite
+.word iosSeek
+.word iosIoctl
+.word iosIoctlv
+.word iosOpenAsync
+.word iosCloseAsync
+.word iosReadAsync
+.word iosWriteAsync
+.word iosSeekAsync
+.word iosIoctlAsync
+.word iosIoctlvAsync
+.word iosopen_as_async
+.word ioswrite_as_async
+.word iosIpcResume
+.word iosIpcSuspend
+.word iosIpcSvcMsg
+.word iosIpcResumeAsync
+.word iosIpcSuspendAsync
+.word iosIpcSvcmsgAsync
+.word iosResourceReply
+.word iosSetProcUnkParams
+.word iosGetProcUnkParams
+.word iosAhbMemFlush
+.word iosAhbFlushFrom
+.word iosAhbFlushCheck
+.word iosAhbFlushTo
+.word iosIrqEnable
+.word iosInvalidateDCache
+.word iosFlushDCache
+.word iosExecutePrivileged
+.word iosget_unk_flags1
+.word iosget_unk_flags2
+.word iosVirtToPhys
+.word iosCreateSemaphore
+.word iosWaitSemaphore
+.word iosSignalSemaphore
+.word iosDestroySemaphore
+.word iosFlushIPCServer
+.word iosSetBspReady
+.word iosCheckIosAddrRange
+.word iosCheckPpcAddrRange
+.word iosInitMem1Ppc
+.word iosGetIopCpuUtilization
+.word iosGetThreadStackInfo
+.word iosThreadProfileCommand
+.word iosGetThreadUtilization
+.word iosDumpThreadContext
+.word iosDumpThreadProfile
+.word iosGetMessageUtilization
+.word iosGetAggregateResourceUtilization
+.word iosGetPerProcessResourceUtilization
+.word iosGetTimerUtilization
+.word iosGetSemaphoreUtilization
+.word iosGetHeapProfile
+.word iosSetIop2x
+.word iosSetPpcBootParams
+.word iosGetSyscfgRegisterValue
+.word iosClearSyscfgRegisterValue
+.word iosSetSyscfgRegisterValue
+.word iosCheckSyscfgFlag
+.word iosShutdown
+.word iosPanic
+.word iosReset
+.word iosSetPanicBehavior
+.word iosSetSyslogBuffer
+.word iosLoadPpcKernel
+.word iosLoadPpcApp
+.word iosSetSecurityLevel
+.word iosGetSecurityLevel
+.word iosGetOpenResourceHandles
+.word iosSetMainTitleSdkVersion
+.word iosGetMainTitleSdkVersion
+.word iosGetDynamicHeapAccess
+.word iosStartGpuConfigValidation
+.word iosFinishGpuConfigValidation
+.word iosreturn_null
+.word iosGetResourceViolations
+.word iosDeviceGetClientHandles
+.word iosDeviceDisableRegistration
+.word iosGetPendingResourceRequests
+.word iosLaunchOS
+.word iosEXIReset
 
 .arm
 .global svc_sys_write

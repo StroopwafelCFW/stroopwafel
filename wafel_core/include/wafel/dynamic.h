@@ -1,18 +1,15 @@
-#ifndef DYNAMIC_H
-#define DYNAMIC_H
+#ifndef WAFEL_DYNAMIC_H
+#define WAFEL_DYNAMIC_H
 
 #include <elf.h>
 #include <stddef.h>
 #include "types.h"
 
-#define LINKABLE __attribute__ ((weak))
 #define MAGIC_DONE (0x444F4E45)
 #define MAGIC_ELF (0x7F454C46)
 
+
 LINKABLE void __wafel_dynamic(uintptr_t base, const Elf32_Dyn* dyn);
-LINKABLE uintptr_t ios_elf_vaddr_to_paddr(uintptr_t addr);
-LINKABLE Elf32_Phdr* ios_elf_add_phdr(uintptr_t addr);
-LINKABLE void ios_elf_print_map();
 
 LINKABLE uintptr_t wafel_plugin_max_addr(uintptr_t base);
 LINKABLE uintptr_t wafel_plugin_next(uintptr_t base);
@@ -31,4 +28,4 @@ extern uintptr_t wafel_plugin_base_addr;
 #define RAMDISK_END (0x28000000)
 #define CARVEOUT_SZ (RAMDISK_END - wafel_plugin_base_addr)
 
-#endif // DYNAMIC_H
+#endif // WAFEL_DYNAMIC_H

@@ -9,7 +9,7 @@ int fsa_fd = 0;
 int FSA_Open()
 {   
     //if(fsa_fd <= 0)
-    //    fsa_fd = svcOpen("/dev/fsa", 0);
+    //    fsa_fd = iosOpen("/dev/fsa", 0);
     //return fsa_fd;
     
     return ((int (*const)())0x5035294)();
@@ -17,7 +17,7 @@ int FSA_Open()
 
 static void* allocIobuf()
 {
-	void* ptr = svcAlloc(0xCAFF, 0x828);
+	void* ptr = iosAlloc(0xCAFF, 0x828);
 
 	memset(ptr, 0x00, 0x828);
 
@@ -26,7 +26,7 @@ static void* allocIobuf()
 
 static void freeIobuf(void* ptr)
 {
-	svcFree(0xCAFF, ptr);
+	iosFree(0xCAFF, ptr);
 }
 
 int MCP_InstallGetInfo(int fd, char* path)
@@ -45,7 +45,7 @@ int MCP_InstallGetInfo(int fd, char* path)
 	iovec[1].ptr = outbuf;
 	iovec[1].len = 0x16;
 
-	int ret = svcIoctlv(fd, 0x80, 1, 1, iovec);
+	int ret = iosIoctlv(fd, 0x80, 1, 1, iovec);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -65,7 +65,7 @@ int MCP_Install(int fd, char* path)
 	iovec[0].ptr = inbuf;
 	iovec[0].len = 0x27F;
 
-	int ret = svcIoctlv(fd, 0x81, 1, 0, iovec);
+	int ret = iosIoctlv(fd, 0x81, 1, 0, iovec);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -81,7 +81,7 @@ int MCP_InstallTarget(int fd, int target)
 
 	inbuf8[3] = target;
 
-	int ret = svcIoctl(fd, 0x8D, inbuf, 0x4, NULL, 0);
+	int ret = iosIoctl(fd, 0x8D, inbuf, 0x4, NULL, 0);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -108,7 +108,7 @@ int FSA_Mount(int fd, char* device_path, char* volume_path, u32 flags, char* arg
 	iovec[2].ptr = outbuf;
 	iovec[2].len = 0x293;
 
-	int ret = svcIoctlv(fd, 0x01, 2, 1, iovec);
+	int ret = iosIoctlv(fd, 0x01, 2, 1, iovec);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -123,7 +123,7 @@ int FSA_Unmount(int fd, char* path, u32 flags)
 	strncpy((char*)&inbuf[0x01], path, 0x27F);
 	inbuf[0x284 / 4] = flags;
 
-	int ret = svcIoctl(fd, 0x02, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x02, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -137,7 +137,7 @@ int FSA_FlushVolume(int fd, char* volume)
 
 	strncpy((char*)&inbuf[0x01], volume, 0x27F);
 
-	int ret = svcIoctl(fd, 0x1B, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x1B, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -152,7 +152,7 @@ int FSA_MakeDir(int fd, char* path, u32 flags)
 	strncpy((char*)&inbuf[0x01], path, 0x27F);
 	inbuf[0x284 / 4] = flags;
 
-	int ret = svcIoctl(fd, 0x07, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x07, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -166,7 +166,7 @@ int FSA_OpenDir(int fd, char* path, int* outHandle)
 
 	strncpy((char*)&inbuf[0x01], path, 0x27F);
 
-	int ret = svcIoctl(fd, 0x0A, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x0A, inbuf, 0x520, outbuf, 0x293);
 
 	if(outHandle) *outHandle = outbuf[1];
 
@@ -182,7 +182,7 @@ int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data)
 
 	inbuf[1] = handle;
 
-	int ret = svcIoctl(fd, 0x0B, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x0B, inbuf, 0x520, outbuf, 0x293);
 
 	if(out_data) memcpy(out_data, &outbuf[1], sizeof(directoryEntry_s));
 
@@ -198,7 +198,7 @@ int FSA_CloseDir(int fd, int handle)
 
 	inbuf[1] = handle;
 
-	int ret = svcIoctl(fd, 0x0D, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x0D, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -213,7 +213,7 @@ int FSA_OpenFile(int fd, char* path, char* mode, int* outHandle)
 	strncpy((char*)&inbuf[0x01], path, 0x27F);
 	strncpy((char*)&inbuf[0xA1], mode, 0x10);
 
-	int ret = svcIoctl(fd, 0x0E, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x0E, inbuf, 0x520, outbuf, 0x293);
 
 	if(outHandle) *outHandle = outbuf[1];
 
@@ -245,8 +245,8 @@ int _FSA_ReadWriteFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u3
 	iovec[2].len = 0x293;
 
 	int ret;
-	if(read) ret = svcIoctlv(fd, 0x0F, 1, 2, iovec);
-	else ret = svcIoctlv(fd, 0x10, 2, 1, iovec);
+	if(read) ret = iosIoctlv(fd, 0x0F, 1, 2, iovec);
+	else ret = iosIoctlv(fd, 0x10, 2, 1, iovec);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -270,7 +270,7 @@ int FSA_StatFile(int fd, int handle, fileStat_s* out_data)
 
 	inbuf[1] = handle;
 
-	int ret = svcIoctl(fd, 0x14, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x14, inbuf, 0x520, outbuf, 0x293);
 
 	if(out_data) memcpy(out_data, &outbuf[1], sizeof(fileStat_s));
 
@@ -291,7 +291,7 @@ int FSA_CloseFile(int fd, int fileHandle)
 
 	inbuf[1] = fileHandle;
 
-	int ret = svcIoctl(fd, 0x15, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x15, inbuf, 0x520, outbuf, 0x293);
 	freeIobuf(iobuf);
 	return ret;
 }
@@ -309,7 +309,7 @@ int FSA_ChangeMode(int fd, char* path, int mode)
 	inbuf[0x284 / 4] = mode;
     inbuf[0x288 / 4] = 0x666; // ??
 
-	int ret = svcIoctl(fd, 0x20, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x20, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -328,7 +328,7 @@ int FSA_Format(int fd, char* device, char* fs_format, int flags, u32 what1, u32 
 	inbuf[0x28C / 4] = what1;
 	inbuf[0x290 / 4] = what2;
 
-	int ret = svcIoctl(fd, 0x69, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x69, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -346,7 +346,7 @@ int FSA_GetDeviceInfo(int fd, char* device_path, int type, u32* out_data)
 	strncpy((char*)&inbuf[0x01], device_path, 0x27F);
 	inbuf[0x284 / 4] = type;
 
-	int ret = svcIoctl(fd, 0x18, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x18, inbuf, 0x520, outbuf, 0x293);
 
 	int size = 0;
 
@@ -387,7 +387,7 @@ int FSA_GetVolumeInfo(int fd, char* volume_path, int type, fsa_volume_info* out)
 
 	strncpy((char*)&inbuf[0x01], volume_path, 0x27F);
 
-	int ret = svcIoctl(fd, 0x03, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x03, inbuf, 0x520, outbuf, 0x293);
 
 	memcpy(out, &outbuf[1], 0x1BC);
 
@@ -403,7 +403,7 @@ int FSA_RawOpen(int fd, char* device_path, int* outHandle)
 
 	strncpy((char*)&inbuf[0x01], device_path, 0x27F);
 
-	int ret = svcIoctl(fd, 0x6A, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x6A, inbuf, 0x520, outbuf, 0x293);
 
 	if(outHandle) *outHandle = outbuf[1];
 
@@ -419,7 +419,7 @@ int FSA_RawClose(int fd, int device_handle)
 
 	inbuf[1] = device_handle;
 
-	int ret = svcIoctl(fd, 0x6D, inbuf, 0x520, outbuf, 0x293);
+	int ret = iosIoctl(fd, 0x6D, inbuf, 0x520, outbuf, 0x293);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -451,7 +451,7 @@ int FSA_RawRead(int fd, void* data, u32 size_bytes, u32 cnt, u64 blocks_offset, 
 	iovec[2].ptr = outbuf;
 	iovec[2].len = 0x293;
 
-	int ret = svcIoctlv(fd, 0x6B, 1, 2, iovec);
+	int ret = iosIoctlv(fd, 0x6B, 1, 2, iovec);
 
 	freeIobuf(iobuf);
 	return ret;
@@ -481,7 +481,7 @@ int FSA_RawWrite(int fd, void* data, u32 size_bytes, u32 cnt, u64 blocks_offset,
 	iovec[2].ptr = outbuf;
 	iovec[2].len = 0x293;
 
-	int ret = svcIoctlv(fd, 0x6C, 2, 1, iovec);
+	int ret = iosIoctlv(fd, 0x6C, 2, 1, iovec);
 
 	freeIobuf(iobuf);
 	return ret;
