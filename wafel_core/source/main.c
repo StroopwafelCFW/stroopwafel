@@ -958,6 +958,9 @@ void kern_main()
     if (is_55x) {
         patch_55x();
     }
+    else {
+        debug_printf("Firmware not 5.5.x! All you get is the OTP patch, sorry.\n");
+    }
 
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
