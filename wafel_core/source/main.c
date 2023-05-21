@@ -953,7 +953,9 @@ void kern_main()
     // and/or search for instructions where critical (OTP)
     // TODO don't hardcode ramdisk carveout size
 
-    is_55x = (ios_elf_get_module_entrypoint(IOS_MCP) == 0x05056718 && read32(0x08120248, 0xE92D47F0));
+    is_55x = (ios_elf_get_module_entrypoint(IOS_MCP) == 0x05056718 
+              && read32(0x08120248) == 0xE92D47F0
+              && read32(0x08120290) == 0xE58531EC);
     patch_general();
     if (is_55x) {
         patch_55x();
