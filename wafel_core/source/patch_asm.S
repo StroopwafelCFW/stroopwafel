@@ -19,7 +19,6 @@
 .globl otp_read_replace_hacky_end
 otp_read_replace_hacky:
      ldr r3, =otp_store
-     bic r2, r2, #3
      add r0, r3, r0,lsl#2
      add r2, r1, r2
 
@@ -30,8 +29,8 @@ otp_read_replace_hacky_label1:
      bx lr
 
 otp_read_replace_hacky_label2:
-     ldr r3, [r0],#4
-     str r3, [r1],#4
+     ldrb r3, [r0],#1
+     strb r3, [r1],#1
      b otp_read_replace_hacky_label1
 .pool
 otp_read_replace_hacky_end:
