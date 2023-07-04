@@ -605,6 +605,12 @@ void patch_55x()
         ASM_PATCH_K(0xE6008BEC, "mov r3, #2");
 #endif
 
+        // SEEPROM write disable is restricted to redNAND only:
+        // if a non-redNAND system upgrades boot1, the version in SEEPROM will become
+        // mismatched and the system will be boot0-bricked, I think
+        // Likewise, if a redNAND system upgrades boot1, it will be written to the SD card,
+        // but the SEEPROM version should NOT be synced to the SD card version, only NAND.
+#if USE_REDNAND
         // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
         ASM_PATCH_K(0xE600CF5C, 
             "mov r0, #0\n \
@@ -616,6 +622,7 @@ void patch_55x()
             "mov r0, #0\n \
              bx lr\n"
         );
+#endif
     }
 
 #if MCP_PATCHES
