@@ -3,6 +3,6 @@
 
 #include "types.h"
 
-int usleep(u32 amt);
+LINKABLE int usleep(u32 amt);
 
 #endif // _THREAD_H

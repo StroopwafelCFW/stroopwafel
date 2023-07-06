@@ -1,6 +1,6 @@
-#include "thread.h"
+#include "ios/thread.h"
 
-#include "svc.h"
+#include "ios/svc.h"
 
 int usleep(u32 amt)
 {
