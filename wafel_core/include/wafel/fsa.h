@@ -65,6 +65,8 @@ LINKABLE int FSA_OpenDir(int fd, char* path, int* outHandle);
 LINKABLE int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data);
 LINKABLE int FSA_CloseDir(int fd, int handle);
 
+LINKABLE int FSA_MakeQuota(int fd, char* path, u32 mode, u64 size);
+
 LINKABLE int FSA_OpenFile(int fd, char* path, char* mode, int* outHandle);
 LINKABLE int FSA_ReadFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u32 flags);
 LINKABLE int FSA_WriteFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u32 flags);
