@@ -1,7 +1,7 @@
 #ifndef _THREAD_H
 #define _THREAD_H
 
-#include "types.h"
+#include "../types.h"
 
 LINKABLE int usleep(u32 amt);
 

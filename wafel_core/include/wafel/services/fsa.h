@@ -1,7 +1,7 @@
 #ifndef FSA_H
 #define FSA_H
 
-#include "types.h"
+#include "../types.h"
 
 typedef struct
 {
@@ -50,6 +50,7 @@ typedef struct
 
 LINKABLE int MCP_InstallGetInfo(int fd, char* path);
 LINKABLE int MCP_Install(int fd, char* path);
+LINKABLE int MCP_InstallTarget(int fd, int target);
 
 LINKABLE int FSA_Open();
 
