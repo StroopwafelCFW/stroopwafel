@@ -3,15 +3,11 @@
 #include <string.h>
 #include "ios/svc.h"
 #include "imports.h"
-#include "services/fsa.h"
+#include "fsa.h"
 
-int fsa_fd = 0;
 int FSA_Open()
 {   
-    //if(fsa_fd <= 0)
-    //    fsa_fd = iosOpen("/dev/fsa", 0);
-    //return fsa_fd;
-    
+    // return iosOpen("/dev/fsa", 0);
     return ((int (*const)())0x5035294)();
 }
 

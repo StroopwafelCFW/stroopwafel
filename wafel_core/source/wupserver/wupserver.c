@@ -4,7 +4,7 @@
 #include "imports.h"
 #include "services/net_ifmgr_ncl.h"
 #include "socket.h"
-#include "services/fsa.h"
+#include "fsa.h"
 #include "ios/svc.h"
 #include "wupserver/text.h"
 #include "addrs_55x.h"
