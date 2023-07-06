@@ -493,7 +493,7 @@ void patch_general()
 
         // Hacky: copy an ASM stub instead, because our permissions might not be
         // kosher w/o more patches generalized
-        memcpy(otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
+        memcpy((void*)otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
 #endif // OTP_IN_MEM
 
         // Early MMU mapping
