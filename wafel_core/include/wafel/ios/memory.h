@@ -3,7 +3,17 @@
 
 #include "../types.h"
 
-LINKABLE void* malloc_global(u32 size);
-LINKABLE void free_global(void* mem);
+#include "ios/memory.h"
+#include "ios/svc.h"
+
+static inline void* malloc_global(u32 size)
+{
+    return iosAlloc(0x0001, size);
+}
+
+static inline void free_global(void* mem)
+{
+    iosFree(0x0001, mem);
+}
 
 #endif
