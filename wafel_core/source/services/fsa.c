@@ -217,6 +217,20 @@ int FSA_MakeQuota(int fd, char* path, u32 mode, u64 size)
 	return ret;
 }
 
+int FSA_RemoveQuota(int fd, char* path)
+{
+	u8* iobuf = allocIobuf();
+	u32* inbuf = (u32*)iobuf;
+	u32* outbuf = (u32*)&iobuf[0x520];
+
+	strncpy((char*)&inbuf[0x01], path, 0x27F);
+
+	int ret = iosIoctl(fd, 0x72, inbuf, 0x520, outbuf, 0x293);
+
+	freeIobuf(iobuf);
+	return ret;
+}
+
 int FSA_OpenFile(int fd, char* path, char* mode, int* outHandle)
 {
 	u8* iobuf = allocIobuf();
