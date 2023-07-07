@@ -19,7 +19,6 @@
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
-u32 main_thread(void*);
 extern void kern_entry();
 extern void mcp_entry();
 extern void svc_handler_hook();
@@ -59,7 +58,7 @@ const char* fw_img_path = "/vol/sdcard";
 
 static int is_55x = 0;
 
-const u32 mcpIoMappings_patch[6*3] = 
+static const u32 mcpIoMappings_patch[6*3] =
 {
     // mapping 1
     0x0D000000, // vaddr
@@ -192,7 +191,7 @@ static void _patch_copy(uintptr_t dst, uintptr_t src, size_t sz)
 
 extern u32 otp_store[0x400/4];
 
-int otp_read_replace(int which_word, void *pOut, unsigned int len)
+static int otp_read_replace(int which_word, void *pOut, unsigned int len)
 {
     u32 cookie = irq_kill();
     memcpy(pOut, &otp_store[which_word], len);
@@ -200,7 +199,7 @@ int otp_read_replace(int which_word, void *pOut, unsigned int len)
     return 0;
 }
 
-void abt_replace(u32* stack, int which)
+static void abt_replace(u32* stack, int which)
 {
     for (int i = 0; i < 10; i++)
     {
@@ -246,7 +245,7 @@ void ios_panic_replace(const char* str)
     while (1);
 }
 
-void semihosting_write0(const char* str)
+static void semihosting_write0(const char* str)
 {
     serial_send_str(str);
 }
@@ -259,7 +258,7 @@ void semihosting_handler(int which, void* arg0)
     }
 }
 
-void init_heap()
+static void init_heap()
 {
     // Newlib
     extern char* fake_heap_start;
@@ -272,7 +271,7 @@ void init_heap()
 }
 
 // Replace all instances of 0xFFF07F00 (Wii SEEPROM addr) with 0xFFF07B00 in c2w.elf
-void c2w_boot_hook_fixup_c2w_ptrs()
+static void c2w_boot_hook_fixup_c2w_ptrs()
 {
     for (uintptr_t a = 0x01000000; a < 0x01F80000; a += 4)
     {
@@ -284,7 +283,7 @@ void c2w_boot_hook_fixup_c2w_ptrs()
     }
 }
 
-void c2w_boot_hook_find_and_replace_otpread()
+static void c2w_boot_hook_find_and_replace_otpread()
 {
     uintptr_t ios_paddr = read32(0x1018);
     uintptr_t ios_end = ios_paddr + 0x260000;
@@ -306,7 +305,7 @@ void c2w_boot_hook_find_and_replace_otpread()
 }
 
 // Search for 0xFFFE7CC0 in IOS and change it to 0xFFFE7B00
-void c2w_boot_hook_fixup_ios_ptrs()
+static void c2w_boot_hook_fixup_ios_ptrs()
 {
     uintptr_t ios_paddr = read32(0x1018);
     uintptr_t ios_end = ios_paddr + 0x260000;
@@ -322,7 +321,7 @@ void c2w_boot_hook_fixup_ios_ptrs()
 }
 
 // Search for E3C22020 E3822020 and replace the second instruction with a nop
-void c2w_oc_hax_patch()
+static void c2w_oc_hax_patch()
 {
     for (uintptr_t a = 0x01000000; a < 0x01F80000; a += 4)
     {
@@ -345,10 +344,10 @@ void c2w_patches()
 #endif
 }
 
-u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
-const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
+static u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
+static const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
 
-u32 fat_register_hook(u8* opaque)
+static u32 fat_register_hook(u8* opaque)
 {
     opaque[0xc] = 0x6; // sdcard
     opaque[0xd] = 0x11; // usb
@@ -357,7 +356,7 @@ u32 fat_register_hook(u8* opaque)
     return FS_REGISTER_FS_DRIVER(opaque);
 }
 
-const char* fsa_dev_register_hook(int a)
+static const char* fsa_dev_register_hook(int a)
 {
     register u8* hax __asm__("r4");
     if (a == 0x11)
@@ -371,7 +370,7 @@ const char* fsa_dev_register_hook(int a)
     return FS_DEVTYPE_TO_NAME(a);
 }
 
-void init_phdrs()
+static void init_phdrs()
 {
     // Init memory mappings
     Elf32_Phdr* phdr_base = ios_elf_add_phdr(wafel_plugin_base_addr);
@@ -415,7 +414,7 @@ void init_phdrs()
     ios_elf_print_map();
 }
 
-void init_linking()
+static void init_linking()
 {
     wafel_register_plugin(wafel_plugin_base_addr);
     debug_printf("kern_main symbol at: %08x\n", wafel_get_symbol_addr(wafel_plugin_base_addr, "kern_main"));
@@ -444,7 +443,7 @@ void init_linking()
     }
 }
 
-void init_plugins()
+static void init_plugins()
 {
     uintptr_t next_plugin = wafel_plugin_base_addr;
     while (next_plugin)
@@ -462,7 +461,7 @@ void init_plugins()
     }
 }
 
-void patch_general()
+static void patch_general()
 {
     // KERNEL
     {
@@ -518,7 +517,7 @@ void patch_general()
     // then search back 
 }
 
-void patch_55x()
+static void patch_55x()
 {
     // KERNEL
     {
@@ -943,6 +942,15 @@ void patch_55x()
     }
 }
 
+// TODO: make a service
+static u32 main_thread(void* arg)
+{
+    while (1) {
+        usleep(10*1000*1000);
+        debug_printf("alive\n");
+    }
+}
+
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
 // (ie to BSP and kernel, which launches before MCP)
@@ -1008,14 +1016,5 @@ void mcp_main()
     int wupserver_threadhand = iosCreateThread(wupserver_main, NULL, (u32*)(wupserver_stack+0x1000), 0x1000, 0x78, 1);
     if (wupserver_threadhand >= 0) {
         iosStartThread(wupserver_threadhand);
-    }
-}
-
-// TODO: make a service
-u32 main_thread(void* arg)
-{
-    while (1) {
-        usleep(10*1000*1000);
-        debug_printf("alive\n");
     }
 }
