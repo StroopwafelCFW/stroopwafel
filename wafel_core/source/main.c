@@ -340,21 +340,18 @@ static void init_linking()
     }
 }
 
-static void init_plugins()
-{
+void call_plugin_entry(char *entry_name){
     uintptr_t next_plugin = wafel_plugin_base_addr;
-    while (next_plugin)
-    {
-        next_plugin = wafel_plugin_next(next_plugin);
-        
-        if (next_plugin) {
-            debug_printf("initializing plugin: %08x\n", next_plugin);
-            uintptr_t km = wafel_get_symbol_addr(next_plugin, "kern_entry");
-            if (!km) continue;
-
-            void (*plug_kern_entry)() = (void*)km;
-            plug_kern_entry();
+    while (next_plugin = wafel_plugin_next(next_plugin))
+    { 
+        debug_printf("calling %s in plugin: %08x\n", entry_name, next_plugin);
+        uintptr_t ep = wafel_get_symbol_addr(next_plugin, entry_name);
+        if (!ep){ 
+            debug_printf("did not find %s in plugin: %08x\n", entry_name, next_plugin);
+            continue;
         }
+        void (*plug_entry)() = (void*)ep;
+        plug_entry();
     }
 }
 
@@ -880,10 +877,11 @@ void kern_main()
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
 
-    ic_invalidateall();
-    debug_printf("done\n");
+    call_plugin_entry("kern_entry");
 
-    init_plugins();
+    ic_invalidateall();
+    
+    debug_printf("stroopwafel kern_main done\n");
 }
 
 // This fn runs before MCP's main thread, and can be used
@@ -893,8 +891,6 @@ void mcp_main()
 {
     // Make sure relocs worked fine and mappings are good
 	debug_printf("we in here MCP %p\n", mcp_main);
-
-    debug_printf("done\n");
 
     //const char* test_panic = "This is a test panic\n";
     //iosPanic(test_panic, strlen(test_panic)+1);
@@ -914,4 +910,8 @@ void mcp_main()
     if (wupserver_threadhand >= 0) {
         iosStartThread(wupserver_threadhand);
     }
+
+    call_plugin_entry("mcp_entry");
+
+    debug_printf("stroopwafel mcp_main done\n");
 }
