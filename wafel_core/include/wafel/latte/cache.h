@@ -3,8 +3,8 @@
 #ifndef _CACHE_H_
 #define _CACHE_H_
 
-#include "types.h"
-#include "utils.h"
+#include "../types.h"
+#include "../utils.h"
 
 enum rb_client {
     RB_IOD = 0,
