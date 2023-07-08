@@ -1,6 +1,6 @@
 // this is all ripped from IOS, because no one can figure out just WTF is going on here
 
-#include "cache.h"
+#include "latte/cache.h"
 
 #include "irq.h"
 #include "latte.h"

@@ -55,13 +55,13 @@ enum wb_client {
     WB_ALL = 22
 };
 
-void dc_flushrange(const void *start, u32 size);
-void dc_invalidaterange(void *start, u32 size);
-void dc_flushall(void);
-void ic_invalidateall(void);
-void ahb_flush_from(enum wb_client dev);
-void ahb_flush_to(enum rb_client dev);
+LINKABLE void dc_flushrange(const void *start, u32 size);
+LINKABLE void dc_invalidaterange(void *start, u32 size);
+LINKABLE void dc_flushall(void);
+LINKABLE void ic_invalidateall(void);
+LINKABLE void ahb_flush_from(enum wb_client dev);
+LINKABLE void ahb_flush_to(enum rb_client dev);
 
-void _ahb_flush_to(enum rb_client dev);
+LINKABLE  void _ahb_flush_to(enum rb_client dev);
 
 #endif // _CACHE_H
