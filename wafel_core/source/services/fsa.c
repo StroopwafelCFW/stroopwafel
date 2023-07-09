@@ -323,6 +323,20 @@ int FSA_CloseFile(int fd, int fileHandle)
 	return ret;
 }
 
+int FSA_FlushFile(int fd, int fileHandle)
+{
+    uint8_t* iobuf = allocIobuf();
+    uint32_t* inbuf = (uint32_t*)iobuf;
+    uint32_t* outbuf = (uint32_t*)&iobuf[0x520];
+
+    inbuf[1] = fileHandle;
+
+    int ret = IOS_Ioctl(fd, 0x17, inbuf, 0x520, outbuf, 0x293);
+
+    freeIobuf(iobuf);
+    return ret;
+}
+
 
 int FSA_ChangeMode(int fd, const char* path, int mode)
 {
