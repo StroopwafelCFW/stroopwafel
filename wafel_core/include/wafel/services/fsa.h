@@ -74,6 +74,7 @@ LINKABLE int FSA_ReadFile(int fd, void* data, u32 size, u32 cnt, int fileHandle,
 LINKABLE int FSA_WriteFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u32 flags);
 LINKABLE int FSA_StatFile(int fd, int handle, fileStat_s* out_data);
 LINKABLE int FSA_CloseFile(int fd, int fileHandle);
+LINKABLE int FSA_FlushFile(int fd, int fileHandle);
 
 LINKABLE int FSA_ChangeMode(int fd, const char* path, int mode);
 
