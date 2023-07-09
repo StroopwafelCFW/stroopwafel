@@ -331,8 +331,7 @@ int FSA_FlushFile(int fd, int fileHandle)
 
     inbuf[1] = fileHandle;
 
-    int ret = IOS_Ioctl(fd, 0x17, inbuf, 0x520, outbuf, 0x293);
-
+    int ret = iosIoctl(fd, 0x17, inbuf, 0x520, outbuf, 0x293);
     freeIobuf(iobuf);
     return ret;
 }
