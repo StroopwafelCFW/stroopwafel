@@ -73,8 +73,8 @@ void __wafel_dynamic(uintptr_t base, const Elf32_Dyn* dyn)
     _wafel_set_relocated(base);
 }
 
-uintptr_t* elfs = NULL;
-uint32_t num_elfs = 0;
+static uintptr_t* elfs = NULL;
+static uint32_t num_elfs = 0;
 
 Elf32_Phdr* wafel_get_plugin_phdrs(uintptr_t base)
 {

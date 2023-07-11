@@ -1,8 +1,8 @@
 #ifndef SVC_H
 #define SVC_H
 
-#include "types.h"
-#include "dynamic.h"
+#include "../types.h"
+#include "../dynamic.h"
 
 typedef struct
 {

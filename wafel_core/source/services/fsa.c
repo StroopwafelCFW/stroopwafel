@@ -5,13 +5,9 @@
 #include "imports.h"
 #include "services/fsa.h"
 
-int fsa_fd = 0;
 int FSA_Open()
 {   
-    //if(fsa_fd <= 0)
-    //    fsa_fd = iosOpen("/dev/fsa", 0);
-    //return fsa_fd;
-    
+    // return iosOpen("/dev/fsa", 0);
     return ((int (*const)())0x5035294)();
 }
 
@@ -29,7 +25,7 @@ static void freeIobuf(void* ptr)
 	iosFree(0xCAFF, ptr);
 }
 
-int MCP_InstallGetInfo(int fd, char* path)
+int MCP_InstallGetInfo(int fd, const char* path)
 {
     u8* iobuf = allocIobuf();
 	u8* inbuf8 = iobuf;
@@ -51,7 +47,7 @@ int MCP_InstallGetInfo(int fd, char* path)
 	return ret;
 }
 
-int MCP_Install(int fd, char* path)
+int MCP_Install(int fd, const char* path)
 {
     u8* iobuf = allocIobuf();
 	u8* inbuf8 = iobuf;
@@ -87,7 +83,7 @@ int MCP_InstallTarget(int fd, int target)
 	return ret;
 }
 
-int FSA_Mount(int fd, char* device_path, char* volume_path, u32 flags, char* arg_string, int arg_string_len)
+int FSA_Mount(int fd, const char* device_path, const char* volume_path, u32 flags, char* arg_string, int arg_string_len)
 {
 	u8* iobuf = allocIobuf();
 	u8* inbuf8 = iobuf;
@@ -114,7 +110,7 @@ int FSA_Mount(int fd, char* device_path, char* volume_path, u32 flags, char* arg
 	return ret;
 }
 
-int FSA_Unmount(int fd, char* path, u32 flags)
+int FSA_Unmount(int fd, const char* path, u32 flags)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -129,7 +125,7 @@ int FSA_Unmount(int fd, char* path, u32 flags)
 	return ret;
 }
 
-int FSA_FlushVolume(int fd, char* volume)
+int FSA_FlushVolume(int fd, const char* volume)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -143,7 +139,7 @@ int FSA_FlushVolume(int fd, char* volume)
 	return ret;
 }
 
-int FSA_MakeDir(int fd, char* path, u32 flags)
+int FSA_MakeDir(int fd, const char* path, u32 flags)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -158,7 +154,7 @@ int FSA_MakeDir(int fd, char* path, u32 flags)
 	return ret;
 }
 
-int FSA_OpenDir(int fd, char* path, int* outHandle)
+int FSA_OpenDir(int fd, const char* path, int* outHandle)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -204,7 +200,38 @@ int FSA_CloseDir(int fd, int handle)
 	return ret;
 }
 
-int FSA_OpenFile(int fd, char* path, char* mode, int* outHandle)
+int FSA_MakeQuota(int fd, const char* path, u32 mode, u64 size)
+{
+	u8* iobuf = allocIobuf();
+	u32* inbuf = (u32*)iobuf;
+	u32* outbuf = (u32*)&iobuf[0x520];
+
+	strncpy((char*)&inbuf[0x01], path, 0x27F);
+	inbuf[0x284 / 4] = mode;
+	inbuf[0x288 / 4] = (size >> 32);
+	inbuf[0x28C / 4] = (size & 0xFFFFFFFF);
+
+	int ret = iosIoctl(fd, 0x1D, inbuf, 0x520, outbuf, 0x293);
+
+	freeIobuf(iobuf);
+	return ret;
+}
+
+int FSA_RemoveQuota(int fd, const char* path)
+{
+	u8* iobuf = allocIobuf();
+	u32* inbuf = (u32*)iobuf;
+	u32* outbuf = (u32*)&iobuf[0x520];
+
+	strncpy((char*)&inbuf[0x01], path, 0x27F);
+
+	int ret = iosIoctl(fd, 0x72, inbuf, 0x520, outbuf, 0x293);
+
+	freeIobuf(iobuf);
+	return ret;
+}
+
+int FSA_OpenFile(int fd, const char* path, const char* mode, int* outHandle)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -296,8 +323,21 @@ int FSA_CloseFile(int fd, int fileHandle)
 	return ret;
 }
 
+int FSA_FlushFile(int fd, int fileHandle)
+{
+    uint8_t* iobuf = allocIobuf();
+    uint32_t* inbuf = (uint32_t*)iobuf;
+    uint32_t* outbuf = (uint32_t*)&iobuf[0x520];
 
-int FSA_ChangeMode(int fd, char* path, int mode)
+    inbuf[1] = fileHandle;
+
+    int ret = iosIoctl(fd, 0x17, inbuf, 0x520, outbuf, 0x293);
+    freeIobuf(iobuf);
+    return ret;
+}
+
+
+int FSA_ChangeMode(int fd, const char* path, int mode)
 {
     u8* iobuf = allocIobuf();
 	u8* inbuf8 = iobuf;
@@ -315,7 +355,7 @@ int FSA_ChangeMode(int fd, char* path, int mode)
 	return ret;
 }
 
-int FSA_Format(int fd, char* device, char* fs_format, int flags, u32 what1, u32 what2)
+int FSA_Format(int fd, const char* device, const char* fs_format, int flags, u32 what1, u32 what2)
 {
 	u8* iobuf = allocIobuf();
 	u8* inbuf8 = iobuf;
@@ -337,7 +377,7 @@ int FSA_Format(int fd, char* device, char* fs_format, int flags, u32 what1, u32 
 // type 4 :
 // 		0x08 : device size in sectors (u64)
 // 		0x10 : device sector size (u32)
-int FSA_GetDeviceInfo(int fd, char* device_path, int type, u32* out_data)
+int FSA_GetDeviceInfo(int fd, const char* device_path, int type, u32* out_data)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -379,7 +419,7 @@ int FSA_GetDeviceInfo(int fd, char* device_path, int type, u32* out_data)
 }
 
 
-int FSA_GetVolumeInfo(int fd, char* volume_path, int type, fsa_volume_info* out)
+int FSA_GetVolumeInfo(int fd, const char* volume_path, int type, fsa_volume_info* out)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -395,7 +435,7 @@ int FSA_GetVolumeInfo(int fd, char* volume_path, int type, fsa_volume_info* out)
 	return ret;
 }
 
-int FSA_RawOpen(int fd, char* device_path, int* outHandle)
+int FSA_RawOpen(int fd, const char* device_path, int* outHandle)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;

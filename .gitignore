@@ -37,6 +37,7 @@ crash_B.txt
 after_sect.txt
 before_sect.txt
 ios_orig.patch
+.vscode
 
 # wupserver
 wupserver/build

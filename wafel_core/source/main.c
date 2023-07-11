@@ -16,10 +16,10 @@
 #include "ios_dynamic.h"
 #include "utils.h"
 #include "addrs_55x.h"
+#include "patch.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
-u32 main_thread(void*);
 extern void kern_entry();
 extern void mcp_entry();
 extern void svc_handler_hook();
@@ -59,7 +59,7 @@ const char* fw_img_path = "/vol/sdcard";
 
 static int is_55x = 0;
 
-const u32 mcpIoMappings_patch[6*3] = 
+static const u32 mcpIoMappings_patch[6*3] =
 {
     // mapping 1
     0x0D000000, // vaddr
@@ -86,113 +86,9 @@ const u32 mcpIoMappings_patch[6*3] =
     0x00000000, // ?
 };
 
-#define _U32_PATCH(_addr, _val, _copy_fn) { \
-    _copy_fn((uintptr_t)_addr, (u32)_val); \
-}
-#define _ASM_PATCH(_addr, _str, _copy_fn) { \
-    __asm__ volatile (           \
-    ".globl pre_" #_addr "\n"    \
-    ".globl post_" #_addr "\n"   \
-    "b post_" #_addr "\n"        \
-    "pre_" #_addr ":\n"          \
-    ".arm\n"                     \
-    _str "\n"                    \
-     ".arm\n"                    \
-    "post_" #_addr ":\n");       \
-    extern void pre_##_addr();   \
-    extern void post_##_addr();  \
-    _copy_fn((uintptr_t)_addr, (uintptr_t)pre_##_addr, (u32)post_##_addr - (u32)pre_##_addr); \
-}
-#define _BL_TRAMPOLINE(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \
-    u32 bl_insn = 0xEB000000 | (bl_offs & 0xFFFFFF); \
-    _U32_PATCH(_addr, bl_insn, _copy_fn); \
-}
-#define _BL_T_TRAMPOLINE(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 4) / 2; \
-    u32 bl_insn = 0xF000F800 | (bl_offs & 0x7FF) | (((bl_offs >> 11) & 0x3FF) << 16); \
-    _U32_PATCH(_addr, bl_insn, _copy_fn); \
-}
-#define _BRANCH_PATCH(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \
-    u32 bl_insn = 0xEA000000 | (bl_offs & 0xFFFFFF); \
-    _U32_PATCH(_addr, bl_insn, _copy_fn); \
-}
-
-#define ARRARG(...) {__VA_ARGS__}
-#define _SEARCH_PATCH(_search, _start_addr, _next_macro, ...) {                                            \
-    u8 search[] = ARRARG _search;                                                                          \
-    uintptr_t _addr = (uintptr_t)boyer_moore_search((void*)_start_addr, 0x200000, search, sizeof(search)); \
-    if (!_addr) {                                                                                          \
-        debug_printf("Failed to find search pattern!\n");                                                  \
-        for (int i = 0; i < sizeof(search); i++) {                                                         \
-            debug_printf("%02x ", search[i]);                                                              \
-        }                                                                                                  \
-        debug_printf("\n");                                                                                \
-        while(1);                                                                                          \
-    }                                                                                                      \
-    _next_macro(_addr, __VA_ARGS__);                                                                       \
-}
-
-//
-// Pre-MMU -- Lookups done manually
-//
-static void _patch_u32_k(uintptr_t addr, u32 val)
-{
-    memcpy((void*)ios_elf_vaddr_to_paddr(addr), &val, sizeof(u32));
-}
-
-static void _patch_copy_k(uintptr_t dst, uintptr_t src, size_t sz)
-{
-    memcpy((void*)ios_elf_vaddr_to_paddr(dst), (void*)src, sz);
-}
-
-#define U32_PATCH_K(_addr, _val) _U32_PATCH(_addr, _val, _patch_u32_k)
-#define ASM_PATCH_K(_addr, _str) _ASM_PATCH(_addr, _str, _patch_copy_k)
-#define BL_TRAMPOLINE_K(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32_k)
-#define BL_T_TRAMPOLINE_K(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32_k)
-#define BRANCH_PATCH_K(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32_k)
-
-#define MEMCPY_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, MEMCPY_K, __VA_ARGS__)
-#define U32_PATCH_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, U32_PATCH_K, __VA_ARGS__)
-#define ASM_PATCH_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, ASM_PATCH_K, __VA_ARGS__)
-#define BL_TRAMPOLINE_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_TRAMPOLINE_K, __VA_ARGS__)
-#define BL_T_TRAMPOLINE_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_T_TRAMPOLINE_K, __VA_ARGS__)
-#define BRANCH_PATCH_SK(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BRANCH_PATCH_K, __VA_ARGS__)
-
-
-//
-// Post-MMU
-//
-static void _patch_u32(uintptr_t addr, u32 val)
-{
-    memcpy((void*)addr, &val, sizeof(u32));
-    dc_flushrange((void*)addr, sizeof(u32));
-}
-
-static void _patch_copy(uintptr_t dst, uintptr_t src, size_t sz)
-{
-    memcpy((void*)dst, (void*)src, sz);
-    dc_flushrange((void*)dst, sizeof(u32));
-}
-#define MEMCPY_PATCH(_addr, _dst, _sz) _patch_copy(_addr, _dst, _sz)
-#define U32_PATCH(_addr, _val) _U32_PATCH(_addr, _val, _patch_u32)
-#define ASM_PATCH(_addr, _str) _ASM_PATCH(_addr, _str, _patch_copy)
-#define BL_TRAMPOLINE(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32)
-#define BL_T_TRAMPOLINE(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32)
-#define BRANCH_PATCH(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32)
-
-#define MEMCPY_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, MEMCPY, __VA_ARGS__)
-#define U32_PATCH_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, U32_PATCH, __VA_ARGS__)
-#define ASM_PATCH_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, ASM_PATCH, __VA_ARGS__)
-#define BL_TRAMPOLINE_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_TRAMPOLINE, __VA_ARGS__)
-#define BL_T_TRAMPOLINE_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BL_T_TRAMPOLINE, __VA_ARGS__)
-#define BRANCH_PATCH_S(_search, _start_addr, ...) _SEARCH_PATCH(_search, _start_addr, BRANCH_PATCH, __VA_ARGS__)
-
-
 extern u32 otp_store[0x400/4];
 
-int otp_read_replace(int which_word, void *pOut, unsigned int len)
+static int otp_read_replace(int which_word, void *pOut, unsigned int len)
 {
     u32 cookie = irq_kill();
     memcpy(pOut, &otp_store[which_word], len);
@@ -200,7 +96,7 @@ int otp_read_replace(int which_word, void *pOut, unsigned int len)
     return 0;
 }
 
-void abt_replace(u32* stack, int which)
+static void abt_replace(u32* stack, int which)
 {
     for (int i = 0; i < 10; i++)
     {
@@ -246,7 +142,7 @@ void ios_panic_replace(const char* str)
     while (1);
 }
 
-void semihosting_write0(const char* str)
+static void semihosting_write0(const char* str)
 {
     serial_send_str(str);
 }
@@ -259,7 +155,7 @@ void semihosting_handler(int which, void* arg0)
     }
 }
 
-void init_heap()
+static void init_heap()
 {
     // Newlib
     extern char* fake_heap_start;
@@ -272,7 +168,7 @@ void init_heap()
 }
 
 // Replace all instances of 0xFFF07F00 (Wii SEEPROM addr) with 0xFFF07B00 in c2w.elf
-void c2w_boot_hook_fixup_c2w_ptrs()
+static void c2w_boot_hook_fixup_c2w_ptrs()
 {
     for (uintptr_t a = 0x01000000; a < 0x01F80000; a += 4)
     {
@@ -284,7 +180,7 @@ void c2w_boot_hook_fixup_c2w_ptrs()
     }
 }
 
-void c2w_boot_hook_find_and_replace_otpread()
+static void c2w_boot_hook_find_and_replace_otpread()
 {
     uintptr_t ios_paddr = read32(0x1018);
     uintptr_t ios_end = ios_paddr + 0x260000;
@@ -306,7 +202,7 @@ void c2w_boot_hook_find_and_replace_otpread()
 }
 
 // Search for 0xFFFE7CC0 in IOS and change it to 0xFFFE7B00
-void c2w_boot_hook_fixup_ios_ptrs()
+static void c2w_boot_hook_fixup_ios_ptrs()
 {
     uintptr_t ios_paddr = read32(0x1018);
     uintptr_t ios_end = ios_paddr + 0x260000;
@@ -322,7 +218,7 @@ void c2w_boot_hook_fixup_ios_ptrs()
 }
 
 // Search for E3C22020 E3822020 and replace the second instruction with a nop
-void c2w_oc_hax_patch()
+static void c2w_oc_hax_patch()
 {
     for (uintptr_t a = 0x01000000; a < 0x01F80000; a += 4)
     {
@@ -345,10 +241,10 @@ void c2w_patches()
 #endif
 }
 
-u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
-const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
+static u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
+static const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
 
-u32 fat_register_hook(u8* opaque)
+static u32 fat_register_hook(u8* opaque)
 {
     opaque[0xc] = 0x6; // sdcard
     opaque[0xd] = 0x11; // usb
@@ -357,7 +253,7 @@ u32 fat_register_hook(u8* opaque)
     return FS_REGISTER_FS_DRIVER(opaque);
 }
 
-const char* fsa_dev_register_hook(int a)
+static const char* fsa_dev_register_hook(int a)
 {
     register u8* hax __asm__("r4");
     if (a == 0x11)
@@ -371,7 +267,7 @@ const char* fsa_dev_register_hook(int a)
     return FS_DEVTYPE_TO_NAME(a);
 }
 
-void init_phdrs()
+static void init_phdrs()
 {
     // Init memory mappings
     Elf32_Phdr* phdr_base = ios_elf_add_phdr(wafel_plugin_base_addr);
@@ -415,7 +311,7 @@ void init_phdrs()
     ios_elf_print_map();
 }
 
-void init_linking()
+static void init_linking()
 {
     wafel_register_plugin(wafel_plugin_base_addr);
     debug_printf("kern_main symbol at: %08x\n", wafel_get_symbol_addr(wafel_plugin_base_addr, "kern_main"));
@@ -444,25 +340,22 @@ void init_linking()
     }
 }
 
-void init_plugins()
-{
+void call_plugin_entry(char *entry_name){
     uintptr_t next_plugin = wafel_plugin_base_addr;
-    while (next_plugin)
-    {
-        next_plugin = wafel_plugin_next(next_plugin);
-        
-        if (next_plugin) {
-            debug_printf("initializing plugin: %08x\n", next_plugin);
-            uintptr_t km = wafel_get_symbol_addr(next_plugin, "kern_entry");
-            if (!km) continue;
-
-            void (*plug_kern_entry)() = (void*)km;
-            plug_kern_entry();
+    while (next_plugin = wafel_plugin_next(next_plugin))
+    { 
+        debug_printf("calling %s in plugin: %08x\n", entry_name, next_plugin);
+        uintptr_t ep = wafel_get_symbol_addr(next_plugin, entry_name);
+        if (!ep){ 
+            debug_printf("did not find %s in plugin: %08x\n", entry_name, next_plugin);
+            continue;
         }
+        void (*plug_entry)() = (void*)ep;
+        plug_entry();
     }
 }
 
-void patch_general()
+static void patch_general()
 {
     // KERNEL
     {
@@ -493,7 +386,7 @@ void patch_general()
 
         // Hacky: copy an ASM stub instead, because our permissions might not be
         // kosher w/o more patches generalized
-        memcpy(otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
+        memcpy((void*)otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
 #endif // OTP_IN_MEM
 
         // Early MMU mapping
@@ -518,7 +411,7 @@ void patch_general()
     // then search back 
 }
 
-void patch_55x()
+static void patch_55x()
 {
     // KERNEL
     {
@@ -943,6 +836,15 @@ void patch_55x()
     }
 }
 
+// TODO: make a service
+static u32 main_thread(void* arg)
+{
+    while (1) {
+        usleep(10*1000*1000);
+        debug_printf("alive\n");
+    }
+}
+
 // This fn runs before everything else in kernel mode.
 // It should be used to do extremely early patches
 // (ie to BSP and kernel, which launches before MCP)
@@ -975,10 +877,11 @@ void kern_main()
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
 
-    ic_invalidateall();
-    debug_printf("done\n");
+    call_plugin_entry("kern_entry");
 
-    init_plugins();
+    ic_invalidateall();
+    
+    debug_printf("stroopwafel kern_main done\n");
 }
 
 // This fn runs before MCP's main thread, and can be used
@@ -988,8 +891,6 @@ void mcp_main()
 {
     // Make sure relocs worked fine and mappings are good
 	debug_printf("we in here MCP %p\n", mcp_main);
-
-    debug_printf("done\n");
 
     //const char* test_panic = "This is a test panic\n";
     //iosPanic(test_panic, strlen(test_panic)+1);
@@ -1009,13 +910,8 @@ void mcp_main()
     if (wupserver_threadhand >= 0) {
         iosStartThread(wupserver_threadhand);
     }
-}
 
-// TODO: make a service
-u32 main_thread(void* arg)
-{
-    while (1) {
-        usleep(10*1000*1000);
-        debug_printf("alive\n");
-    }
+    call_plugin_entry("mcp_entry");
+
+    debug_printf("stroopwafel mcp_main done\n");
 }
