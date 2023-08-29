@@ -36,7 +36,7 @@
 #define GPIO_SERIAL_CONSOLE 1
 
 // Disables the disk drive by overriding the SEEPROM configuration to 0x0002 (None)
-#define DISABLE_DISK_DRIVE 1
+#define DISABLE_DISK_DRIVE 0
 
 // Set the size of mlc storage, in sectors 
 // (TODO: autoconfig for this! we need to support arbitrary sizes anyway)
