@@ -3,6 +3,7 @@
 
 // slightly stolen from ctrulib
 #include <stdint.h>
+#include "types.h"
 
 #define SOL_SOCKET	0xFFFF
 
@@ -107,24 +108,24 @@ struct linger
 	int l_linger;
 };
 
-int socketInit();
-int socketExit();
+LINKABLE int socketInit();
+LINKABLE int socketExit();
 
-int	accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-int	bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-int	closesocket(int sockfd);
-int	connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-int	getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-int	getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-int	getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
-int	listen(int sockfd, int backlog);
-ssize_t	recv(int sockfd, void *buf, size_t len, int flags);
-ssize_t	recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
-ssize_t	send(int sockfd, const void *buf, size_t len, int flags);
-ssize_t	sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
-int	setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
-int	shutdown(int sockfd, int how);
-int	socket(int domain, int type, int protocol);
-int	sockatmark(int sockfd);
+LINKABLE int	accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+LINKABLE int	bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+LINKABLE int	closesocket(int sockfd);
+LINKABLE int	connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+LINKABLE int	getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+LINKABLE int	getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+LINKABLE int	getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+LINKABLE int	listen(int sockfd, int backlog);
+LINKABLE ssize_t	recv(int sockfd, void *buf, size_t len, int flags);
+LINKABLE ssize_t	recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
+LINKABLE ssize_t	send(int sockfd, const void *buf, size_t len, int flags);
+LINKABLE ssize_t	sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+LINKABLE int	setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+LINKABLE int	shutdown(int sockfd, int how);
+LINKABLE int	socket(int domain, int type, int protocol);
+LINKABLE int	sockatmark(int sockfd);
 
 #endif

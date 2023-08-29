@@ -11,7 +11,6 @@
 #include "latte/cache.h"
 #include "latte/irq.h"
 #include "latte/serial.h"
-#include "wupserver/wupserver.h"
 #include "dynamic.h"
 #include "ios_dynamic.h"
 #include "utils.h"
@@ -902,13 +901,6 @@ void mcp_main()
     int main_threadhand = iosCreateThread(main_thread, NULL, (u32*)(main_stack+0x1000), 0x1000, 0x78, 1);
     if (main_threadhand >= 0) {
         iosStartThread(main_threadhand);
-    }
-
-    // Start up wupserver
-    u8* wupserver_stack = (u8*)malloc_global(0x1000);
-    int wupserver_threadhand = iosCreateThread(wupserver_main, NULL, (u32*)(wupserver_stack+0x1000), 0x1000, 0x78, 1);
-    if (wupserver_threadhand >= 0) {
-        iosStartThread(wupserver_threadhand);
     }
 
     call_plugin_entry("mcp_entry");

@@ -52,7 +52,7 @@ LINKABLE int iosInvalidateDCache(void* address, u32 size);
 LINKABLE int iosFlushDCache(void* address, u32 size);
 LINKABLE int iosBackdoor(u32, u32, u32, void* func);
 
-int svc_sys_write(char* str);
-void crash_and_burn();
+LINKABLE int svc_sys_write(char* str);
+LINKABLE void crash_and_burn();
 
 #endif
