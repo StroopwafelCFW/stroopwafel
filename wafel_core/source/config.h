@@ -17,6 +17,14 @@
 // Enable NAND redirection (use minute to prepare your SD card)
 #define USE_REDNAND 0
 
+// Enable MLC only redirection (uses same SD layout as REDNAND)
+#define USE_REDMLC 1
+
+// Disables block level MLC cache on SLC
+// Only enable this if you rebuild the MLC or use a MLC Backup created by FSA (not minute, not the nand dumper)
+// Toggeling this option on an existing MLC will damage the filesystem
+#define DISABLE_SCFM 1
+
 // OTP does not exist, and should be loaded from memory instead
 #define OTP_IN_MEM 1
 
@@ -117,8 +125,16 @@
 #if MLC_ACCELERATE & !USE_SYS_SLCCMPT
 #error "MLC_ACCELERATE is only supported with USE_SYS_SLCCMPT enabled!!"
 #endif
-#if MLC_ACCELERATE & !USE_REDNAND
+#if MLC_ACCELERATE & !USE_REDNAND & !USE_REDMLC
 #error "MLC_ACCELERATE on sysnand will brick on reboot without bootloader hax!!"
+#endif
+
+#if DISABLE_SCFM & !USE_REDNAND & !USE_REDMLC
+#error "MLC_ACCELERATE on sysnand will brick on reboot without bootloader hax!!"
+#endif
+
+#if USE_REDMLC & !DISABLE_SCFM & !MLC_ACCELERATE
+#error "Using REDMLC with the SCFM on SLC will corrupt your system MLC!!"
 #endif
 
 #endif // _CONFIG_H

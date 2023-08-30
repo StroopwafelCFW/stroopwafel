@@ -756,7 +756,7 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
-#if USE_REDNAND
+#if USE_REDNAND | USE_REDMLC
         // in createDevThread
         BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
 #endif
@@ -773,7 +773,8 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
         BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
         ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
-
+#endif // USE_REDNAND
+#if USE_REDNAND | USE_REDMLC
         // mlc redirection
         BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
         BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
@@ -783,7 +784,7 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
         // mdExit : patch out sdcard deinitialization
         ASM_PATCH_K(0x107BD374, "bx lr");
-#endif // USE_REDNAND
+#endif // USE_REDNAND || USE_REDMLC
 
         // mlcRead1 logging
 #if PRINT_MLC_READ
@@ -831,6 +832,12 @@ static void patch_55x()
     
         //hook scfmInit right after fsa initialization, before main thread creation
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
+#endif
+
+#if DISABLE_SCFM
+        ASM_PATCH_K(0x107d1f28, "nop\n");
+        ASM_PATCH_K(0x107d1e08,"nop\n");
+        ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
 #endif
     }
 }
