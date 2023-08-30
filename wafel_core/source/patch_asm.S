@@ -1358,8 +1358,10 @@ str_read_write_print_format:
 
 wfs_crypto_hook:
     ldrb r3, [lr,#0x19] @ replaced
-#if USB_SHRINKSHIFT
+#if USB_SHRINKSHIFT | NO_CRYPTO
     push {r4-r7}
+#if !NO_CRYPTO
+    // Disable crypto only for selected USB
     ldr r4, =NOCRYPTO_WFS_SECTOR_COUNT1
     ldr r6, =NOCRYPTO_WFS_SECTOR_COUNT2
     ldr r7, =NOCRYPTO_WFS_SECTOR_COUNT3
@@ -1367,6 +1369,7 @@ wfs_crypto_hook:
     cmpne r5, r6
     cmpne r5, r7
     bne wfs_crypto_hook_ret
+#endif // !NO_CRYPTO
     
     @ set the key to 0xDEADBEEF to skip crypto
     ldr r5, =0xDEADBEEF
@@ -1375,7 +1378,7 @@ wfs_crypto_hook:
     
 wfs_crypto_hook_ret:
     pop {r4-r7}
-#endif
+#endif // USB_SHRINKSHIFT | NOCRYPTO
     b REL_WFS_CRYPTO_HOOK_RET_ADDR
 .align 4
     

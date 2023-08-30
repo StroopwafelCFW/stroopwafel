@@ -84,6 +84,9 @@
 #define USB_SHRINK_ORIG_SECTOR_COUNT3   (-1)
 #define USB_SHRINK_SECTOR_COUNT3        (-1)
 
+// Disable crypto for ALL WFS Drives including MLC (needs reinstall of OS)
+#define NO_CRYPTO 0
+
 // Allow USB drives to host FAT32 filesystems
 #define FAT32_USB 0
 
