@@ -18,12 +18,12 @@
 #define USE_REDNAND 0
 
 // Enable MLC only redirection (uses same SD layout as REDNAND)
-#define USE_REDMLC 1
+#define USE_REDMLC 0
 
 // Disables block level MLC cache on SLC
 // Only enable this if you rebuild the MLC or use a MLC Backup created by FSA (not minute, not the nand dumper)
 // Toggeling this option on an existing MLC will damage the filesystem
-#define DISABLE_SCFM 1
+#define DISABLE_SCFM 0
 
 // OTP does not exist, and should be loaded from memory instead
 #define OTP_IN_MEM 1
