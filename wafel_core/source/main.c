@@ -839,6 +839,17 @@ static void patch_55x()
         ASM_PATCH_K(0x107d1e08,"nop\n");
         ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
 #endif
+
+#if OVERRIDE_MLC_SIZE
+ASM_PATCH_K(0x107bdb10,
+          "nop\n"
+          "nop\n"
+          "nop\n"
+          "ldr r4, [pc, #0xb8]\n"
+        );
+
+U32_PATCH_K(0x107bdbdc, MLC_SIZE + 0xFFFF);
+#endif
     }
 }
 
