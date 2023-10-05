@@ -5,6 +5,7 @@
 #include "imports.h"
 #include "ios/svc.h"
 #include "utils.h"
+#include "ios_dynamic.h"
 #include <string.h>
 
 extern int is_relocated;
@@ -79,12 +80,16 @@ static uint32_t num_elfs = 0;
 Elf32_Phdr* wafel_get_plugin_phdrs(uintptr_t base)
 {
     Elf32_Ehdr* hdr = (Elf32_Ehdr*)base;
+    if (read32((uintptr_t)hdr->e_ident) != IPX_ELF_MAGIC) return NULL;
+
     return (Elf32_Phdr*)(base + hdr->e_phoff);
 }
 
 u32 wafel_get_plugin_num_phdrs(uintptr_t base)
 {
     Elf32_Ehdr* hdr = (Elf32_Ehdr*)base;
+    if (read32((uintptr_t)hdr->e_ident) != IPX_ELF_MAGIC) return 0;
+
     return hdr->e_phnum;
 }
 
@@ -92,6 +97,7 @@ Elf32_Dyn* wafel_get_plugin_dynamic(uintptr_t base)
 {
     Elf32_Phdr* paPhdrs = wafel_get_plugin_phdrs(base);
     u32 num_phdrs = wafel_get_plugin_num_phdrs(base);
+    if (!paPhdrs || !num_phdrs) return NULL;
 
     for (u32 i = 0; i < num_phdrs; i++)
     {
@@ -106,6 +112,7 @@ uintptr_t wafel_plugin_max_addr(uintptr_t base)
 {
     Elf32_Phdr* paPhdrs = wafel_get_plugin_phdrs(base);
     u32 num_phdrs = wafel_get_plugin_num_phdrs(base);
+    if (!paPhdrs || !num_phdrs) return 0; // TODO
     uintptr_t ret = 0;
 
     for (u32 i = 0; i < num_phdrs; i++)
@@ -223,6 +230,7 @@ void wafel_link_plugin(uintptr_t base)
     u32 relsz = 0;
     
     dyn = wafel_get_plugin_dynamic(base);
+    if (!dyn) return;
 
     for (; dyn->d_tag != DT_NULL; dyn++)
     {

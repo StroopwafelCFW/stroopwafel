@@ -18,10 +18,10 @@ export TARGET		:=	wafel_core
 export BUILD		?=	debug
 
 R_SOURCES			:=	
-SOURCES				:=	source source/ios source/services source/wupserver source/latte
+SOURCES				:=	source source/ios source/services source/wupserver source/latte source/externals/inih
 
 R_INCLUDES			:=	
-INCLUDES 			:=	source include/wafel
+INCLUDES 			:=	source include/wafel source/externals/inih
 
 DATA				:=	
 

@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include "dynamic.h"
 
+#define IPX_ELF_MAGIC (0x7F454C46)
+#define IPX_DATA_MAGIC (0x44415441)
+
 #define IOS_SEG_PHDRS   (0)
 #define IOS_SEG_NOTES   (1)
 #define IOS_SEG_ELFINFO (2)

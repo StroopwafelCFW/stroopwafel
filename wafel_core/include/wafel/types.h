@@ -28,5 +28,7 @@
 	typedef volatile s64 vs64;
 
 	#define LINKABLE __attribute__ ((weak)) __attribute__((used))
+	#define ALIGNED(x) __attribute__((aligned(x)))
+	#define PACKED __attribute__((packed))
 
 #endif // WAFEL_TYPES_H

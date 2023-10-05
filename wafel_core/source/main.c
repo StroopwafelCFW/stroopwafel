@@ -8,6 +8,7 @@
 #include "imports.h"
 #include "ios/svc.h"
 #include "ios/memory.h"
+#include "ios/prsh.h"
 #include "latte/cache.h"
 #include "latte/irq.h"
 #include "latte/serial.h"
@@ -322,6 +323,11 @@ static void init_linking()
         next_plugin = wafel_plugin_next(next_plugin);
         
         if (next_plugin) {
+            // Skip DATA sections
+            if (read32(next_plugin) != IPX_ELF_MAGIC) {
+                debug_printf("skipping data: %08x\n", next_plugin);
+                continue;
+            }
             debug_printf("registering plugin: %08x\n", next_plugin);
             wafel_register_plugin(next_plugin);
         }
@@ -333,9 +339,24 @@ static void init_linking()
         next_plugin = wafel_plugin_next(next_plugin);
         
         if (next_plugin) {
+            // Skip DATA sections
+            if (read32(next_plugin) != IPX_ELF_MAGIC) {
+                debug_printf("skipping data: %08x\n", next_plugin);
+                continue;
+            }
             debug_printf("linking plugin: %08x\n", next_plugin);
             wafel_link_plugin(next_plugin);
         }
+    }
+}
+
+static void init_config()
+{
+    const char* p_data = NULL;
+    size_t d_size = 0;
+    int ret = prsh_get_entry("stroopwafel_config", &p_data, &d_size);
+    if (ret >= 0) {
+        debug_printf("Found stroopwafel_config PRSH:\n%s\n", p_data);
     }
 }
 
@@ -343,6 +364,11 @@ void call_plugin_entry(char *entry_name){
     uintptr_t next_plugin = wafel_plugin_base_addr;
     while (next_plugin = wafel_plugin_next(next_plugin))
     { 
+        // Skip DATA sections
+        if (read32(next_plugin) != IPX_ELF_MAGIC) {
+            debug_printf("skipping data: %08x\n", next_plugin);
+            continue;
+        }
         debug_printf("calling %s in plugin: %08x\n", entry_name, next_plugin);
         uintptr_t ep = wafel_get_symbol_addr(next_plugin, entry_name);
         if (!ep){ 
@@ -893,6 +919,9 @@ void kern_main()
 
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
+
+    // Read config.ini from PRSH memory
+    init_config();
 
     call_plugin_entry("kern_entry");
 
