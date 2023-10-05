@@ -17,6 +17,14 @@
 // Enable NAND redirection (use minute to prepare your SD card)
 #define USE_REDNAND 0
 
+// Enable MLC only redirection (uses same SD layout as REDNAND)
+#define USE_REDMLC 0
+
+// Disables block level MLC cache on SLC
+// Only enable this if you rebuild the MLC or use a MLC Backup created by FSA (not minute, not the nand dumper)
+// Toggeling this option on an existing MLC will damage the filesystem
+#define DISABLE_SCFM 0
+
 // OTP does not exist, and should be loaded from memory instead
 #define OTP_IN_MEM 1
 
@@ -41,7 +49,11 @@
 // Set the size of mlc storage, in sectors 
 // (TODO: autoconfig for this! we need to support arbitrary sizes anyway)
 #define MLC_SIZE (0x03A20000) // 32GB
-// MLC_SIZE (0x00E50000) // 8GB
+//#define MLC_SIZE (0x00E50000) // 8GB
+//#define MLC_SIZE (0x2B760000) //373GB
+
+// Override MLC size in IOSU
+#define OVERRIDE_MLC_SIZE 0
 
 // Use sysnand vWii slc instead of redirecting it to the SD card.
 // This allows vWii and eShop Wii games to boot, and is basically 100% safe.
@@ -75,6 +87,9 @@
 #define USB_SHRINK_SECTOR_COUNT2        (-1)
 #define USB_SHRINK_ORIG_SECTOR_COUNT3   (-1)
 #define USB_SHRINK_SECTOR_COUNT3        (-1)
+
+// Disable crypto for ALL WFS Drives including MLC (needs reinstall of OS)
+#define NO_CRYPTO 0
 
 // Allow USB drives to host FAT32 filesystems
 #define FAT32_USB 0
@@ -117,8 +132,16 @@
 #if MLC_ACCELERATE & !USE_SYS_SLCCMPT
 #error "MLC_ACCELERATE is only supported with USE_SYS_SLCCMPT enabled!!"
 #endif
-#if MLC_ACCELERATE & !USE_REDNAND
+#if MLC_ACCELERATE & !USE_REDNAND & !USE_REDMLC
 #error "MLC_ACCELERATE on sysnand will brick on reboot without bootloader hax!!"
+#endif
+
+#if DISABLE_SCFM & !USE_REDNAND & !USE_REDMLC
+#error "MLC_ACCELERATE on sysnand will brick on reboot without bootloader hax!!"
+#endif
+
+#if USE_REDMLC & !DISABLE_SCFM & !MLC_ACCELERATE
+#error "Using REDMLC with the SCFM on SLC will corrupt your system MLC!!"
 #endif
 
 #endif // _CONFIG_H
