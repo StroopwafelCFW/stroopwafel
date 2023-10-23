@@ -904,7 +904,7 @@ static void patch_55x()
         ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
 #endif
 
-#if OVERRIDE_MLC_SIZE
+#if OVERRIDE_MLC_SIZE | USE_REDNAND
 ASM_PATCH_K(0x107bdb10,
           "nop\n"
           "nop\n"
@@ -912,7 +912,9 @@ ASM_PATCH_K(0x107bdb10,
           "ldr r4, [pc, #0xb8]\n"
         );
 
-U32_PATCH_K(0x107bdbdc, MLC_SIZE + 0xFFFF);
+u32 mlc_size = USE_REDNAND && redmlc ? redmlc_size_sectors : MLC_SIZE;
+
+U32_PATCH_K(0x107bdbdc, mlc_size + 0xFFFF);
 #endif
     }
 }
