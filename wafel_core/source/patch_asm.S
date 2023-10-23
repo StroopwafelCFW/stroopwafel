@@ -1435,19 +1435,6 @@ sdcard_init:
     ldr r1, [r0, #0x28]
     bic r1, #0x4
     str r1, [r0, #0x28]
-    
-    @ set sdcard size for emu hooks
-    ldr r1, [r0, #0x30]
-    mov r0, #0
-    sub r0, #0x10000
-    and r1, r0  @ sdcard_size &= 0xFFFF0000
-    ldr r0, =sdcard_num_sectors
-    str r1, [r0]
-
-    @ TODO: spoof MLC sector count for resized emunand (this patch is ready)
-    @ ldr r0, =FS_MMC_MLC_STRUCT
-    @ ldr r1, =MLC_SIZE
-    @ str r1, [r0, #0x30]
 
     pop {pc}
 
@@ -1778,10 +1765,8 @@ sdcardReadWrite_patch:
     cmp r2, #6 @ DEVICETYPE_SDCARD
     moveq r1, #0
     beq sdcardReadWrite_patch_cont
-    ldr r2, =MLC_OFFS_SECTORS @ mlc
-    ldr r1, =sdcard_num_sectors
+    ldr r1, =redmlc_off_sectors
     ldr r1, [r1]
-    sub r1, r2
     
 sdcardReadWrite_patch_cont:
     pop {r2}
@@ -1804,12 +1789,10 @@ slcReadWrite_patch:
     ldr r2, [r0, #4]
     mov r0, r1
     cmp r2, #0
-    ldrne r2, =SLC_OFFS_SECTORS
-    ldreq r2, =SLCCMPT_OFFS_SECTORS
-    ldr r1, =sdcard_num_sectors
+    ldrne r1, =redslc_off_sectors
+    ldreq r1, =redslccmpt_off_sectors
     ldr r1, [r1]
     
-    sub r1, r2
     lsr r1, #2   @ 4 sd sectors -> 1 slc sector
     pop {r2}
     b readWriteCallback_patch
@@ -2051,10 +2034,16 @@ drawCharacter:
 
 .pool
 
+.section ".extern"
+redmlc_off_sectors:
+    .word 0
+redslc_off_sectors:
+    .word 0
+redslccmpt_off_sectors:
+    .word 0
+
 .section ".bss"
 
-sdcard_num_sectors:
-    .word 0x00000000
 sdcard_access_mutex:
     .word 0x00000000
 mlc_out_callback_arg2:

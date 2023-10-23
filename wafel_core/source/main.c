@@ -55,6 +55,16 @@ extern void sdcardWrite_patch();
 extern void getMdDeviceById_hook();
 extern void registerMdDevice_hook();
 
+u32 redmlc_off_sectors;
+u32 redslc_off_sectors;
+u32 redslccmpt_off_sectors;
+
+u32 redmlc_size_sectors = 0;
+bool redmlc = false;
+bool redslc = false;
+bool redslccmpt = false;
+bool disable_scfm = false;
+
 const char* fw_img_path = "/vol/sdcard";
 
 static int is_55x = 0;
@@ -358,6 +368,34 @@ static void init_config()
     if (ret >= 0) {
         debug_printf("Found stroopwafel_config PRSH:\n%s\n", p_data);
     }
+
+    u32 *partition = NULL;
+    ret = prsh_get_entry("redmlc", (void**) &partition, &d_size);
+    if(ret >= 0){
+        redmlc_off_sectors = partition[0];
+        redmlc_size_sectors = partition[1];
+        if(redmlc_size_sectors)
+            redmlc = true;
+    }
+
+    ret = prsh_get_entry("redslc", (void**) &partition, &d_size);
+    if(ret >= 0){
+        redslc_off_sectors = partition[0];
+        if(partition[1])
+            redslc = true;
+    }
+
+    ret = prsh_get_entry("redslccmpt", (void**) &partition, &d_size);
+    if(ret >= 0){
+        redslccmpt_off_sectors = partition[0];
+        if(partition[1])
+            redslccmpt = true;
+    }
+
+    #if USE_REDNAND
+        if(redmlc && !redslc)
+            disable_scfm = true;
+    #endif 
 }
 
 void call_plugin_entry(char *entry_name){
