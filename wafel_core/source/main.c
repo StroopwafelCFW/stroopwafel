@@ -898,23 +898,24 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
 #endif
 
-#if DISABLE_SCFM
-        ASM_PATCH_K(0x107d1f28, "nop\n");
-        ASM_PATCH_K(0x107d1e08,"nop\n");
-        ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
+#if DISABLE_SCFM | USE_REDNAND
+        if(DISABLE_SCFM && disable_scfm){
+            ASM_PATCH_K(0x107d1f28, "nop\n");
+            ASM_PATCH_K(0x107d1e08,"nop\n");
+            ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
+        }
 #endif
 
 #if OVERRIDE_MLC_SIZE | USE_REDNAND
-ASM_PATCH_K(0x107bdb10,
+        ASM_PATCH_K(0x107bdb10,
           "nop\n"
           "nop\n"
           "nop\n"
           "ldr r4, [pc, #0xb8]\n"
         );
 
-u32 mlc_size = USE_REDNAND && redmlc ? redmlc_size_sectors : MLC_SIZE;
-
-U32_PATCH_K(0x107bdbdc, mlc_size + 0xFFFF);
+        u32 mlc_size = USE_REDNAND && redmlc ? redmlc_size_sectors : MLC_SIZE;
+        U32_PATCH_K(0x107bdbdc, mlc_size + 0xFFFF);
 #endif
     }
 }

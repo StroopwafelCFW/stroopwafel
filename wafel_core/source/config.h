@@ -15,7 +15,7 @@
 // Filesystem config
 // *****************************
 // Enable NAND redirection (use minute to prepare your SD card)
-#define USE_REDNAND 0
+#define USE_REDNAND 1
 
 // Enable MLC only redirection (uses same SD layout as REDNAND)
 #define USE_REDMLC 0

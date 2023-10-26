@@ -23,9 +23,6 @@
 // fatfs size to use (mb) is ((NUM_SECTORS - MLC_SIZE - 0x200800) / 0x800) - 1
 // OFFS_SECTORS is count subtracted from num_sectors
 #define USB_OFFS_SECTORS (0) // unused atm
-#define MLC_OFFS_SECTORS (SLC_OFFS_SECTORS + MLC_SIZE)      // sectors at NUM_SECTORS-0x03C20000
-#define SLC_OFFS_SECTORS (SLCCMPT_OFFS_SECTORS + 0x100000)  // sectors at NUM_SECTORS-0x00200000
-#define SLCCMPT_OFFS_SECTORS (0x100000)                     // sectors at NUM_SECTORS-0x00100000
 
 #define FS_MMC_SDCARD_STRUCT (0x1089B9F8)
 #define FS_MMC_MLC_STRUCT (0x1089B948)
