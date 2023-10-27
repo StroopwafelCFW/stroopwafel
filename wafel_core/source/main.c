@@ -374,6 +374,7 @@ static void init_config()
     if(ret >= 0){
         redmlc_off_sectors = partition[0];
         redmlc_size_sectors = partition[1];
+        debug_printf("redmlc start: %u size: %u\n", redmlc_off_sectors, redmlc_size_sectors);
         if(redmlc_size_sectors)
             redmlc = true;
     }
@@ -381,6 +382,7 @@ static void init_config()
     ret = prsh_get_entry("redslc", (void**) &partition, &d_size);
     if(ret >= 0){
         redslc_off_sectors = partition[0];
+        debug_printf("redslc start: %u size: %u\n", redslc_off_sectors, partition[1]);
         if(partition[1])
             redslc = true;
     }
@@ -388,6 +390,7 @@ static void init_config()
     ret = prsh_get_entry("redslccmpt", (void**) &partition, &d_size);
     if(ret >= 0){
         redslccmpt_off_sectors = partition[0];
+        debug_printf("redslccmpt start: %u size: %u\n", redslccmpt_off_sectors, partition[1]);
         if(partition[1])
             redslccmpt = true;
     }
@@ -900,6 +903,7 @@ static void patch_55x()
 
 #if DISABLE_SCFM | USE_REDNAND
         if(DISABLE_SCFM && disable_scfm){
+            printf("Disableing SCFM\n");
             ASM_PATCH_K(0x107d1f28, "nop\n");
             ASM_PATCH_K(0x107d1e08,"nop\n");
             ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
@@ -915,6 +919,7 @@ static void patch_55x()
         );
 
         u32 mlc_size = USE_REDNAND && redmlc ? redmlc_size_sectors : MLC_SIZE;
+        printf("Setting mlc size to: %u LBAs\n", mlc_size);
         U32_PATCH_K(0x107bdbdc, mlc_size + 0xFFFF);
 #endif
     }

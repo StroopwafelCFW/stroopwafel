@@ -68,6 +68,12 @@ void prsh_init(void)
 
     initialized = true;
 
+    for (int i = 0; i < header->entries; i++)
+    {
+        prsh_entry* entry = &header->entry[i];
+        debug_printf("%02x: %s\n", i, entry->name);
+    }
+
     // TODO: verify checksums
 }
 
