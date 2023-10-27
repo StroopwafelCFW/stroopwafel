@@ -15,6 +15,10 @@
 
 .extern otp_store
 
+.extern redmlc_off_sectors
+.extern redslc_off_sectors
+.extern redslccmpt_off_sectors
+
 .globl otp_read_replace_hacky
 .globl otp_read_replace_hacky_end
 otp_read_replace_hacky:
@@ -2033,14 +2037,6 @@ drawCharacter:
     pop {r4-r7,pc}
 
 .pool
-
-.section ".extern"
-redmlc_off_sectors:
-    .word 0
-redslc_off_sectors:
-    .word 0
-redslccmpt_off_sectors:
-    .word 0
 
 .section ".bss"
 
