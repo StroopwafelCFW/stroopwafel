@@ -65,6 +65,8 @@ bool redslc = false;
 bool redslccmpt = false;
 bool disable_scfm = false;
 
+#define rednand (redmlc || redslc || redslccmpt)
+
 const char* fw_img_path = "/vol/sdcard";
 
 static int is_55x = 0;
@@ -571,17 +573,19 @@ static void patch_55x()
         //   but the SEEPROM version should NOT be synced to the SD card version, because NAND
         //   has not changed
 #if USE_REDNAND
-        // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
-        ASM_PATCH_K(0xE600CF5C, 
-            "mov r0, #0\n \
-             bx lr\n"
-        );
+        if(redslc){
+            // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
+            ASM_PATCH_K(0xE600CF5C, 
+                "mov r0, #0\n \
+                bx lr\n"
+            );
 
-        // skip seeprom writes in eepromDrvWriteWord for safety
-        ASM_PATCH_K(0xE600D010, 
-            "mov r0, #0\n \
-             bx lr\n"
-        );
+            // skip seeprom writes in eepromDrvWriteWord for safety
+            ASM_PATCH_K(0xE600D010, 
+                "mov r0, #0\n \
+                bx lr\n"
+            );
+        }
 #endif
     }
 
@@ -824,33 +828,42 @@ static void patch_55x()
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
 #if USE_REDNAND | USE_REDMLC
-        // in createDevThread
-        BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
+        if(rednand){
+            // in createDevThread
+            BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
+        }
 #endif
 
         // null out references to slcSomething1 and slcSomething2
         // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
 #if USE_REDNAND
-        U32_PATCH_K(0x107B96B8, 0);
-        U32_PATCH_K(0x107B96BC, 0);
+        if(redslc || redslccmpt){
+            U32_PATCH_K(0x107B96B8, 0);
+            U32_PATCH_K(0x107B96BC, 0);
 
-        // slc redirection
-        BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
-        BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
-        BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
-        BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
-        ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
+            // slc redirection
+            BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
+            BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
+            BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
+            BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
+            ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
+        }
+        
 #endif // USE_REDNAND
 #if USE_REDNAND | USE_REDMLC
-        // mlc redirection
-        BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
-        BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
-        // FS_GETMDDEVICEBYID
-        BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
-        // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
-        BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
-        // mdExit : patch out sdcard deinitialization
-        ASM_PATCH_K(0x107BD374, "bx lr");
+        if(redmlc){
+            // mlc redirection
+            BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
+            BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
+            // FS_GETMDDEVICEBYID
+            BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
+            // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
+            BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
+        }
+        if(rednand){
+            // mdExit : patch out sdcard deinitialization
+            ASM_PATCH_K(0x107BD374, "bx lr");
+        }
 #endif // USE_REDNAND || USE_REDMLC
 
         // mlcRead1 logging
@@ -910,17 +923,18 @@ static void patch_55x()
         }
 #endif
 
-#if OVERRIDE_MLC_SIZE | USE_REDNAND
-        ASM_PATCH_K(0x107bdb10,
-          "nop\n"
-          "nop\n"
-          "nop\n"
-          "ldr r4, [pc, #0xb8]\n"
-        );
+#if USE_REDNAND
+        if(redmlc){
+            ASM_PATCH_K(0x107bdb10,
+            "nop\n"
+            "nop\n"
+            "nop\n"
+            "ldr r4, [pc, #0xb8]\n"
+            );
 
-        u32 mlc_size = USE_REDNAND && redmlc ? redmlc_size_sectors : MLC_SIZE;
-        printf("Setting mlc size to: %u LBAs\n", mlc_size);
-        U32_PATCH_K(0x107bdbdc, mlc_size + 0xFFFF);
+            printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
+            U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
+        }
 #endif
     }
 }

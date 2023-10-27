@@ -46,15 +46,6 @@
 // Disables the disk drive by overriding the SEEPROM configuration to 0x0002 (None)
 #define DISABLE_DISK_DRIVE 0
 
-// Set the size of mlc storage, in sectors 
-// (TODO: autoconfig for this! we need to support arbitrary sizes anyway)
-#define MLC_SIZE (0x03A20000) // 32GB
-//#define MLC_SIZE (0x00E50000) // 8GB
-//#define MLC_SIZE (0x2B760000) //373GB
-
-// Override MLC size in IOSU
-#define OVERRIDE_MLC_SIZE 0
-
 // Use sysnand vWii slc instead of redirecting it to the SD card.
 // This allows vWii and eShop Wii games to boot, and is basically 100% safe.
 #define USE_SYS_SLCCMPT 1
