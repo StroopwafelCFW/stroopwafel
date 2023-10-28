@@ -61,9 +61,10 @@ u32 redslccmpt_off_sectors;
 
 u32 redmlc_size_sectors = 0;
 bool redmlc = false;
-bool redslc = false;
-bool redslccmpt = false;
 bool disable_scfm = false;
+u32 redslc = false; //u32, because used in asm
+u32 redslccmpt = false;
+
 
 #define rednand (redmlc || redslc || redslccmpt)
 
@@ -389,13 +390,15 @@ static void init_config()
             redslc = true;
     }
 
-    ret = prsh_get_entry("redslccmpt", (void**) &partition, &d_size);
-    if(ret >= 0){
-        redslccmpt_off_sectors = partition[0];
-        debug_printf("redslccmpt start: %u size: %u\n", redslccmpt_off_sectors, partition[1]);
-        if(partition[1])
-            redslccmpt = true;
-    }
+    #if !USE_SYS_SLCCMPT
+        ret = prsh_get_entry("redslccmpt", (void**) &partition, &d_size);
+        if(ret >= 0){
+            redslccmpt_off_sectors = partition[0];
+            debug_printf("redslccmpt start: %u size: %u\n", redslccmpt_off_sectors, partition[1]);
+            if(partition[1])
+                redslccmpt = true;
+        }
+    #endif
 
     #if USE_REDNAND
         if(redmlc && !redslc)

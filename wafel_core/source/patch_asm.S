@@ -18,6 +18,8 @@
 .extern redmlc_off_sectors
 .extern redslc_off_sectors
 .extern redslccmpt_off_sectors
+.extern redslc
+.extern redslccmpt
 
 .globl otp_read_replace_hacky
 .globl otp_read_replace_hacky_end
@@ -1802,9 +1804,12 @@ slcReadWrite_patch:
     b readWriteCallback_patch
 
 slcRead1_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc
+    ldreq r1, =redslccmpt
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcRead1_patch_cont
@@ -1813,15 +1818,17 @@ slcRead1_patch:
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_READ1+4
     
-#endif
 slcRead1_patch_cont:
     mov r1, #1 @ read
     b slcReadWrite_patch
 
 slcWrite1_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc
+    ldreq r1, =redslccmpt
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcWrite1_patch_cont
@@ -1829,15 +1836,18 @@ slcWrite1_patch:
     @ slccmpt, do replaced instruction and return to use syscmpt
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_WRITE1+4
-#endif
+
 slcWrite1_patch_cont:
     mov r1, #0 @ write
     b slcReadWrite_patch
 
 slcRead2_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc
+    ldreq r1, =redslccmpt
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcRead2_patch_cont
@@ -1845,7 +1855,7 @@ slcRead2_patch:
     @ slccmpt, do replaced instruction and return to use syscmpt
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_READ2+4
-#endif
+
 slcRead2_patch_cont:
 .equ slcRead2_patch_stackframe_size, (0x10+7*4)
     push {r0-r5,lr}
@@ -1864,9 +1874,12 @@ slcRead2_patch_cont:
 
     
 slcWrite2_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc
+    ldreq r1, =redslccmpt
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcWrite2_patch_cont
@@ -1874,7 +1887,7 @@ slcWrite2_patch:
     @ slccmpt, do replaced instruction and return to use syscmpt
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_WRITE2+4
-#endif
+
 slcWrite2_patch_cont:
 .equ slcWrite2_patch_stackframe_size, (0x10+6*4)
     push {r0-r4,lr}
