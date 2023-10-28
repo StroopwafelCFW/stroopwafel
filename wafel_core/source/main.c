@@ -964,6 +964,8 @@ void kern_main()
     init_heap();
     init_phdrs();
     init_linking();
+    // Read config.ini from PRSH memory
+    init_config();
 
     // TODO verify the bytes that are overwritten?
     // and/or search for instructions where critical (OTP)
@@ -982,9 +984,6 @@ void kern_main()
 
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
-
-    // Read config.ini from PRSH memory
-    init_config();
 
     call_plugin_entry("kern_entry");
 
