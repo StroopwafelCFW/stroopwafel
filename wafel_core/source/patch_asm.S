@@ -18,8 +18,8 @@
 .extern redmlc_off_sectors
 .extern redslc_off_sectors
 .extern redslccmpt_off_sectors
-.extern redslc
-.extern redslccmpt
+.extern redslc_size_sectors
+.extern redslccmpt_size_sectors
 
 .globl otp_read_replace_hacky
 .globl otp_read_replace_hacky_end
@@ -1807,8 +1807,8 @@ slcRead1_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc
-    ldreq r1, =redslccmpt
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
     ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
@@ -1826,8 +1826,8 @@ slcWrite1_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc
-    ldreq r1, =redslccmpt
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
     ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
@@ -1845,8 +1845,8 @@ slcRead2_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc
-    ldreq r1, =redslccmpt
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
     ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
@@ -1877,8 +1877,8 @@ slcWrite2_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc
-    ldreq r1, =redslccmpt
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
     ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}

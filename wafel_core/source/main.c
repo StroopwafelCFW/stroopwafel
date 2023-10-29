@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "addrs_55x.h"
 #include "patch.h"
+#include "rednand_config.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -60,13 +61,14 @@ u32 redslc_off_sectors;
 u32 redslccmpt_off_sectors;
 
 u32 redmlc_size_sectors = 0;
-bool redmlc = false;
+u32 redslc_size_sectors = 0;
+u32 redslccmpt_size_sectors = 0;
+
 bool disable_scfm = false;
-u32 redslc = false; //u32, because used in asm
-u32 redslccmpt = false;
+bool scfm_on_slccmpt = false;
 
 
-#define rednand (redmlc || redslc || redslccmpt)
+#define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
 
 const char* fw_img_path = "/vol/sdcard";
 
@@ -372,38 +374,21 @@ static void init_config()
         debug_printf("Found stroopwafel_config PRSH:\n%s\n", p_data);
     }
 
-    u32 *partition = NULL;
-    ret = prsh_get_entry("redmlc", (void**) &partition, &d_size);
-    if(ret >= 0){
-        redmlc_off_sectors = partition[0];
-        redmlc_size_sectors = partition[1];
-        debug_printf("redmlc start: %u size: %u\n", redmlc_off_sectors, redmlc_size_sectors);
-        if(redmlc_size_sectors)
-            redmlc = true;
+    rednand_config *rednand_conf = NULL;
+    ret = prsh_get_entry("redmlc", (void**) rednand_conf, &d_size);
+    if(ret >= 0 && rednand_conf->initilized){
+        redslc_off_sectors = rednand_conf->slc.lba_start;
+        redslc_size_sectors = rednand_conf->slc.lba_length;
+        
+        redslccmpt_off_sectors = rednand_conf->slccmpt.lba_start;
+        redslccmpt_size_sectors = rednand_conf->slccmpt.lba_length;
+
+        redmlc_off_sectors = rednand_conf->mlc.lba_start;
+        redmlc_size_sectors = rednand_conf->mlc.lba_length;
+
+        disable_scfm = rednand_conf->disable_scfm;
+        scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
     }
-
-    ret = prsh_get_entry("redslc", (void**) &partition, &d_size);
-    if(ret >= 0){
-        redslc_off_sectors = partition[0];
-        debug_printf("redslc start: %u size: %u\n", redslc_off_sectors, partition[1]);
-        if(partition[1])
-            redslc = true;
-    }
-
-    #if !USE_SYS_SLCCMPT
-        ret = prsh_get_entry("redslccmpt", (void**) &partition, &d_size);
-        if(ret >= 0){
-            redslccmpt_off_sectors = partition[0];
-            debug_printf("redslccmpt start: %u size: %u\n", redslccmpt_off_sectors, partition[1]);
-            if(partition[1])
-                redslccmpt = true;
-        }
-    #endif
-
-    #if USE_REDNAND
-        if(redmlc && !redslc)
-            disable_scfm = true;
-    #endif 
 }
 
 void call_plugin_entry(char *entry_name){
@@ -576,7 +561,7 @@ static void patch_55x()
         //   but the SEEPROM version should NOT be synced to the SD card version, because NAND
         //   has not changed
 #if USE_REDNAND
-        if(redslc){
+        if(redslc_size_sectors){
             // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
             ASM_PATCH_K(0xE600CF5C, 
                 "mov r0, #0\n \
@@ -830,7 +815,7 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
-#if USE_REDNAND | USE_REDMLC
+#if USE_REDNAND
         if(rednand){
             // in createDevThread
             BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
@@ -840,7 +825,7 @@ static void patch_55x()
         // null out references to slcSomething1 and slcSomething2
         // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
 #if USE_REDNAND
-        if(redslc || redslccmpt){
+        if(redslc_size_sectors || redslccmpt_size_sectors){
             U32_PATCH_K(0x107B96B8, 0);
             U32_PATCH_K(0x107B96BC, 0);
 
@@ -853,8 +838,8 @@ static void patch_55x()
         }
         
 #endif // USE_REDNAND
-#if USE_REDNAND | USE_REDMLC
-        if(redmlc){
+#if USE_REDNAND
+        if(redmlc_size_sectors){
             // mlc redirection
             BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
             BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
@@ -917,8 +902,8 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
 #endif
 
-#if DISABLE_SCFM | USE_REDNAND
-        if(DISABLE_SCFM && disable_scfm){
+#if USE_REDNAND
+        if(disable_scfm){
             printf("Disableing SCFM\n");
             ASM_PATCH_K(0x107d1f28, "nop\n");
             ASM_PATCH_K(0x107d1e08,"nop\n");
@@ -927,7 +912,7 @@ static void patch_55x()
 #endif
 
 #if USE_REDNAND
-        if(redmlc){
+        if(redmlc_size_sectors){
             ASM_PATCH_K(0x107bdb10,
             "nop\n"
             "nop\n"
