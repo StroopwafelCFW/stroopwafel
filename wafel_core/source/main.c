@@ -826,6 +826,8 @@ static void patch_55x()
         // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
 #if USE_REDNAND
         if(redslc_size_sectors || redslccmpt_size_sectors){
+            debug_printf("Enabeling SLC/SLCCMPT redirection\n");
+
             U32_PATCH_K(0x107B96B8, 0);
             U32_PATCH_K(0x107B96BC, 0);
 
@@ -840,6 +842,7 @@ static void patch_55x()
 #endif // USE_REDNAND
 #if USE_REDNAND
         if(redmlc_size_sectors){
+            debug_printf("Enabeling MLC redirection\n");
             // mlc redirection
             BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
             BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
@@ -926,7 +929,7 @@ static void patch_55x()
             "ldr r4, [pc, #0xb8]\n"
             );
 
-            printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
+            debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
             U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
         }
 #endif
