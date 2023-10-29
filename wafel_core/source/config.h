@@ -38,15 +38,6 @@
 // Disables the disk drive by overriding the SEEPROM configuration to 0x0002 (None)
 #define DISABLE_DISK_DRIVE 0
 
-// Dramatically accelerate emulated MLC speed by moving the MLC cache from SLC (on SD)
-// to compat-SLC (on system, when USE_SYS_SLCCMPT is set).
-// This removes significant bottlenecks from MLC I/O and reduces wear on the SD card.
-// This will use just over 128MB of free space on vWii NAND.
-//
-// BACK UP YOUR REDNAND BEFORE ENABLING THIS! The migration process is stable and safe
-// but is inherently dangerous.
-#define MLC_ACCELERATE 0
-
 // This setting enables a number of features for (manually selected) USB disks.
 // In short: The beginning of the WiiU-formatted data on disk will begin 1MB in
 // instead of at sector 0, the size of the partition can be set, and all disk 
