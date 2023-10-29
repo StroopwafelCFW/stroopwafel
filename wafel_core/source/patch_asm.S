@@ -969,7 +969,7 @@ ios_ledout:
 
 @ our own custom code starts here
 
-#if USE_REDNAND
+#if MLC_ACCELERATE
 
 .align 4
 scfm_try_slc_cache_migration:

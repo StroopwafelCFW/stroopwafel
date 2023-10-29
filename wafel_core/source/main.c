@@ -65,14 +65,6 @@ u32 redslc_size_sectors = 0;
 u32 redslccmpt_size_sectors = 0;
 
 bool disable_scfm = false;
-
-// Dramatically accelerate emulated MLC speed by moving the MLC cache from SLC (on SD)
-// to compat-SLC (on system, when USE_SYS_SLCCMPT is set).
-// This removes significant bottlenecks from MLC I/O and reduces wear on the SD card.
-// This will use just over 128MB of free space on vWii NAND.
-//
-// BACK UP YOUR REDNAND BEFORE ENABLING THIS! The migration process is stable and safe
-// but is inherently dangerous.
 bool scfm_on_slccmpt = false;
 
 
@@ -897,7 +889,7 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
 #endif // PRINT_FSASEEKFILE
 
-    if(scfm_on_slccmpt){
+#if MLC_ACCELERATE
         // hooks for supporting scfm.img on sys-slccmpt instead of on the sd card
         // e.g. doing sd->slc caching instead of sd->sd caching which dramatically slows down ALL i/o
         
@@ -908,7 +900,7 @@ static void patch_55x()
     
         //hook scfmInit right after fsa initialization, before main thread creation
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
-    }
+#endif
 
 #if USE_REDNAND
         if(disable_scfm){
