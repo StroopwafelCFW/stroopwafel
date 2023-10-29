@@ -1048,8 +1048,8 @@ scfm_migrate_cmpt_exists:
     mov r0, #0x20 @ nocrypto flag
     str r0, [sp, #8]
     mov r0, r4  @ fsa handle
-    add r1, sp, 0xC  @ buf
-    mov r2, 1   @ size
+    add r1, sp, #0xC  @ buf
+    mov r2, #1  @ size
     mov r3, #4  @ count
     bl REL_FS_FSAREADFILEOFFSET
     mov r6, r0
@@ -1140,7 +1140,7 @@ scfm_migrate_copy_loop:
     str r0, [sp, #8]
     mov r0, r4  @ fsa handle
     mov r1, r7  @ buf
-    mov r2, 1   @ size
+    mov r2, #1  @ size
     mov r3, r9  @ count
     bl REL_FS_FSAREADFILEOFFSET
     cmp r0, r9
@@ -1154,7 +1154,7 @@ scfm_migrate_copy_loop:
     str r0, [sp, #8]
     mov r0, r4  @ fsa handle
     mov r1, r7  @ buf
-    mov r2, 1   @ size
+    mov r2, #1  @ size
     mov r3, r9  @ count
     bl REL_FS_FSAWRITEFILEOFFSET
     cmp r0, r9
@@ -1263,7 +1263,10 @@ scfm_migration_strcpy_loop:
     cmp r3, #0
     bne scfm_migration_strcpy_loop
     bx lr
-str_migration_fail_format: .ascii 0xA,"SCFM-SALT: migration failed, %02d-%08X"
+
+str_migration_fail_format: 
+.byte 0xA
+.ascii "SCFM-SALT: migration failed, %02d-%08X"
 .byte 0xA,0
 str_migrate_progress_format: 
     .ascii "SCFM-SALT: Migrating scfm.img, %d bytes remaining..."
