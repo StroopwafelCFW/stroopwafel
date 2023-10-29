@@ -375,8 +375,10 @@ static void init_config()
     }
 
     rednand_config *rednand_conf = NULL;
-    ret = prsh_get_entry("redmlc", (void**) rednand_conf, &d_size);
+    ret = prsh_get_entry("rednand", (void**) &rednand_conf, &d_size);
     if(ret >= 0 && rednand_conf->initilized){
+        debug_printf("Found redNAND config\n");
+
         redslc_off_sectors = rednand_conf->slc.lba_start;
         redslc_size_sectors = rednand_conf->slc.lba_length;
         
