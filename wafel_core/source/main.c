@@ -889,6 +889,7 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
 #endif // PRINT_FSASEEKFILE
 
+        if(scfm_on_slccmpt){
 #if MLC_ACCELERATE
         // hooks for supporting scfm.img on sys-slccmpt instead of on the sd card
         // e.g. doing sd->slc caching instead of sd->sd caching which dramatically slows down ALL i/o
@@ -900,7 +901,12 @@ static void patch_55x()
     
         //hook scfmInit right after fsa initialization, before main thread creation
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
+#else
+        const char* panic = "BUIDL without MLC_ACCELERATE\n";
+        iosPanic(panic, strlen(panic)+1);
+        while(1);
 #endif
+        }
 
 #if USE_REDNAND
         if(disable_scfm){
