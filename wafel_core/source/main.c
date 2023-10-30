@@ -70,7 +70,8 @@ bool scfm_on_slccmpt = false;
 
 #define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
 
-const char* fw_img_path = "/vol/sdcard";
+const char* fw_img_path_slc = "/vol/system/hax";
+char* fw_img_path = "/vol/sdcard";
 
 static int is_55x = 0;
 
@@ -390,6 +391,11 @@ static void init_config()
 
         disable_scfm = rednand_conf->disable_scfm;
         scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
+    }
+
+    ret = prsh_get_entry("minute_on_slc", (void**) &p_data, &d_size);
+    if(ret >= 0){
+        fw_img_path = fw_img_path_slc;
     }
 }
 
