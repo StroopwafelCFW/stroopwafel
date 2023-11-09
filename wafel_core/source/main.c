@@ -921,7 +921,7 @@ static void patch_55x()
 
 #if USE_REDNAND
         if(disable_scfm){
-            printf("Disableing SCFM\n");
+            debug_printf("Disableing SCFM\n");
             ASM_PATCH_K(0x107d1f28, "nop\n");
             ASM_PATCH_K(0x107d1e08,"nop\n");
             ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
