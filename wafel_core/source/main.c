@@ -67,6 +67,8 @@ u32 redslccmpt_size_sectors = 0;
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 
+bool minute_on_slc = false;
+
 
 #define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
 
@@ -393,9 +395,9 @@ static void init_config()
         scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
     }
 
-    ret = prsh_get_entry("minute_on_slc", (void**) &p_data, &d_size);
-    if(ret >= 0){
-        fw_img_path = fw_img_path_slc;
+    ret = prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
+    if(!ret){
+        minute_on_slc = true;
     }
 }
 
@@ -588,6 +590,24 @@ static void patch_55x()
 #if MCP_PATCHES
     // MCP
     {
+        /* SDCARD boot device
+        ASM_PATCH_K(0x0501FC5A, 
+            ".thumb\n"
+            "MOVS R2,#3\n"
+        );
+
+        ASM_PATCH_K(0x05027B80, 
+            ".thumb\n"
+            "NOP\n"
+        );
+        */
+        
+        // Power off instead of standby
+        ASM_PATCH_K(0x0501F7A2, 
+            ".thumb\n"
+            "MOVS R2,#1\n"
+        );
+
         // TODO: move this to general patches after early MMU stuff is generalized
         // MCP main thread hook
         BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
@@ -598,14 +618,18 @@ static void patch_55x()
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
-        // launch OS hook (fw.img -> sdcard)
-        BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
+        if(minute_on_slc){
+            // patch pointer to fw.img loader path
+            U32_PATCH_K(0x050284D8, fw_img_path_slc);
+        } else {
+            // launch OS hook (fw.img -> sdcard)
+            BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
+            // patch pointer to fw.img loader path
+            U32_PATCH_K(0x050284D8, fw_img_path);
+        }
 
         // Nop SHA1 checks on fw.img
         //U32_PATCH_K(0x0500A84C, 0);
-
-        // patch pointer to fw.img loader path
-        U32_PATCH_K(0x050284D8, fw_img_path);
 
 #if SYSLOG_SEMIHOSTING_WRITE
         // syslog -> semihosting write
