@@ -29,18 +29,18 @@
 }
 
 #define _BL_TRAMPOLINE(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \
-    u32 bl_insn = 0xEB000000 | (bl_offs & 0xFFFFFF); \
+    s32 bl_offs = (((s32)_dst - (s32)(_addr)) - 8) / 4; \
+    u32 bl_insn = 0xEB000000 | ((u32)bl_offs & 0xFFFFFF); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
 }
 #define _BL_T_TRAMPOLINE(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 4) / 2; \
-    u32 bl_insn = 0xF000F800 | (bl_offs & 0x7FF) | (((bl_offs >> 11) & 0x3FF) << 16); \
+    s32 bl_offs = (((s32)_dst - (s32)(_addr)) - 4) / 2; \
+    u32 bl_insn = 0xF000F800 | ((u32)bl_offs & 0x7FF) | ((((u32)bl_offs >> 11) & 0x3FF) << 16); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
 }
 #define _BRANCH_PATCH(_addr, _dst, _copy_fn) { \
-    u32 bl_offs = (((u32)_dst - (u32)(_addr)) - 8) / 4; \
-    u32 bl_insn = 0xEA000000 | (bl_offs & 0xFFFFFF); \
+    s32 bl_offs = (((s32)_dst - (s32)(_addr)) - 8) / 4; \
+    u32 bl_insn = 0xEA000000 | ((u32)bl_offs & 0xFFFFFF); \
     _U32_PATCH(_addr, bl_insn, _copy_fn); \
 }
 
