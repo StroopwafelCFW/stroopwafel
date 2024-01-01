@@ -277,6 +277,15 @@ ppc_wait_stub:
 @ TODO
 
 .align 4
+MCP_IOS_SHUTDOWN:
+    .arm
+    push {r7, lr}
+    ldr r7, =0x05056b7c
+    blx r7
+    pop {r7, pc}
+.pool
+
+.align 4
 MCP_FSA_OPEN:
     .arm
     push {r7, lr}
