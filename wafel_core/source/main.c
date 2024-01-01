@@ -605,8 +605,19 @@ static void patch_55x()
         // Power off instead of standby
         ASM_PATCH_K(0x0501F7A2, 
             ".thumb\n"
-            "MOVS R2,#1\n"
+            "MOVS R0,#1\n"
         );
+
+        // don't use standby for restart
+        ASM_PATCH_K(0x0501F9A0, 
+            ".thumb\n"
+            ".syntax unified\n"
+            "ORRS R1, R3\n" // can only patch 4 bytes at once
+            "MOVS R0, #1\n" //real patch
+        );
+
+        #include "loadfile.h"
+        //BL_T_TRAMPOLINE_K(0x050254D6, MCP_ALTBASE_ADDR(MCP_LoadFile_patch));
 
         // TODO: move this to general patches after early MMU stuff is generalized
         // MCP main thread hook
