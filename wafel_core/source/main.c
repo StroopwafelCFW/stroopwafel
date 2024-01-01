@@ -603,21 +603,10 @@ static void patch_55x()
         */
         
         // Power off instead of standby
-        ASM_PATCH_K(0x0501F7A2, 
-            ".thumb\n"
-            "MOVS R0,#1\n"
-        );
+        ASM_T_PATCH_K(0x0501F7A2, "MOVS R0,#1");
 
         // don't use standby for restart
-        ASM_PATCH_K(0x0501F9A0, 
-            ".thumb\n"
-            ".syntax unified\n"
-            "ORRS R1, R3\n" // can only patch 4 bytes at once
-            "MOVS R0, #1\n" //real patch
-        );
-
-        #include "loadfile.h"
-        //BL_T_TRAMPOLINE_K(0x050254D6, MCP_ALTBASE_ADDR(MCP_LoadFile_patch));
+        ASM_T_PATCH_K(0x0501F9A2, "MOVS R0, #1");
 
         // TODO: move this to general patches after early MMU stuff is generalized
         // MCP main thread hook
@@ -656,13 +645,11 @@ static void patch_55x()
         //BL_T_TRAMPOLINE_K(0x05034118, MCP_ALTBASE_ADDR(ppc_hook_post));
 
         // hook in a few dirs to delete on mcp startup
-        ASM_PATCH_K(0x05016C8C,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05016C8C,
             "push {lr}\n"
         );
         BL_T_TRAMPOLINE_K(0x05016C8E, MCP_ALTBASE_ADDR(boot_dirs_clear_t));
-        ASM_PATCH_K(0x05016C92,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05016C92,
             "mov r0, #0\n"
             "pop {pc}\n"
         );
@@ -671,15 +658,13 @@ static void patch_55x()
         U32_PATCH_K(0x05022474, NEW_TIMEOUT);
 
         // disable loading cached title list from os-launch memory
-        ASM_PATCH_K(0x0502E59A, 
-            ".thumb\n"
+        ASM_T_PATCH_K(0x0502E59A, 
             "mov r0, #0x0\n"
         );
 
 
         // patch OS launch sig check
-        ASM_PATCH_K(0x0500A818,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x0500A818,
             "mov r0, #0\n"
             "mov r0, #0\n"
         );
@@ -698,9 +683,9 @@ static void patch_55x()
 
         // TODO: why are these needed now???
         // remove various Ancast header size checks
-        ASM_PATCH_K(0x0500A7C8, ".thumb\nnop\nnop\n");
-        ASM_PATCH_K(0x0500A7D0, ".thumb\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
-        ASM_PATCH_K(0x0500A7F4, ".thumb\nnop\nnop\nnop\nnop\nnop\nmov r3, #0x2");
+        ASM_T_PATCH_K(0x0500A7C8, "nop\nnop\n");
+        ASM_T_PATCH_K(0x0500A7D0, "nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
+        ASM_T_PATCH_K(0x0500A7F4, "nop\nnop\nnop\nnop\nnop\nmov r3, #0x2");
 
         // Force a crash to inspect junk
         //ASM_PATCH_K(0x0500A778, ".thumb\nldr r0, [r0]\nbx pc\n.word 0xFFFFFFFF\n");
@@ -712,29 +697,25 @@ static void patch_55x()
         );*/
 
         // allow MCP_GetSystemLog on retail
-        ASM_PATCH_K(0x05025EE6,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05025EE6,
             "mov r0, #0\n"
             "nop\n"
         );
 
         // same, MCP_SetDefaultTitleId
-        ASM_PATCH_K(0x05026BA8,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05026BA8,
             "mov r0, #0\n"
             "nop\n"
         );
 
         // same, MCP_GetDefaultTitleId
-        ASM_PATCH_K(0x05026C54,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05026C54,
             "mov r0, #0\n"
             "nop\n"
         );
 
         // same, MCP_GetTitleSize
-        ASM_PATCH_K(0x502574E,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x502574E,
             "nop\n"
             "nop\n"
         );
@@ -746,14 +727,12 @@ static void patch_55x()
         );
 
         // allow usage of u16 at ancast header + 0x1A0
-        ASM_PATCH_K(0x0500A7CA,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x0500A7CA,
             "nop\n"
         );
 
         // skip content hash verification
-        ASM_PATCH_K(0x05014CAC,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05014CAC,
             "mov r0, #0\n"
             "bx lr\n"
         );
@@ -772,14 +751,13 @@ static void patch_55x()
 
         // Shift Wii SEEPROM up 0x300 and read in OTP
         BL_T_TRAMPOLINE_K(0x05008BB6, MCP_ALTBASE_ADDR(c2w_seeprom_hook_t));
-        ASM_PATCH_K(0x05008C18,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05008C18,
             "mov r4, #0x50\n"
             "lsl r4, r4, #0x4\n"
         );
 
         BL_T_TRAMPOLINE_K(0x05008810, MCP_ALTBASE_ADDR(c2w_boot_hook_t));
-        ASM_PATCH_K(0x05008814, ".thumb\nnop\n");
+        ASM_T_PATCH_K(0x05008814, "nop\n");
 #endif // OTP_IN_MEM
     }
 #endif // MCP_PATCHES
