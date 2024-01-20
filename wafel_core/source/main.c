@@ -260,7 +260,7 @@ static void c2w_patch_mlc()
         if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
             write16(a, 0x2300);
             debug_printf("MLC stuff ptr at: 0x%08x\n", a);
-            //break;
+            break;
         }
     }
 
@@ -271,7 +271,8 @@ void c2w_patches()
     c2w_boot_hook_fixup_c2w_ptrs();
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
-    c2w_patch_mlc();
+    if(redmlc_size_sectors)
+        c2w_patch_mlc();
 
 #if VWII_OVERCLOCK
     c2w_oc_hax_patch();
