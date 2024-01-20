@@ -248,11 +248,30 @@ static void c2w_oc_hax_patch()
     }
 }
 
+static char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
+
+static void c2w_patch_mlc()
+{
+    uintptr_t ios_paddr = read32(0x1018);
+    uintptr_t ios_end = ios_paddr + 0x260000;
+
+    for (uintptr_t a = ios_paddr; a < ios_end; a += 2)
+    {
+        if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
+            write16(a, 0x2300);
+            debug_printf("MLC stuff ptr at: 0x%08x\n", a);
+            //break;
+        }
+    }
+
+}
+
 void c2w_patches()
 {
     c2w_boot_hook_fixup_c2w_ptrs();
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
+    c2w_patch_mlc();
 
 #if VWII_OVERCLOCK
     c2w_oc_hax_patch();
