@@ -38,6 +38,7 @@ extern void c2w_seeprom_hook_t();
 extern void c2w_boot_hook_t();
 extern void c2w_otp_replacement_t();
 extern void c2w_otp_replacement_t_end();
+extern void hai_file_patch1_t();
 
 extern void wfs_crypto_hook();
 extern void createDevThread_hook();
@@ -69,6 +70,7 @@ bool scfm_on_slccmpt = false;
 
 bool minute_on_slc = false;
 
+int haidev = 5;
 
 #define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
 
@@ -248,7 +250,7 @@ static void c2w_oc_hax_patch()
     }
 }
 
-static char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
+static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
 
 static void c2w_patch_mlc()
 {
@@ -266,17 +268,105 @@ static void c2w_patch_mlc()
 
 }
 
+static const char hai_mlc_str[] = "/dev/sdio/MLC01";
+static void c2w_patch_mlc_str(void){
+    uintptr_t ios_paddr = read32(0x1018);
+    uintptr_t ios_end = ios_paddr + 0x260000;
+
+    for (uintptr_t a = ios_paddr; a < ios_end; a += 2)
+    {
+        if (!memcmp(a, hai_mlc_str, sizeof(hai_mlc_str))) {
+            strcpy(a,"/dev/sdio/slot0");
+            debug_printf("HAI MLC dev str at: 0x%08x\n", a);
+            //break;
+        }
+    }
+}
+
+#include "hai_params.h"
 void c2w_patches()
 {
     c2w_boot_hook_fixup_c2w_ptrs();
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
-    if(redmlc_size_sectors)
-        c2w_patch_mlc();
+    debug_printf("HAI DEVICE: %s\n", (char*) 0x05074a62);
+    if(redmlc_size_sectors && haidev == 5){
+    //    c2w_patch_mlc();
+        c2w_patch_mlc_str();
+        //ASM_PATCH_K(0x10733de8, "nop");
+    }
+
+    hai_params_print();
 
 #if VWII_OVERCLOCK
     c2w_oc_hax_patch();
 #endif
+}
+
+static inline u32 read32_unaligned_reversed(u8* pData)
+{
+    u8 val_3 = pData[0];
+    u8 val_2 = pData[1];
+    u8 val_1 = pData[2];
+    u8 val_0 = pData[3];
+
+    return (val_0 << 24) | (val_1 << 16) | (val_2 << 8) | (val_3);
+}
+
+void hai_file_patch1(char **a){
+    debug_printf("HAI CREATE COMPANION\n");
+    debug_printf("a: %s\n", (char*)a);
+    for(int i=0; i<16; i++){
+        debug_printf("a[%d]: %p\n", i, a[i]);
+        //debug_printf("\n");
+    }
+
+    unsigned int *v6 = (unsigned int *) a[9];
+    for(int i=0; i<16; i++){
+        u32 swapped = read32_unaligned_reversed(v6 +i);
+        debug_printf("v6[%d]: %p", i, swapped);
+        debug_printf("\n");
+    }
+}
+
+
+int (*const mcpcompat_fwrite)(int fsa_handle, int *buffer, size_t size, size_t count, int fh, int flags) = (void*) (0x050591E8 | 1);
+
+__attribute__((target("thumb")))
+int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags){
+    debug_printf("HAI WRITE COMPANION\n");
+    if(haidev==5 && redmlc_size_sectors){
+        uint32_t number_extends = buffer[0];
+        debug_printf("number extends: %u\n", number_extends);
+        uint32_t address_unit_base = (buffer[1] >> 16);
+        debug_printf("address_unit_base: %u\n", address_unit_base);
+        uint32_t address_unit_base_lbas = address_unit_base - 9; // 2^9 = 512byte sector
+        debug_printf("address_unit_base_lbas: %u\n", address_unit_base_lbas);
+        debug_printf("redmlc_off_sectors: 0x%X\n", redmlc_off_sectors);
+        uint32_t offset_in_address_units = redmlc_off_sectors >> address_unit_base_lbas;
+        debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
+        for(size_t i = 2; i < number_extends*2 + 2; i+=2){
+            debug_printf("buffer[%u]: %X", i, buffer[i]);
+            buffer[i]+=offset_in_address_units;
+            debug_printf(" => %X\n", buffer[i]);
+            debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
+        }
+    }
+
+    return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
+}
+
+__attribute__((target("arm")))
+int get_block_addr_patch1(int r0, int r1, int r2, char *r3){
+    debug_printf("FSA GET FILE BLOCK ADDRESS\n");
+    debug_printf("devid: %d\n", r0);
+    haidev = r0;
+    //debug_printf("\na1[1]: %s", r0[1]);
+    char *a2_40 = r2 + 4*39;
+    debug_printf("a2+40: %p: %s", a2_40, a2_40);
+    debug_printf("\nv17+1: %p, %s", r3, r3);
+    debug_printf("\ncb: %p\n", r2);
+    return r1;
 }
 
 static u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
@@ -891,6 +981,13 @@ static void patch_55x()
             BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
             // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
             BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
+
+            //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
+            //patching offset for HAI on MLC in companion file
+            extern int hai_write_file_shim();
+            BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
+            extern int get_block_addr_patch1_shim();
+            //BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
         }
         if(rednand){
             // mdExit : patch out sdcard deinitialization

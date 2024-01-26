@@ -567,6 +567,40 @@ usb_seed:
 .pool
 
 
+.extern get_block_addr_patch1
+.global get_block_addr_patch1_shim
+get_block_addr_patch1_shim:
+    LDR R0, [R8,#0x70]
+    add R3, SP, #8
+    SUB R3, R3, #3
+    @push {r0-r10, lr}
+    @mov r0, r6 //a1
+    LDR r2, [R8,#0x1C0] //cb
+    b get_block_addr_patch1
+    #pop {r0-r10, pc}
+
+
+.extern hai_write_file_patch
+.global hai_write_file_shim
+
+.thumb
+hai_write_file_shim:
+    ldr r4, hwf_hook
+    bx r4
+hwf_hook: .word hai_write_file_patch
+
+.extern hai_file_patch1
+.global hai_file_patch1_t
+
+.thumb
+hai_file_patch1_t:
+    add r3, sp, #0x20 @ orig instruction
+    mov r11, r3       @ orig instruction
+    push {r0-r3,lr}
+    ldr r3, hf_hook
+    blx r3
+    pop {r0-r3,pc}
+hf_hook: .word  hai_file_patch1
 @
 @ C2W
 @
