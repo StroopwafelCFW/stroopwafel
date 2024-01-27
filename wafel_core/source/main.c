@@ -946,42 +946,12 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
+
 #if USE_REDNAND
         if(rednand){
             // in createDevThread
             BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
-        }
-#endif
 
-        // null out references to slcSomething1 and slcSomething2
-        // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
-#if USE_REDNAND
-        if(redslc_size_sectors || redslccmpt_size_sectors){
-            debug_printf("Enabeling SLC/SLCCMPT redirection\n");
-
-            U32_PATCH_K(0x107B96B8, 0);
-            U32_PATCH_K(0x107B96BC, 0);
-
-            // slc redirection
-            BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
-            BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
-            BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
-            BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
-            ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
-        }
-        
-#endif // USE_REDNAND
-#if USE_REDNAND
-        if(redmlc_size_sectors){
-            debug_printf("Enabeling MLC redirection\n");
-            //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
-            //patching offset for HAI on MLC in companion file
-            extern int hai_write_file_shim();
-            BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
-            extern int get_block_addr_patch1_shim();
-            //BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
-        }
-        if(rednand){
             // FS_GETMDDEVICEBYID
             BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
             // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
@@ -993,6 +963,46 @@ static void patch_55x()
 
             // mdExit : patch out sdcard deinitialization
             ASM_PATCH_K(0x107BD374, "bx lr");
+
+            if(redslc_size_sectors || redslccmpt_size_sectors){
+                debug_printf("Enabeling SLC/SLCCMPT redirection\n");
+
+                // null out references to slcSomething1 and slcSomething2
+                // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
+                U32_PATCH_K(0x107B96B8, 0);
+                U32_PATCH_K(0x107B96BC, 0);
+
+                // slc redirection
+                BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
+                BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
+                BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
+                BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
+                ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
+            }
+            if(redmlc_size_sectors){
+                debug_printf("Enabeling MLC redirection\n");
+                //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
+                //patching offset for HAI on MLC in companion file
+                extern int hai_write_file_shim();
+                BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
+                extern int get_block_addr_patch1_shim();
+                //BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
+
+                debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
+                ASM_PATCH_K(0x107bdb10,
+                    "nop\n"
+                    "nop\n"
+                    "nop\n"
+                    "ldr r4, [pc, #0xb8]\n"
+                );
+                U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
+            }
+            if(disable_scfm){
+                debug_printf("Disableing SCFM\n");
+                ASM_PATCH_K(0x107d1f28, "nop\n");
+                ASM_PATCH_K(0x107d1e08,"nop\n");
+                ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
+            }
         }
 #endif // USE_REDNAND || USE_REDMLC
 
@@ -1049,29 +1059,6 @@ static void patch_55x()
         while(1);
 #endif
         }
-
-#if USE_REDNAND
-        if(disable_scfm){
-            debug_printf("Disableing SCFM\n");
-            ASM_PATCH_K(0x107d1f28, "nop\n");
-            ASM_PATCH_K(0x107d1e08,"nop\n");
-            ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
-        }
-#endif
-
-#if USE_REDNAND
-        if(redmlc_size_sectors){
-            ASM_PATCH_K(0x107bdb10,
-            "nop\n"
-            "nop\n"
-            "nop\n"
-            "ldr r4, [pc, #0xb8]\n"
-            );
-
-            debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
-            U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
-        }
-#endif
     }
 }
 
