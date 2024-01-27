@@ -292,7 +292,7 @@ void c2w_patches()
     debug_printf("HAI DEVICE: %s\n", (char*) 0x05074a62);
     if(redmlc_size_sectors && haidev == 5){
     //    c2w_patch_mlc();
-        c2w_patch_mlc_str();
+        //c2w_patch_mlc_str();
         //ASM_PATCH_K(0x10733de8, "nop");
     }
 
@@ -347,7 +347,7 @@ int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t c
         debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
         for(size_t i = 2; i < number_extends*2 + 2; i+=2){
             debug_printf("buffer[%u]: %X", i, buffer[i]);
-            buffer[i]+=offset_in_address_units;
+            //buffer[i]+=offset_in_address_units;
             debug_printf(" => %X\n", buffer[i]);
             debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
         }
@@ -974,14 +974,6 @@ static void patch_55x()
 #if USE_REDNAND
         if(redmlc_size_sectors){
             debug_printf("Enabeling MLC redirection\n");
-            // mlc redirection
-            BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
-            BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
-            // FS_GETMDDEVICEBYID
-            BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
-            // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
-            BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
-
             //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
             //patching offset for HAI on MLC in companion file
             extern int hai_write_file_shim();
@@ -990,6 +982,15 @@ static void patch_55x()
             //BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
         }
         if(rednand){
+            // FS_GETMDDEVICEBYID
+            BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
+            // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
+            BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
+
+            // sdio rw patches
+            BL_TRAMPOLINE_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
+            BL_TRAMPOLINE_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
+
             // mdExit : patch out sdcard deinitialization
             ASM_PATCH_K(0x107BD374, "bx lr");
         }

@@ -1810,27 +1810,32 @@ write_str:.ascii "write"
 @ SDIO REDIRECTION  @
 @ @ @ @ @ @ @ @ @ @ @
 
-sdcardReadWrite_patch:
-    push {r2}
-    ldr r2, [r0, #0x14]
-    mov r0, r1
-    cmp r2, #6 @ DEVICETYPE_SDCARD
-    moveq r1, #0
-    beq sdcardReadWrite_patch_cont
-    ldr r1, =redmlc_off_sectors
-    ldr r1, [r1]
-    
-sdcardReadWrite_patch_cont:
-    pop {r2}
-    b readWriteCallback_patch
+sdcardWrite_patch:
+    mov r12, #0 @ write
+    b sdcardReadWrite_patch
 
 sdcardRead_patch:
-    mov r1, #1 @ read
-    b sdcardReadWrite_patch
+    mov r12, #1 @ read
 
-sdcardWrite_patch:
-    mov r1, #0 @ write
-    b sdcardReadWrite_patch
+sdcardReadWrite_patch:
+    ldr r4, [r0, #0x14]
+    cmp r4, #6 @ DEVICETYPE_SDCARD
+    moveq r1, #0
+    beq sdcardReadWrite_patch_cont
+    ldr r4, =redmlc_size_sectors
+    ldr r4, [r4]
+    cmp r4, #0
+    subeq sp,sp,#0x14 @overwritten instruction
+    bxeq lr
+    ldr r4, =redmlc_off_sectors
+    ldr r4, [r4]
+    
+sdcardReadWrite_patch_cont:
+    mov r0, r12
+    pop {r4,lr}
+    b readWriteCallback_patch
+
+
 
 @ @ @ @ @ @ @ @ @ @
 @ SLC REDIRECTION @
