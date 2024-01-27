@@ -1828,7 +1828,7 @@ sdcardReadWrite_patch:
     subeq sp,sp,#0x14 @overwritten instruction
     bxeq lr
     ldr r4, =redmlc_off_sectors
-    ldr r4, [r4]
+    ldr r1, [r4]
     
 sdcardReadWrite_patch_cont:
     mov r0, r12
