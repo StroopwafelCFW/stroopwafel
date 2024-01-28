@@ -292,7 +292,7 @@ void c2w_patches()
     debug_printf("HAI DEVICE: %s\n", (char*) 0x05074a62);
     if(redmlc_size_sectors && haidev == 5){
     //    c2w_patch_mlc();
-        //c2w_patch_mlc_str();
+        c2w_patch_mlc_str();
         //ASM_PATCH_K(0x10733de8, "nop");
     }
 
@@ -347,7 +347,7 @@ int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t c
         debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
         for(size_t i = 2; i < number_extends*2 + 2; i+=2){
             debug_printf("buffer[%u]: %X", i, buffer[i]);
-            //buffer[i]+=offset_in_address_units;
+            buffer[i]+=offset_in_address_units;
             debug_printf(" => %X\n", buffer[i]);
             debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
         }
@@ -982,11 +982,13 @@ static void patch_55x()
             if(redmlc_size_sectors){
                 debug_printf("Enabeling MLC redirection\n");
                 //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
+                //skip companion file creation
+                //ASM_T_PATCH_K(0x050077E8, "mov r0, #0\nbx lr");
                 //patching offset for HAI on MLC in companion file
                 extern int hai_write_file_shim();
                 BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
                 extern int get_block_addr_patch1_shim();
-                //BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
+                BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
 
                 debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
                 ASM_PATCH_K(0x107bdb10,
