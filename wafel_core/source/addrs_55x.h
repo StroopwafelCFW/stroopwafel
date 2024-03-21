@@ -23,9 +23,6 @@
 // fatfs size to use (mb) is ((NUM_SECTORS - MLC_SIZE - 0x200800) / 0x800) - 1
 // OFFS_SECTORS is count subtracted from num_sectors
 #define USB_OFFS_SECTORS (0) // unused atm
-#define MLC_OFFS_SECTORS (SLC_OFFS_SECTORS + MLC_SIZE)      // sectors at NUM_SECTORS-0x03C20000
-#define SLC_OFFS_SECTORS (SLCCMPT_OFFS_SECTORS + 0x100000)  // sectors at NUM_SECTORS-0x00200000
-#define SLCCMPT_OFFS_SECTORS (0x100000)                     // sectors at NUM_SECTORS-0x00100000
 
 #define FS_MMC_SDCARD_STRUCT (0x1089B9F8)
 #define FS_MMC_MLC_STRUCT (0x1089B948)
@@ -69,8 +66,8 @@
 #define FS_MLC_READ2                (0x107DCDE4)
 #define FS_MLC_WRITE1               (0x107DC0C0)
 #define FS_MLC_WRITE2               (0x107DC73C)
-#define FS_SDCARD_READ1             (0x107BDDD0)
-#define FS_SDCARD_WRITE1            (0x107BDD60)
+#define FS_SDCARD_READ1             (0x107BDDD4)
+#define FS_SDCARD_WRITE1            (0x107BDD64)
 #define FS_ISFS_READWRITEBLOCKS     (0x10720324)
 #define FS_CRYPTO_HMAC              (0x107F3798)
 #define FS_RAW_READ1                (0x10732BC0)
@@ -102,5 +99,7 @@
 
 #define MCP_SYSLOG_OUTPUT_ADDR (0x0503DCF8)
 #define FS_GET_SPECIFIC_DEVNAME_HOOK_ADDR (0x107112B0)
+
+#define HAI_PARAM_POINTER (0x050749d8)
 
 #endif // _ADDRS_55X_H

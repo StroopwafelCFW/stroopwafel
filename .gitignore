@@ -76,3 +76,4 @@ patched_sections/*.bin
 
 # IOS img
 bin/*.bin
+core.ipx

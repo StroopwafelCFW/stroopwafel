@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "addrs_55x.h"
 #include "patch.h"
+#include "rednand_config.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -37,6 +38,7 @@ extern void c2w_seeprom_hook_t();
 extern void c2w_boot_hook_t();
 extern void c2w_otp_replacement_t();
 extern void c2w_otp_replacement_t_end();
+extern void hai_file_patch1_t();
 
 extern void wfs_crypto_hook();
 extern void createDevThread_hook();
@@ -55,7 +57,25 @@ extern void sdcardWrite_patch();
 extern void getMdDeviceById_hook();
 extern void registerMdDevice_hook();
 
-const char* fw_img_path = "/vol/sdcard";
+u32 redmlc_off_sectors;
+u32 redslc_off_sectors;
+u32 redslccmpt_off_sectors;
+
+u32 redmlc_size_sectors = 0;
+u32 redslc_size_sectors = 0;
+u32 redslccmpt_size_sectors = 0;
+
+bool disable_scfm = false;
+bool scfm_on_slccmpt = false;
+
+bool minute_on_slc = false;
+
+int haidev = 5;
+
+#define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
+
+const char* fw_img_path_slc = "/vol/system/hax";
+char* fw_img_path = "/vol/sdcard";
 
 static int is_55x = 0;
 
@@ -230,15 +250,123 @@ static void c2w_oc_hax_patch()
     }
 }
 
+static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
+
+static void c2w_patch_mlc()
+{
+    uintptr_t ios_paddr = read32(0x1018);
+    uintptr_t ios_end = ios_paddr + 0x260000;
+
+    for (uintptr_t a = ios_paddr; a < ios_end; a += 2)
+    {
+        if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
+            write16(a, 0x2300);
+            debug_printf("MLC stuff ptr at: 0x%08x\n", a);
+            break;
+        }
+    }
+
+}
+
+static const char hai_mlc_str[] = "/dev/sdio/MLC01";
+static void c2w_patch_mlc_str(void){
+    uintptr_t ios_paddr = read32(0x1018);
+    uintptr_t ios_end = ios_paddr + 0x260000;
+
+    for (uintptr_t a = ios_paddr; a < ios_end; a += 2)
+    {
+        if (!memcmp(a, hai_mlc_str, sizeof(hai_mlc_str))) {
+            strcpy(a,"/dev/sdio/slot0");
+            debug_printf("HAI MLC dev str at: 0x%08x\n", a);
+            //break;
+        }
+    }
+}
+
+#include "hai_params.h"
 void c2w_patches()
 {
     c2w_boot_hook_fixup_c2w_ptrs();
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
+    debug_printf("HAI DEVICE: %s\n", (char*) 0x05074a62);
+    if(redmlc_size_sectors && haidev == 5){
+    //    c2w_patch_mlc();
+        c2w_patch_mlc_str();
+        //ASM_PATCH_K(0x10733de8, "nop");
+    }
+
+    hai_params_print();
 
 #if VWII_OVERCLOCK
     c2w_oc_hax_patch();
 #endif
+}
+
+static inline u32 read32_unaligned_reversed(u8* pData)
+{
+    u8 val_3 = pData[0];
+    u8 val_2 = pData[1];
+    u8 val_1 = pData[2];
+    u8 val_0 = pData[3];
+
+    return (val_0 << 24) | (val_1 << 16) | (val_2 << 8) | (val_3);
+}
+
+void hai_file_patch1(char **a){
+    debug_printf("HAI CREATE COMPANION\n");
+    debug_printf("a: %s\n", (char*)a);
+    for(int i=0; i<16; i++){
+        debug_printf("a[%d]: %p\n", i, a[i]);
+        //debug_printf("\n");
+    }
+
+    unsigned int *v6 = (unsigned int *) a[9];
+    for(int i=0; i<16; i++){
+        u32 swapped = read32_unaligned_reversed(v6 +i);
+        debug_printf("v6[%d]: %p", i, swapped);
+        debug_printf("\n");
+    }
+}
+
+
+int (*const mcpcompat_fwrite)(int fsa_handle, int *buffer, size_t size, size_t count, int fh, int flags) = (void*) (0x050591E8 | 1);
+
+__attribute__((target("thumb")))
+int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags){
+    debug_printf("HAI WRITE COMPANION\n");
+    if(haidev==5 && redmlc_size_sectors){
+        uint32_t number_extends = buffer[0];
+        debug_printf("number extends: %u\n", number_extends);
+        uint32_t address_unit_base = (buffer[1] >> 16);
+        debug_printf("address_unit_base: %u\n", address_unit_base);
+        uint32_t address_unit_base_lbas = address_unit_base - 9; // 2^9 = 512byte sector
+        debug_printf("address_unit_base_lbas: %u\n", address_unit_base_lbas);
+        debug_printf("redmlc_off_sectors: 0x%X\n", redmlc_off_sectors);
+        uint32_t offset_in_address_units = redmlc_off_sectors >> address_unit_base_lbas;
+        debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
+        for(size_t i = 2; i < number_extends*2 + 2; i+=2){
+            debug_printf("buffer[%u]: %X", i, buffer[i]);
+            buffer[i]+=offset_in_address_units;
+            debug_printf(" => %X\n", buffer[i]);
+            debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
+        }
+    }
+
+    return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
+}
+
+__attribute__((target("arm")))
+int get_block_addr_patch1(int r0, int r1, int r2, char *r3){
+    debug_printf("FSA GET FILE BLOCK ADDRESS\n");
+    debug_printf("devid: %d\n", r0);
+    haidev = r0;
+    //debug_printf("\na1[1]: %s", r0[1]);
+    char *a2_40 = r2 + 4*39;
+    debug_printf("a2+40: %p: %s", a2_40, a2_40);
+    debug_printf("\nv17+1: %p, %s", r3, r3);
+    debug_printf("\ncb: %p\n", r2);
+    return r1;
 }
 
 static u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
@@ -357,6 +485,29 @@ static void init_config()
     int ret = prsh_get_entry("stroopwafel_config", &p_data, &d_size);
     if (ret >= 0) {
         debug_printf("Found stroopwafel_config PRSH:\n%s\n", p_data);
+    }
+
+    rednand_config *rednand_conf = NULL;
+    ret = prsh_get_entry("rednand", (void**) &rednand_conf, &d_size);
+    if(ret >= 0 && rednand_conf->initilized){
+        debug_printf("Found redNAND config\n");
+
+        redslc_off_sectors = rednand_conf->slc.lba_start;
+        redslc_size_sectors = rednand_conf->slc.lba_length;
+        
+        redslccmpt_off_sectors = rednand_conf->slccmpt.lba_start;
+        redslccmpt_size_sectors = rednand_conf->slccmpt.lba_length;
+
+        redmlc_off_sectors = rednand_conf->mlc.lba_start;
+        redmlc_size_sectors = rednand_conf->mlc.lba_length;
+
+        disable_scfm = rednand_conf->disable_scfm;
+        scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
+    }
+
+    ret = prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
+    if(!ret){
+        minute_on_slc = true;
     }
 }
 
@@ -530,23 +681,43 @@ static void patch_55x()
         //   but the SEEPROM version should NOT be synced to the SD card version, because NAND
         //   has not changed
 #if USE_REDNAND
-        // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
-        ASM_PATCH_K(0xE600CF5C, 
-            "mov r0, #0\n \
-             bx lr\n"
-        );
+        if(redslc_size_sectors){
+            // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
+            ASM_PATCH_K(0xE600CF5C, 
+                "mov r0, #0\n \
+                bx lr\n"
+            );
 
-        // skip seeprom writes in eepromDrvWriteWord for safety
-        ASM_PATCH_K(0xE600D010, 
-            "mov r0, #0\n \
-             bx lr\n"
-        );
+            // skip seeprom writes in eepromDrvWriteWord for safety
+            ASM_PATCH_K(0xE600D010, 
+                "mov r0, #0\n \
+                bx lr\n"
+            );
+        }
 #endif
     }
 
 #if MCP_PATCHES
     // MCP
     {
+        /* SDCARD boot device
+        ASM_PATCH_K(0x0501FC5A, 
+            ".thumb\n"
+            "MOVS R2,#3\n"
+        );
+
+        ASM_PATCH_K(0x05027B80, 
+            ".thumb\n"
+            "NOP\n"
+        );
+        */
+        
+        // Power off instead of standby
+        ASM_T_PATCH_K(0x0501F7A2, "MOVS R0,#1");
+
+        // don't use standby for restart
+        ASM_T_PATCH_K(0x0501F9A2, "MOVS R0, #1");
+
         // TODO: move this to general patches after early MMU stuff is generalized
         // MCP main thread hook
         BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
@@ -557,14 +728,18 @@ static void patch_55x()
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
-        // launch OS hook (fw.img -> sdcard)
-        BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
+        if(minute_on_slc){
+            // patch pointer to fw.img loader path
+            U32_PATCH_K(0x050284D8, fw_img_path_slc);
+        } else {
+            // launch OS hook (fw.img -> sdcard)
+            BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
+            // patch pointer to fw.img loader path
+            U32_PATCH_K(0x050284D8, fw_img_path);
+        }
 
         // Nop SHA1 checks on fw.img
         //U32_PATCH_K(0x0500A84C, 0);
-
-        // patch pointer to fw.img loader path
-        U32_PATCH_K(0x050284D8, fw_img_path);
 
 #if SYSLOG_SEMIHOSTING_WRITE
         // syslog -> semihosting write
@@ -580,13 +755,11 @@ static void patch_55x()
         //BL_T_TRAMPOLINE_K(0x05034118, MCP_ALTBASE_ADDR(ppc_hook_post));
 
         // hook in a few dirs to delete on mcp startup
-        ASM_PATCH_K(0x05016C8C,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05016C8C,
             "push {lr}\n"
         );
         BL_T_TRAMPOLINE_K(0x05016C8E, MCP_ALTBASE_ADDR(boot_dirs_clear_t));
-        ASM_PATCH_K(0x05016C92,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05016C92,
             "mov r0, #0\n"
             "pop {pc}\n"
         );
@@ -595,15 +768,13 @@ static void patch_55x()
         U32_PATCH_K(0x05022474, NEW_TIMEOUT);
 
         // disable loading cached title list from os-launch memory
-        ASM_PATCH_K(0x0502E59A, 
-            ".thumb\n"
+        ASM_T_PATCH_K(0x0502E59A, 
             "mov r0, #0x0\n"
         );
 
 
         // patch OS launch sig check
-        ASM_PATCH_K(0x0500A818,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x0500A818,
             "mov r0, #0\n"
             "mov r0, #0\n"
         );
@@ -622,9 +793,9 @@ static void patch_55x()
 
         // TODO: why are these needed now???
         // remove various Ancast header size checks
-        ASM_PATCH_K(0x0500A7C8, ".thumb\nnop\nnop\n");
-        ASM_PATCH_K(0x0500A7D0, ".thumb\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
-        ASM_PATCH_K(0x0500A7F4, ".thumb\nnop\nnop\nnop\nnop\nnop\nmov r3, #0x2");
+        ASM_T_PATCH_K(0x0500A7C8, "nop\nnop\n");
+        ASM_T_PATCH_K(0x0500A7D0, "nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
+        ASM_T_PATCH_K(0x0500A7F4, "nop\nnop\nnop\nnop\nnop\nmov r3, #0x2");
 
         // Force a crash to inspect junk
         //ASM_PATCH_K(0x0500A778, ".thumb\nldr r0, [r0]\nbx pc\n.word 0xFFFFFFFF\n");
@@ -636,29 +807,25 @@ static void patch_55x()
         );*/
 
         // allow MCP_GetSystemLog on retail
-        ASM_PATCH_K(0x05025EE6,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05025EE6,
             "mov r0, #0\n"
             "nop\n"
         );
 
         // same, MCP_SetDefaultTitleId
-        ASM_PATCH_K(0x05026BA8,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05026BA8,
             "mov r0, #0\n"
             "nop\n"
         );
 
         // same, MCP_GetDefaultTitleId
-        ASM_PATCH_K(0x05026C54,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05026C54,
             "mov r0, #0\n"
             "nop\n"
         );
 
         // same, MCP_GetTitleSize
-        ASM_PATCH_K(0x502574E,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x502574E,
             "nop\n"
             "nop\n"
         );
@@ -670,14 +837,12 @@ static void patch_55x()
         );
 
         // allow usage of u16 at ancast header + 0x1A0
-        ASM_PATCH_K(0x0500A7CA,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x0500A7CA,
             "nop\n"
         );
 
         // skip content hash verification
-        ASM_PATCH_K(0x05014CAC,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05014CAC,
             "mov r0, #0\n"
             "bx lr\n"
         );
@@ -696,14 +861,13 @@ static void patch_55x()
 
         // Shift Wii SEEPROM up 0x300 and read in OTP
         BL_T_TRAMPOLINE_K(0x05008BB6, MCP_ALTBASE_ADDR(c2w_seeprom_hook_t));
-        ASM_PATCH_K(0x05008C18,
-            ".thumb\n"
+        ASM_T_PATCH_K(0x05008C18,
             "mov r4, #0x50\n"
             "lsl r4, r4, #0x4\n"
         );
 
         BL_T_TRAMPOLINE_K(0x05008810, MCP_ALTBASE_ADDR(c2w_boot_hook_t));
-        ASM_PATCH_K(0x05008814, ".thumb\nnop\n");
+        ASM_T_PATCH_K(0x05008814, "nop\n");
 #endif // OTP_IN_MEM
     }
 #endif // MCP_PATCHES
@@ -782,34 +946,66 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
-#if USE_REDNAND | USE_REDMLC
-        // in createDevThread
-        BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
-#endif
 
-        // null out references to slcSomething1 and slcSomething2
-        // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
 #if USE_REDNAND
-        U32_PATCH_K(0x107B96B8, 0);
-        U32_PATCH_K(0x107B96BC, 0);
+        if(rednand){
+            // in createDevThread
+            BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
 
-        // slc redirection
-        BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
-        BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
-        BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
-        BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
-        ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
-#endif // USE_REDNAND
-#if USE_REDNAND | USE_REDMLC
-        // mlc redirection
-        BRANCH_PATCH_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
-        BRANCH_PATCH_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
-        // FS_GETMDDEVICEBYID
-        BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
-        // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
-        BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
-        // mdExit : patch out sdcard deinitialization
-        ASM_PATCH_K(0x107BD374, "bx lr");
+            // FS_GETMDDEVICEBYID
+            BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
+            // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
+            BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
+
+            // sdio rw patches
+            BL_TRAMPOLINE_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
+            BL_TRAMPOLINE_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
+
+            // mdExit : patch out sdcard deinitialization
+            ASM_PATCH_K(0x107BD374, "bx lr");
+
+            if(redslc_size_sectors || redslccmpt_size_sectors){
+                debug_printf("Enabeling SLC/SLCCMPT redirection\n");
+
+                // null out references to slcSomething1 and slcSomething2
+                // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
+                U32_PATCH_K(0x107B96B8, 0);
+                U32_PATCH_K(0x107B96BC, 0);
+
+                // slc redirection
+                BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
+                BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
+                BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
+                BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
+                ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
+            }
+            if(redmlc_size_sectors){
+                debug_printf("Enabeling MLC redirection\n");
+                //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
+                //skip companion file creation
+                //ASM_T_PATCH_K(0x050077E8, "mov r0, #0\nbx lr");
+                //patching offset for HAI on MLC in companion file
+                extern int hai_write_file_shim();
+                BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
+                extern int get_block_addr_patch1_shim();
+                BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
+
+                debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
+                ASM_PATCH_K(0x107bdb10,
+                    "nop\n"
+                    "nop\n"
+                    "nop\n"
+                    "ldr r4, [pc, #0xb8]\n"
+                );
+                U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
+            }
+            if(disable_scfm){
+                debug_printf("Disableing SCFM\n");
+                ASM_PATCH_K(0x107d1f28, "nop\n");
+                ASM_PATCH_K(0x107d1e08,"nop\n");
+                ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
+            }
+        }
 #endif // USE_REDNAND || USE_REDMLC
 
         // mlcRead1 logging
@@ -847,6 +1043,7 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
 #endif // PRINT_FSASEEKFILE
 
+        if(scfm_on_slccmpt){
 #if MLC_ACCELERATE
         // hooks for supporting scfm.img on sys-slccmpt instead of on the sd card
         // e.g. doing sd->slc caching instead of sd->sd caching which dramatically slows down ALL i/o
@@ -858,24 +1055,12 @@ static void patch_55x()
     
         //hook scfmInit right after fsa initialization, before main thread creation
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
+#else
+        const char* panic = "BUIDL without MLC_ACCELERATE\n";
+        iosPanic(panic, strlen(panic)+1);
+        while(1);
 #endif
-
-#if DISABLE_SCFM
-        ASM_PATCH_K(0x107d1f28, "nop\n");
-        ASM_PATCH_K(0x107d1e08,"nop\n");
-        ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
-#endif
-
-#if OVERRIDE_MLC_SIZE
-ASM_PATCH_K(0x107bdb10,
-          "nop\n"
-          "nop\n"
-          "nop\n"
-          "ldr r4, [pc, #0xb8]\n"
-        );
-
-U32_PATCH_K(0x107bdbdc, MLC_SIZE + 0xFFFF);
-#endif
+        }
     }
 }
 
@@ -901,6 +1086,8 @@ void kern_main()
     init_heap();
     init_phdrs();
     init_linking();
+    // Read config.ini from PRSH memory
+    init_config();
 
     // TODO verify the bytes that are overwritten?
     // and/or search for instructions where critical (OTP)
@@ -919,9 +1106,6 @@ void kern_main()
 
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
-
-    // Read config.ini from PRSH memory
-    init_config();
 
     call_plugin_entry("kern_entry");
 

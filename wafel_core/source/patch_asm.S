@@ -15,6 +15,12 @@
 
 .extern otp_store
 
+.extern redmlc_off_sectors
+.extern redslc_off_sectors
+.extern redslccmpt_off_sectors
+.extern redslc_size_sectors
+.extern redslccmpt_size_sectors
+
 .globl otp_read_replace_hacky
 .globl otp_read_replace_hacky_end
 otp_read_replace_hacky:
@@ -269,6 +275,15 @@ ppc_wait_stub:
 .pool
 
 @ TODO
+
+.align 4
+MCP_IOS_SHUTDOWN:
+    .arm
+    push {r7, lr}
+    ldr r7, =0x05056b7c
+    blx r7
+    pop {r7, pc}
+.pool
 
 .align 4
 MCP_FSA_OPEN:
@@ -552,6 +567,40 @@ usb_seed:
 .pool
 
 
+.extern get_block_addr_patch1
+.global get_block_addr_patch1_shim
+get_block_addr_patch1_shim:
+    LDR R0, [R8,#0x70]
+    add R3, SP, #8
+    SUB R3, R3, #3
+    @push {r0-r10, lr}
+    @mov r0, r6 //a1
+    LDR r2, [R8,#0x1C0] //cb
+    b get_block_addr_patch1
+    #pop {r0-r10, pc}
+
+
+.extern hai_write_file_patch
+.global hai_write_file_shim
+
+.thumb
+hai_write_file_shim:
+    ldr r4, hwf_hook
+    bx r4
+hwf_hook: .word hai_write_file_patch
+
+.extern hai_file_patch1
+.global hai_file_patch1_t
+
+.thumb
+hai_file_patch1_t:
+    add r3, sp, #0x20 @ orig instruction
+    mov r11, r3       @ orig instruction
+    push {r0-r3,lr}
+    ldr r3, hf_hook
+    blx r3
+    pop {r0-r3,pc}
+hf_hook: .word  hai_file_patch1
 @
 @ C2W
 @
@@ -1042,8 +1091,8 @@ scfm_migrate_cmpt_exists:
     mov r0, #0x20 @ nocrypto flag
     str r0, [sp, #8]
     mov r0, r4  @ fsa handle
-    add r1, sp, 0xC  @ buf
-    mov r2, 1   @ size
+    add r1, sp, #0xC  @ buf
+    mov r2, #1  @ size
     mov r3, #4  @ count
     bl REL_FS_FSAREADFILEOFFSET
     mov r6, r0
@@ -1134,7 +1183,7 @@ scfm_migrate_copy_loop:
     str r0, [sp, #8]
     mov r0, r4  @ fsa handle
     mov r1, r7  @ buf
-    mov r2, 1   @ size
+    mov r2, #1  @ size
     mov r3, r9  @ count
     bl REL_FS_FSAREADFILEOFFSET
     cmp r0, r9
@@ -1148,7 +1197,7 @@ scfm_migrate_copy_loop:
     str r0, [sp, #8]
     mov r0, r4  @ fsa handle
     mov r1, r7  @ buf
-    mov r2, 1   @ size
+    mov r2, #1  @ size
     mov r3, r9  @ count
     bl REL_FS_FSAWRITEFILEOFFSET
     cmp r0, r9
@@ -1257,7 +1306,10 @@ scfm_migration_strcpy_loop:
     cmp r3, #0
     bne scfm_migration_strcpy_loop
     bx lr
-str_migration_fail_format: .ascii 0xA,"SCFM-SALT: migration failed, %02d-%08X"
+
+str_migration_fail_format: 
+.byte 0xA
+.ascii "SCFM-SALT: migration failed, %02d-%08X"
 .byte 0xA,0
 str_migrate_progress_format: 
     .ascii "SCFM-SALT: Migrating scfm.img, %d bytes remaining..."
@@ -1435,19 +1487,6 @@ sdcard_init:
     ldr r1, [r0, #0x28]
     bic r1, #0x4
     str r1, [r0, #0x28]
-    
-    @ set sdcard size for emu hooks
-    ldr r1, [r0, #0x30]
-    mov r0, #0
-    sub r0, #0x10000
-    and r1, r0  @ sdcard_size &= 0xFFFF0000
-    ldr r0, =sdcard_num_sectors
-    str r1, [r0]
-
-    @ TODO: spoof MLC sector count for resized emunand (this patch is ready)
-    @ ldr r0, =FS_MMC_MLC_STRUCT
-    @ ldr r1, =MLC_SIZE
-    @ str r1, [r0, #0x30]
 
     pop {pc}
 
@@ -1771,29 +1810,32 @@ write_str:.ascii "write"
 @ SDIO REDIRECTION  @
 @ @ @ @ @ @ @ @ @ @ @
 
-sdcardReadWrite_patch:
-    push {r2}
-    ldr r2, [r0, #0x14]
-    mov r0, r1
-    cmp r2, #6 @ DEVICETYPE_SDCARD
-    moveq r1, #0
-    beq sdcardReadWrite_patch_cont
-    ldr r2, =MLC_OFFS_SECTORS @ mlc
-    ldr r1, =sdcard_num_sectors
-    ldr r1, [r1]
-    sub r1, r2
-    
-sdcardReadWrite_patch_cont:
-    pop {r2}
-    b readWriteCallback_patch
+sdcardWrite_patch:
+    mov r12, #0 @ write
+    b sdcardReadWrite_patch
 
 sdcardRead_patch:
-    mov r1, #1 @ read
-    b sdcardReadWrite_patch
+    mov r12, #1 @ read
 
-sdcardWrite_patch:
-    mov r1, #0 @ write
-    b sdcardReadWrite_patch
+sdcardReadWrite_patch:
+    ldr r4, [r0, #0x14]
+    cmp r4, #6 @ DEVICETYPE_SDCARD
+    moveq r1, #0
+    beq sdcardReadWrite_patch_cont
+    ldr r4, =redmlc_size_sectors
+    ldr r4, [r4]
+    cmp r4, #0
+    subeq sp,sp,#0x14 @overwritten instruction
+    bxeq lr
+    ldr r4, =redmlc_off_sectors
+    ldr r1, [r4]
+    
+sdcardReadWrite_patch_cont:
+    mov r0, r12
+    pop {r4,lr}
+    b readWriteCallback_patch
+
+
 
 @ @ @ @ @ @ @ @ @ @
 @ SLC REDIRECTION @
@@ -1804,20 +1846,21 @@ slcReadWrite_patch:
     ldr r2, [r0, #4]
     mov r0, r1
     cmp r2, #0
-    ldrne r2, =SLC_OFFS_SECTORS
-    ldreq r2, =SLCCMPT_OFFS_SECTORS
-    ldr r1, =sdcard_num_sectors
+    ldrne r1, =redslc_off_sectors
+    ldreq r1, =redslccmpt_off_sectors
     ldr r1, [r1]
     
-    sub r1, r2
     lsr r1, #2   @ 4 sd sectors -> 1 slc sector
     pop {r2}
     b readWriteCallback_patch
 
 slcRead1_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcRead1_patch_cont
@@ -1826,15 +1869,17 @@ slcRead1_patch:
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_READ1+4
     
-#endif
 slcRead1_patch_cont:
     mov r1, #1 @ read
     b slcReadWrite_patch
 
 slcWrite1_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcWrite1_patch_cont
@@ -1842,15 +1887,18 @@ slcWrite1_patch:
     @ slccmpt, do replaced instruction and return to use syscmpt
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_WRITE1+4
-#endif
+
 slcWrite1_patch_cont:
     mov r1, #0 @ write
     b slcReadWrite_patch
 
 slcRead2_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcRead2_patch_cont
@@ -1858,7 +1906,7 @@ slcRead2_patch:
     @ slccmpt, do replaced instruction and return to use syscmpt
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_READ2+4
-#endif
+
 slcRead2_patch_cont:
 .equ slcRead2_patch_stackframe_size, (0x10+7*4)
     push {r0-r5,lr}
@@ -1877,9 +1925,12 @@ slcRead2_patch_cont:
 
     
 slcWrite2_patch:
-#if USE_SYS_SLCCMPT
     push {r0, r1}
     ldr r1, [r0, #4]
+    cmp r1, #0
+    ldrne r1, =redslc_size_sectors
+    ldreq r1, =redslccmpt_size_sectors
+    ldr r1, [r1]
     cmp r1, #0
     pop {r0, r1}
     bne slcWrite2_patch_cont
@@ -1887,7 +1938,7 @@ slcWrite2_patch:
     @ slccmpt, do replaced instruction and return to use syscmpt
     stmfd sp!, {r4-r8,lr}
     b REL_FS_SLC_WRITE2+4
-#endif
+
 slcWrite2_patch_cont:
 .equ slcWrite2_patch_stackframe_size, (0x10+6*4)
     push {r0-r4,lr}
@@ -2053,8 +2104,6 @@ drawCharacter:
 
 .section ".bss"
 
-sdcard_num_sectors:
-    .word 0x00000000
 sdcard_access_mutex:
     .word 0x00000000
 mlc_out_callback_arg2:

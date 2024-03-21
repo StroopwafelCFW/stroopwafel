@@ -19,10 +19,10 @@
     ".globl post_" #_addr "\n"   \
     "b post_" #_addr "\n"        \
     "pre_" #_addr ":\n"          \
-    _preamble "\n"                     \
+    _preamble "\n"               \
     _str "\n"                    \
-     ".arm\n"                    \
-    "post_" #_addr ":\n");       \
+    "post_" #_addr ":\n"         \
+    ".arm\n");                   \
     extern void pre_##_addr();   \
     extern void post_##_addr();  \
     _copy_fn((uintptr_t)_addr, (uintptr_t)pre_##_addr, (u32)post_##_addr - (u32)pre_##_addr); \
@@ -70,12 +70,14 @@ static void _patch_u32_k(uintptr_t addr, u32 val)
 
 static void _patch_copy_k(uintptr_t dst, uintptr_t src, size_t sz)
 {
+    debug_printf("Patch size: %p\n", sz);
     // copy in u16 increments, so that thumb patches don't break
     memcpy16((void*)ios_elf_vaddr_to_paddr(dst), (void*)src, sz);
 }
 
 #define U32_PATCH_K(_addr, _val) _U32_PATCH(_addr, _val, _patch_u32_k)
 #define ASM_PATCH_K(_addr, _str) _ASM_PATCH(_addr, ".arm", _str, _patch_copy_k)
+#define ASM_T_PATCH_K(_addr, _str) _ASM_PATCH(_addr, ".thumb", _str, _patch_copy_k)
 #define BL_TRAMPOLINE_K(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32_k)
 #define BL_T_TRAMPOLINE_K(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32_k)
 #define BRANCH_PATCH_K(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32_k)
@@ -107,6 +109,7 @@ static void _patch_copy(uintptr_t dst, uintptr_t src, size_t sz)
 #define MEMCPY_PATCH(_addr, _dst, _sz) _patch_copy(_addr, _dst, _sz)
 #define U32_PATCH(_addr, _val) _U32_PATCH(_addr, _val, _patch_u32)
 #define ASM_PATCH(_addr, _str) _ASM_PATCH(_addr, ".arm", _str, _patch_copy)
+#define ASM_T_PATCH(_addr, _str) _ASM_PATCH(_addr, ".thumb", _str, _patch_copy)
 #define BL_TRAMPOLINE(_addr, _dst) _BL_TRAMPOLINE(_addr, _dst, _patch_u32)
 #define BL_T_TRAMPOLINE(_addr, _dst) _BL_T_TRAMPOLINE(_addr, _dst, _patch_u32)
 #define BRANCH_PATCH(_addr, _dst) _BRANCH_PATCH(_addr, _dst, _patch_u32)

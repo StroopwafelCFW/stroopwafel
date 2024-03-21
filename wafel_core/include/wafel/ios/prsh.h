@@ -79,6 +79,6 @@ typedef struct {
 
 void prsh_reset(void);
 void prsh_init(void);
-int prsh_get_entry(const char* name, void** data, size_t* size);
+LINKABLE int prsh_get_entry(const char* name, void** data, size_t* size);
 
 #endif // _WAFEL_PRSH_H

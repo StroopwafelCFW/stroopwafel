@@ -13,12 +13,12 @@
  * These functions are guaranteed to copy by reading from src and writing to dst in <n>-bit units
  * If size is not aligned, the remaining bytes are not copied
  */
-void memset32(void *dst, u32 value, u32 size);
-void memcpy32(void *dst, void *src, u32 size);
-void memset16(void *dst, u16 value, u32 size);
-void memcpy16(void *dst, void *src, u32 size);
-void memset8(void *dst, u8 value, u32 size);
-void memcpy8(void *dst, void *src, u32 size);
+LINKABLE void memset32(void *dst, u32 value, u32 size);
+LINKABLE void memcpy32(void *dst, void *src, u32 size);
+LINKABLE void memset16(void *dst, u16 value, u32 size);
+LINKABLE void memcpy16(void *dst, void *src, u32 size);
+LINKABLE void memset8(void *dst, u8 value, u32 size);
+LINKABLE void memcpy8(void *dst, void *src, u32 size);
 
 static inline u32 read32(u32 addr)
 {
