@@ -65,6 +65,8 @@ u32 redmlc_size_sectors = 0;
 u32 redslc_size_sectors = 0;
 u32 redslccmpt_size_sectors = 0;
 
+void *otp_ptr = NULL;
+
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 
@@ -106,12 +108,10 @@ static const u32 mcpIoMappings_patch[6*3] =
     0x00000000, // ?
 };
 
-extern u32 otp_store[0x400/4];
-
 static int otp_read_replace(int which_word, void *pOut, unsigned int len)
 {
     u32 cookie = irq_kill();
-    memcpy(pOut, &otp_store[which_word], len);
+    memcpy(pOut, &otp_ptr[which_word], len);
     irq_restore(cookie);
     return 0;
 }
@@ -509,6 +509,12 @@ static void init_config()
     if(!ret){
         minute_on_slc = true;
     }
+
+
+    ret = prsh_get_entry("otp", &otp_ptr, &d_size);
+    if(!ret){
+        debug_printf("Found OTP in PRSH at %p with size %u\n", otp_ptr, d_size);
+    }
 }
 
 void call_plugin_entry(char *entry_name){
@@ -536,33 +542,35 @@ static void patch_general()
     // KERNEL
     {
 #if OTP_IN_MEM
-        u8 otp_pattern[8] = {0xE5, 0x85, 0x31, 0xEC, 0xE0, 0x84, 0x00, 0x07};
-        uintptr_t otp_read_addr = (uintptr_t)boyer_moore_search((void*)0x08100000, 0x100000, otp_pattern, sizeof(otp_pattern));
+        if(otp_ptr){
+            u8 otp_pattern[8] = {0xE5, 0x85, 0x31, 0xEC, 0xE0, 0x84, 0x00, 0x07};
+            uintptr_t otp_read_addr = (uintptr_t)boyer_moore_search((void*)0x08100000, 0x100000, otp_pattern, sizeof(otp_pattern));
 
-        debug_printf("wafel_core: found OTP read pattern 1 at %08x...\n", otp_read_addr);
-        u32* search_2 = (u32*)otp_read_addr;
-        for (int i = 0; i < 0x100; i++) {
-            if (*search_2 == 0xE92D47F0) // push {r4-r10, lr}
-            {
-                break;
+            debug_printf("wafel_core: found OTP read pattern 1 at %08x...\n", otp_read_addr);
+            u32* search_2 = (u32*)otp_read_addr;
+            for (int i = 0; i < 0x100; i++) {
+                if (*search_2 == 0xE92D47F0) // push {r4-r10, lr}
+                {
+                    break;
+                }
+
+                otp_read_addr -= 4;
+                search_2--;
             }
+            debug_printf("wafel_core: found OTP read at %08x.\n", otp_read_addr);
 
-            otp_read_addr -= 4;
-            search_2--;
-        }
-        debug_printf("wafel_core: found OTP read at %08x.\n", otp_read_addr);
-
-        // patch OTP to read from memory
+            // patch OTP to read from memory
 #if 0
-        ASM_PATCH_K(otp_read_addr, 
-            "ldr r3, _otp_read_hook\n"
-            "bx r3\n"
-            "_otp_read_hook: .word otp_read_replace");
+            ASM_PATCH_K(otp_read_addr, 
+                "ldr r3, _otp_read_hook\n"
+                "bx r3\n"
+                "_otp_read_hook: .word otp_read_replace");
 #endif
 
-        // Hacky: copy an ASM stub instead, because our permissions might not be
-        // kosher w/o more patches generalized
-        memcpy((void*)otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
+            // Hacky: copy an ASM stub instead, because our permissions might not be
+            // kosher w/o more patches generalized
+            memcpy((void*)otp_read_addr, otp_read_replace_hacky, (uintptr_t)otp_read_replace_hacky_end - (uintptr_t)otp_read_replace_hacky);
+        }
 #endif // OTP_IN_MEM
 
         // Early MMU mapping

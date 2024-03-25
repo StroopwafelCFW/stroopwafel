@@ -13,7 +13,7 @@
 .extern iosSignalSemaphore
 .extern iosDestroySemaphore
 
-.extern otp_store
+.extern otp_ptr
 
 .extern redmlc_off_sectors
 .extern redslc_off_sectors
@@ -24,7 +24,8 @@
 .globl otp_read_replace_hacky
 .globl otp_read_replace_hacky_end
 otp_read_replace_hacky:
-     ldr r3, =otp_store
+     adr r3, otp_ptr
+     ldr r3, [r3]
      add r0, r3, r0,lsl#2
      add r2, r1, r2
 
