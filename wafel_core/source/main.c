@@ -65,7 +65,7 @@ u32 redmlc_size_sectors = 0;
 u32 redslc_size_sectors = 0;
 u32 redslccmpt_size_sectors = 0;
 
-void *otp_ptr = NULL;
+u32 *otp_ptr = NULL;
 
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
