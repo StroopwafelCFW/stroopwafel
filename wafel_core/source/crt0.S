@@ -35,7 +35,17 @@ is_relocated:
 	.word 0x0
 wafel_plugin_base_addr:
 	.word 0x0
+abi_version:
+	.word 0x1 @don't use 0xe320f000
 	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
 
 kern_setup:
 	ldr sp, =(0x28000000-0x80)
