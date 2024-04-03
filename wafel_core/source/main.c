@@ -480,6 +480,14 @@ static void init_linking()
 
 static void init_config()
 {
+    if(prsh_get_entry("minute_boot", NULL, NULL)){
+        // older minutes didn't add this.
+        // If this stroopwafel is loaded from an too old minute
+        // the otp patch won't work and SLC would corrupt on defuse
+        debug_printf("Minute too old!!!\n");
+        crash_and_burn();
+    }
+
     const char* p_data = NULL;
     size_t d_size = 0;
     int ret = prsh_get_entry("stroopwafel_config", &p_data, &d_size);
