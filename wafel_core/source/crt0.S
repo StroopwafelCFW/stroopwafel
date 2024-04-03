@@ -36,7 +36,7 @@ is_relocated:
 wafel_plugin_base_addr:
 	.word 0x0
 abi_version:
-	.word 0x1 @don't use 0xe320f000
+	.word 0x0x65667301
 	nop
 	nop
 	nop
