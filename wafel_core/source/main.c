@@ -501,7 +501,7 @@ static void init_config()
         debug_printf("Found redNAND config\n");
 
         if(!is_55x){
-            debug_printf("redNAND is only supported on 5.5.X");
+            debug_printf("redNAND is only supported on 5.5.X\n");
             crash_and_burn();
         }
 
