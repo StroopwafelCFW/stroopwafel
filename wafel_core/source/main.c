@@ -500,6 +500,11 @@ static void init_config()
     if(ret >= 0 && rednand_conf->initilized){
         debug_printf("Found redNAND config\n");
 
+        if(!is_55x){
+            debug_printf("redNAND is only supported on 5.5.X");
+            crash_and_burn();
+        }
+
         redslc_off_sectors = rednand_conf->slc.lba_start;
         redslc_size_sectors = rednand_conf->slc.lba_length;
         
@@ -1102,8 +1107,6 @@ void kern_main()
     init_heap();
     init_phdrs();
     init_linking();
-    // Read config.ini from PRSH memory
-    init_config();
 
     // TODO verify the bytes that are overwritten?
     // and/or search for instructions where critical (OTP)
@@ -1112,6 +1115,10 @@ void kern_main()
     is_55x = (ios_elf_get_module_entrypoint(IOS_MCP) == 0x05056718 
               && read32(0x08120248) == 0xE92D47F0
               && read32(0x08120290) == 0xE58531EC);
+    
+    // Read config from PRSH memory
+    init_config();
+
     patch_general();
     if (is_55x) {
         patch_55x();
