@@ -1,24 +1,24 @@
-.global trampoline_proto
-.global trampoline_proto_chain
-.global trampoline_proto_target
-.global trampoline_proto_end
+.global blre_trampoline_proto
+.global blre_trampoline_proto_chain
+.global blre_trampoline_proto_target
+.global blre_trampoline_proto_end
 
 .align 4
 .arm
-trampoline_proto:
+blre_trampoline_proto:
     push {lr}
 @trampoline_proto_chain:
 @    adr lr, trampoline_proto_chain @old target
-    ldr lr, trampoline_proto_chain
+    ldr lr, blre_trampoline_proto_chain
     push {lr}
-    ldr lr, trampoline_proto_target
+    ldr lr, blre_trampoline_proto_target
     blx lr
     pop {lr, pc}
-trampoline_proto_target:
+blre_trampoline_proto_target:
     .word 0
-trampoline_proto_chain:
+blre_trampoline_proto_chain:
     .word 0
-trampoline_proto_end:
+blre_trampoline_proto_end:
 
 
 .global trampoline_t_proto
