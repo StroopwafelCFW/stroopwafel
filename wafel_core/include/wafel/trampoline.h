@@ -3,7 +3,15 @@
 
 #include "dynamic.h"
 
-LINKABLE void install_trampoline(uintptr_t addr, void *target, void *trampoline, void *trampoline_end, void *trampoline_target, void *trampoline_chain);
-LINKABLE void blreplace_trampoline(uintptr_t addr, void *target);
+LINKABLE void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end);
+LINKABLE void trampoline_blreplace(uintptr_t addr, void *target);
+
+typedef struct {
+    int r[12];
+    u32 lr;
+    u32 stack[];
+} PACKED trampoline_state;
+
+LINKABLE void trampoline_hook_before(uintptr_t addr, void *target);
 
 #endif //TRAMPOLINE_H

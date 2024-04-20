@@ -4,7 +4,7 @@
 #include "config.h"
 
 extern u8 trampoline_buffer[];
-u32 trampoline_next = (u32)trampoline_buffer;
+uintptr_t trampoline_next = (u32)trampoline_buffer;
 extern u8 trampoline_buffer_end[];
 
 static u32 align(u32 x, u32 to){
@@ -17,34 +17,30 @@ static u32 align(u32 x, u32 to){
  * pecify a branch of +/- 32Mbytes. The branch offset must take account of the prefetch
  * operation, which causes the PC to be 2 words (8 bytes) ahead of the current instruction
 */
-void* extract_bl_target(uintptr_t addr){
+u32 extract_bl_target(uintptr_t addr){
     uintptr_t paddr = ios_elf_vaddr_to_paddr(addr);
     u32 ins = *(u32*)paddr;
     if(ins>>24 != 0xEB){
-        return NULL;
+        return 0;
     }
     u32 off = ins & 0xFFFFFF;
     off <<= 2;
     const u32 m = 1<<25;
     s32 soff = (off ^ m) - m; // sign extend magic
-    void* target = (void*)(addr + soff + 8);
+    u32 target = addr + soff + 8;
     debug_printf("%p: %08X -> %p\n", addr, ins, target);
     return target;
 }
 
-void install_trampoline(uintptr_t addr, void *target, void *trampoline, void *trampoline_end, void *trampoline_target, void *trampoline_chain){
+void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end){
     trampoline_next = align(trampoline_next, 4);
     u32 trampoline_size = trampoline_end - trampoline;
-    debug_printf("Installing trampoline from %p to %p at %p size %u\n", addr, target, trampoline_next, trampoline_size);
+    debug_printf("Installing trampoline from %p at %p size %u\n", addr, trampoline_next, trampoline_size);
     if(trampoline_next + trampoline_size >= (u32)trampoline_buffer_end){
         debug_printf("no trampoline space left\n");
         crash_and_burn();
     }
     memcpy16((void*) trampoline_next, trampoline, trampoline_size);
-    if(trampoline_target)
-        *(void**)(trampoline_next + trampoline_target - trampoline) = target;
-    if(trampoline_chain)
-        *(void**)(trampoline_next + trampoline_chain - trampoline) = extract_bl_target(addr);
     u32 trampoline_alt = trampoline_next;
     if(trampoline_alt>>26 != addr>>26){
         trampoline_alt = MCP_ALTBASE_ADDR(trampoline_next);
@@ -56,16 +52,37 @@ void install_trampoline(uintptr_t addr, void *target, void *trampoline, void *tr
                 }
         }
     }
-
     BL_TRAMPOLINE_K(addr, trampoline_alt);
+    void* ret = (void*)trampoline_next;
     trampoline_next += trampoline_size;
+    return ret;
 }
 
-extern u8 blre_trampoline_proto[];
-extern u8 blre_trampoline_proto_chain[];
-extern u8 blre_trampoline_proto_target[];
-extern u8 blre_trampoline_proto_end[];
+extern u8 trampoline_blre_proto[];
+extern u8 trampoline_blre_proto_end[];
+extern u32 trampoline_blre_proto_chain[];
+extern void* trampoline_blre_proto_target[];
 
-void blreplace_trampoline(uintptr_t addr, void *target){
-    install_trampoline(addr, target, blre_trampoline_proto, blre_trampoline_proto_end, blre_trampoline_proto_target, blre_trampoline_proto_chain);
+void trampoline_blreplace(uintptr_t addr, void *target){
+    trampoline_blre_proto_chain[0] = extract_bl_target(addr);
+    trampoline_blre_proto_target[0] = target;
+    trampoline_install(addr, trampoline_blre_proto, trampoline_blre_proto_end);
+}
+
+extern u8 trampoline_hookbefore_proto[];
+extern u8 trampoline_hookbefore_proto_end[];
+extern void* trampoline_hookbefore_proto_target[];
+extern u32 trampoline_hookbefore_proto_orgins[];
+extern u32 trampoline_hookbefore_proto_chain[];
+
+void trampoline_hook_before(uintptr_t addr, void *target){
+    u32 bl_target = extract_bl_target(addr);
+    u32 orgins = *(u32*)ios_elf_vaddr_to_paddr(addr);
+    trampoline_hookbefore_proto_target[0] = target;
+    void* tramp_base = trampoline_install(addr, trampoline_hookbefore_proto, trampoline_hookbefore_proto_end);
+    if(bl_target){
+        *(u32*)(tramp_base + ((void*)trampoline_hookbefore_proto_chain - (void*)trampoline_hookbefore_proto)) = bl_target;
+    } else {
+        *(u32*)(tramp_base + ((void*)trampoline_hookbefore_proto_orgins - (void*)trampoline_hookbefore_proto)) = orgins;
+    }
 }
