@@ -1,5 +1,7 @@
 #include "patch.h"
 #include "ios/svc.h"
+#include "dynamic.h"
+#include "config.h"
 
 extern u8 trampoline_buffer[];
 u32 trampoline_next = (u32)trampoline_buffer;
@@ -46,6 +48,18 @@ void install_trampoline(void *addr, void *target){
     memcpy16((void*) trampoline_next, trampoline_proto, trampoline_size);
     *(void**)(trampoline_next + trampoline_target_off) = target;
     *(void**)(trampoline_next + trampoline_chain_off) = extract_bl_target(addr);
-    BL_TRAMPOLINE_K(addr, trampoline_next);
+    u32 trampoline_alt = trampoline_next;
+    if(trampoline_alt>>26 != (u32)addr>>26){
+        trampoline_alt = MCP_ALTBASE_ADDR(trampoline_next);
+        if(trampoline_alt>>26 != (u32)addr>>26){
+            trampoline_alt = FS_ALTBASE_ADDR(trampoline_next);
+                if(trampoline_alt>>26 != (u32)addr>>26){
+                    debug_printf("Trampoline at %p not reachable from %p\n", trampoline_next, addr);
+                    crash_and_burn();
+                }
+        }
+    }
+
+    BL_TRAMPOLINE_K(addr, trampoline_alt);
     trampoline_next += trampoline_size;
 }
