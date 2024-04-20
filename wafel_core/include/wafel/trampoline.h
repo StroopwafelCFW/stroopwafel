@@ -3,6 +3,6 @@
 
 #include "dynamic.h"
 
-LINKABLE void install_trampoline(void *addr, void *target);
+LINKABLE void install_trampoline(uintptr_t addr, void *target);
 
 #endif //TRAMPOLINE_H
