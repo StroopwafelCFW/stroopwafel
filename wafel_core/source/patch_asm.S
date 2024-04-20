@@ -2117,6 +2117,14 @@ _printf_string:
     .skip 0x100
 _printf_string_end:
 
+.global trampoline_buffer
+.global trampoline_buffer_end
+.align 0x4
+trampoline_buffer:
+.skip 2048
+trampoline_buffer_end:
+
+
 .skip 32
 .align 0x4
 syslog_buffer:
