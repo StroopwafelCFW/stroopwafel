@@ -20,6 +20,7 @@ trampoline_blre_proto_chain:
     .word 0
 trampoline_blre_proto_end:
 
+
 trampoline_hookafter_proto:
     push {lr}
 trampoline_hookafter_proto_orgins:
@@ -70,12 +71,12 @@ trampoline_hookbefore_proto_end:
 .align 4
 .thumb
 trampoline_t_blre_proto:
-    push {r0,r1,r2, lr}
-    adr r1,  trampoline_t_blre_proto_target
-    ldm r1, {r0,r1}
-    str r1, [sp, #8]  @where we pushed r2
+    push {r0, r1, lr}
+    ldr r0, trampoline_t_blre_proto_target
     mov lr, r0
-    pop {r0, r1}
+    ldr r0, trampoline_t_blre_proto_chain
+    str r0, [sp, #4]  @where we pushed r1
+    pop {r0}
     blx lr
     add sp, #4
     pop {pc} @ remove chain pointer, jump to old lr
