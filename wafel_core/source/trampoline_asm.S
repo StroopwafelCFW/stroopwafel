@@ -71,7 +71,7 @@ trampoline_hookbefore_proto_end:
 .align 4
 .thumb
 trampoline_t_blre_proto:
-    push {r0, r1, lr}
+    push {r0, r1, lr} @ r1 just to reserve space
     ldr r0, trampoline_t_blre_proto_target
     mov lr, r0
     ldr r0, trampoline_t_blre_proto_chain
@@ -79,8 +79,9 @@ trampoline_t_blre_proto:
     pop {r0}
     blx lr
     add sp, #4
-    pop {pc} @ remove chain pointer, jump to old lr
-.align 4
+    pop {pc}
+    nop
+@.align 4
 trampoline_t_blre_proto_target:
     .word 0
 trampoline_t_blre_proto_chain:
