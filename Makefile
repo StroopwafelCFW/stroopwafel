@@ -4,7 +4,8 @@ BSS_SECTIONS :=
 INPUT_SECTIONS := $(addprefix sections/, $(addsuffix .bin, $(SECTIONS)))
 PATCHED_SECTIONS := $(addprefix patched_sections/, $(addsuffix .bin, $(SECTIONS)))
 
-.PHONY: all clean
+#.PHONY: all clean
+.PHONY: always_build all clean
 
 all: wafel_core.ipx
 
@@ -15,7 +16,7 @@ sections/%.bin: $(INPUT)
 wafel_core.ipx: wafel_core/wafel_core.elf
 	@cp wafel_core/wafel_core.elf wafel_core.ipx
 
-wafel_core/wafel_core.elf:
+wafel_core/wafel_core.elf: always_build
 	@cd wafel_core && make
 
 patched_sections/%.bin: sections/%.bin patches/%.s
