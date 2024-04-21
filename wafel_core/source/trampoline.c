@@ -86,3 +86,23 @@ void trampoline_hook_before(uintptr_t addr, void *target){
         *(u32*)(tramp_base + ((void*)trampoline_hookbefore_proto_orgins - (void*)trampoline_hookbefore_proto)) = orgins;
     }
 }
+
+
+u32 extract_bl_t_target(uintptr_t addr){
+    u16 *paddr = (u16*)ios_elf_vaddr_to_paddr(addr);
+    u16 ins1 = paddr[0];
+    u16 ins2 = paddr[1];
+    if(ins1>>11!=0b11110 || ins2>>11!=0b11111){
+        return 0;
+    }
+    u32 off1 = ins1 & 0x7FF;
+    off1 <<= 12;
+    u32 off2 = ins2 & 0x7FF;
+    off2 <<= 1;
+    u32 off = off1 | off2;
+    const u32 m = 1<<24;
+    s32 soff = (off ^ m) - m; // sign extend magic
+    u32 target = addr + soff + 6;
+    debug_printf("%p: %04X%04X -> %p\n", addr, ins1, ins2, target);
+    return target;
+}
