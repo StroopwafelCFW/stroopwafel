@@ -32,7 +32,7 @@ u32 extract_bl_target(uintptr_t addr){
     return target;
 }
 
-void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end){
+void* trampoline_copy(uintptr_t addr, void *trampoline, void *trampoline_end){
     trampoline_next = align(trampoline_next, 4);
     u32 trampoline_size = trampoline_end - trampoline;
     debug_printf("Installing trampoline from %p at %p size %u\n", addr, trampoline_next, trampoline_size);
@@ -41,21 +41,36 @@ void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end)
         crash_and_burn();
     }
     memcpy16((void*) trampoline_next, trampoline, trampoline_size);
-    u32 trampoline_alt = trampoline_next;
-    if(trampoline_alt>>26 != addr>>26){
-        trampoline_alt = MCP_ALTBASE_ADDR(trampoline_next);
-        if(trampoline_alt>>26 != addr>>26){
-            trampoline_alt = FS_ALTBASE_ADDR(trampoline_next);
-                if(trampoline_alt>>26 != addr>>26){
-                    debug_printf("Trampoline at %p not reachable from %p\n", trampoline_next, addr);
-                    crash_and_burn();
-                }
-        }
-    }
-    BL_TRAMPOLINE_K(addr, trampoline_alt);
+
     void* ret = (void*)trampoline_next;
     trampoline_next += trampoline_size;
     return ret;
+}
+
+u32 trampoline_find_mapping(uintptr_t addr, void* trampoline_addr, u32 offset_bits){
+    u32 trampoline_alt = (u32)trampoline_addr;
+
+    if(trampoline_alt>>offset_bits == addr>>offset_bits)
+        return trampoline_alt;
+    
+    trampoline_alt = MCP_ALTBASE_ADDR((u32)trampoline_addr);
+    if(trampoline_alt>>offset_bits == addr>>offset_bits)
+        return trampoline_alt;
+    
+    trampoline_alt = FS_ALTBASE_ADDR((u32)trampoline_addr);
+    if(trampoline_alt>>offset_bits == addr>>offset_bits)
+        return trampoline_alt;
+
+    debug_printf("Trampoline at %p not reachable from %p\n", trampoline_next, addr);
+    crash_and_burn();
+    return 0;
+}
+
+void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end){
+    void *installed_trampoline = trampoline_copy(addr, trampoline, trampoline_end);
+    u32 trampoline_alt = trampoline_find_mapping(addr, installed_trampoline, 26);
+    BL_TRAMPOLINE_K(addr, trampoline_alt);
+    return installed_trampoline;
 }
 
 extern u8 trampoline_blre_proto[];
@@ -88,6 +103,12 @@ void trampoline_hook_before(uintptr_t addr, void *target){
     }
 }
 
+void* trampoline_t_install(uintptr_t addr, void *trampoline, void *trampoline_end){
+    void *installed_trampoline = trampoline_copy(addr, trampoline, trampoline_end);
+    u32 trampoline_alt = trampoline_find_mapping(addr, installed_trampoline, 23);
+    BL_T_TRAMPOLINE_K(addr, trampoline_alt);
+    return installed_trampoline;
+}
 
 u32 extract_bl_t_target(uintptr_t addr){
     u16 *paddr = (u16*)ios_elf_vaddr_to_paddr(addr);
@@ -96,14 +117,23 @@ u32 extract_bl_t_target(uintptr_t addr){
     if(ins1>>11!=0b11110 || ins2>>11!=0b11111){
         return 0;
     }
-    u32 off1 = ins1 & 0x7FF;
-    off1 <<= 12;
-    u32 off2 = ins2 & 0x7FF;
-    off2 <<= 1;
-    u32 off = off1 | off2;
-    const u32 m = 1<<24;
-    s32 soff = (off ^ m) - m; // sign extend magic
-    u32 target = addr + soff + 6;
+    u32 off1 = ins1 << (32-11);
+    u32 off2 = (ins2&0x7FF) << (32-11-11);
+    s32 soff = (off1 | off2);
+    soff >>=9; //arithmetic shift sign extends
+    u32 target = (addr + soff + 4) | 1;
     debug_printf("%p: %04X%04X -> %p\n", addr, ins1, ins2, target);
+
     return target;
+}
+
+extern u8 trampoline_t_blre_proto[];
+extern u8 trampoline_t_blre_proto_end[];
+extern u32 trampoline_t_blre_proto_chain[];
+extern void* trampoline_t_blre_proto_target[];
+
+void trampoline_t_blreplace(uintptr_t addr, void *target){
+    trampoline_t_blre_proto_chain[0] = extract_bl_t_target(addr);
+    trampoline_t_blre_proto_target[0] = target;
+    trampoline_t_install(addr, trampoline_t_blre_proto, trampoline_t_blre_proto_end);
 }

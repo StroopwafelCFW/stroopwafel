@@ -14,4 +14,6 @@ typedef struct {
 
 LINKABLE void trampoline_hook_before(uintptr_t addr, void *target);
 
+LINKABLE void trampoline_t_blreplace(uintptr_t addr, void *target);
+
 #endif //TRAMPOLINE_H
