@@ -87,3 +87,54 @@ trampoline_t_blre_proto_target:
 trampoline_t_blre_proto_chain:
     .word 0
 trampoline_t_blre_proto_end:
+
+
+.global trampoline_t_hookbefore_proto
+.global trampoline_t_hookbefore_proto_orgins
+.global trampoline_t_hookbefore_proto_target
+.global trampoline_t_hookbefore_proto_end
+
+.align 4
+.thumb
+trampoline_t_hookbefore_proto:
+    push {r0-r7,lr}
+    ldr r7, trampoline_t_hookbefore_proto_target
+    mov r0, sp
+    blx r7
+    ldr r0, [sp, #32]
+    mov lr, r0
+    pop {r0-r7}
+    add sp, #4
+trampoline_t_hookbefore_proto_orgins:
+    nop
+    nop
+    bx lr
+    nop
+trampoline_t_hookbefore_proto_target:
+    .word 0
+trampoline_t_hookbefore_proto_end:
+
+
+.global trampoline_t_hookbefore_bl_proto
+.global trampoline_t_hookbefore_bl_proto_target
+.global trampoline_t_hookbefore_bl_proto_chain
+.global trampoline_t_hookbefore_bl_proto_end
+
+.align 4
+.thumb
+trampoline_t_hookbefore_bl_proto:
+    push {r0-r7, lr}
+    ldr r7, trampoline_t_hookbefore_bl_proto_target
+    mov r0, sp
+    blx r7
+    ldr r0, [sp, #32]
+    mov lr, r0
+    ldr r1, trampoline_t_hookbefore_bl_proto_chain
+    str r1, [sp, #32]
+    pop {r0-r7, pc}
+    nop
+trampoline_t_hookbefore_bl_proto_chain:
+    .word 0
+trampoline_t_hookbefore_bl_proto_target:
+    .word 0
+trampoline_t_hookbefore_bl_proto_end:
