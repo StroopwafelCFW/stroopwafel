@@ -7,7 +7,7 @@ LINKABLE void* trampoline_install(uintptr_t addr, void *trampoline, void *trampo
 LINKABLE void trampoline_blreplace(uintptr_t addr, void *target);
 
 typedef struct {
-    int r[12];
+    int r[13];
     u32 lr;
     u32 stack[];
 } PACKED trampoline_state;

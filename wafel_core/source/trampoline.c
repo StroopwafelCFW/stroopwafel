@@ -78,6 +78,7 @@ extern u32 trampoline_hookbefore_proto_chain[];
 void trampoline_hook_before(uintptr_t addr, void *target){
     u32 bl_target = extract_bl_target(addr);
     u32 orgins = *(u32*)ios_elf_vaddr_to_paddr(addr);
+    debug_printf("Overwriting %p: %08X -> %p\n", addr, orgins, bl_target);
     trampoline_hookbefore_proto_target[0] = target;
     void* tramp_base = trampoline_install(addr, trampoline_hookbefore_proto, trampoline_hookbefore_proto_end);
     if(bl_target){

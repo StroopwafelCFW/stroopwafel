@@ -47,11 +47,11 @@ trampoline_hookafter_proto_end:
 .align 4
 .arm
 trampoline_hookbefore_proto:
-    push {r0-r11, lr}
+    push {r0-r12, lr}
     mov r0, sp
     ldr lr, trampoline_hookbefore_proto_target
     blx lr
-    pop {r0-r11,lr}
+    pop {r0-r12,lr}
 trampoline_hookbefore_proto_orgins:
     ldr pc, trampoline_hookbefore_proto_chain @org instrction
 trampoline_hookbefore_proto_chain:
