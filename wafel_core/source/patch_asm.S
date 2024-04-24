@@ -69,25 +69,6 @@ ancast_no_crypt:
 
 .pool
 
-
-.align 4
-.global syslog_hook
-syslog_hook:
-    .arm
-    mov r5, r2
-    mov r6, r0
-    mov r4, r1
-    push {r4-r6, lr}
-    mov r0, r4
-    bl svc_sys_write_arm
-    pop {r4-r6, lr}
-    mov r2, r5
-    mov r0, r6
-    mov r1, r4
-    bx lr
-
-
-
 .align 4
 hai_shift_data_offsets_t:
     .thumb

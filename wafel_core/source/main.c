@@ -29,7 +29,6 @@ extern int otp_read_replace_hacky(int which_word, u32 *pOut, unsigned int len);
 extern void otp_read_replace_hacky_end();
 extern void ancast_crypt_check();
 extern void launch_os_hook();
-extern void syslog_hook();
 extern void hai_shift_data_offsets_t();
 extern void boot_dirs_clear_t();
 extern void crypto_keychange_hook();
@@ -761,11 +760,6 @@ static void patch_55x()
 
         // Nop SHA1 checks on fw.img
         //U32_PATCH_K(0x0500A84C, 0);
-
-#if SYSLOG_SEMIHOSTING_WRITE
-        // syslog -> semihosting write
-        BL_TRAMPOLINE_K(0x05055328, MCP_ALTBASE_ADDR(syslog_hook));
-#endif
 
 #if USB_SHRINKSHIFT
         BL_T_TRAMPOLINE_K(0x050078A0, MCP_ALTBASE_ADDR(hai_shift_data_offsets_t));

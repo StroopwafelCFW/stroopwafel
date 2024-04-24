@@ -29,9 +29,6 @@
 // Hooks semihosting operations with GPIO output
 #define HOOK_SEMIHOSTING 1
 
-// Mirrors syslog to semihosting write
-#define SYSLOG_SEMIHOSTING_WRITE 1
-
 // Enables serial output over the debug (NDEV_LED) GPIOs
 #define GPIO_SERIAL_CONSOLE 1
 
