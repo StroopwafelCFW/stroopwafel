@@ -253,10 +253,10 @@ static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x
 
 static void c2w_patch_mlc()
 {
-    uintptr_t ios_paddr = read32(0x1018);
-    uintptr_t ios_end = ios_paddr + 0x260000;
+    void* ios_paddr = (void*)read32(0x1018);
+    void* ios_end = ios_paddr + 0x260000;
 
-    for (uintptr_t a = ios_paddr; a < ios_end; a += 2)
+    for (void* a = ios_paddr; a < ios_end; a += 2)
     {
         if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
             write16(a, 0x2300);
@@ -269,14 +269,14 @@ static void c2w_patch_mlc()
 
 static const char hai_mlc_str[] = "/dev/sdio/MLC01";
 static void c2w_patch_mlc_str(void){
-    uintptr_t ios_paddr = read32(0x1018);
-    uintptr_t ios_end = ios_paddr + 0x260000;
+    void* ios_paddr = (void*)read32(0x1018);
+    void* ios_end = ios_paddr + 0x260000;
 
-    for (uintptr_t a = ios_paddr; a < ios_end; a += 2)
+    for (void* a = ios_paddr; a < ios_end; a += 2)
     {
         if (!memcmp(a, hai_mlc_str, sizeof(hai_mlc_str))) {
             strcpy(a,"/dev/sdio/slot0");
-            debug_printf("HAI MLC dev str at: 0x%08x\n", a);
+            debug_printf("HAI MLC dev str at: %p\n", a);
             //break;
         }
     }
@@ -302,12 +302,13 @@ void c2w_patches()
 #endif
 }
 
-static inline u32 read32_unaligned_reversed(u8* pData)
+static inline u32 read32_unaligned_reversed(void* pData)
 {
-    u8 val_3 = pData[0];
-    u8 val_2 = pData[1];
-    u8 val_1 = pData[2];
-    u8 val_0 = pData[3];
+    u8 *data = pData;
+    u8 val_3 = data[0];
+    u8 val_2 = data[1];
+    u8 val_1 = data[2];
+    u8 val_0 = data[3];
 
     return (val_0 << 24) | (val_1 << 16) | (val_2 << 8) | (val_3);
 }
@@ -329,7 +330,7 @@ void hai_file_patch1(char **a){
 }
 
 
-int (*const mcpcompat_fwrite)(int fsa_handle, int *buffer, size_t size, size_t count, int fh, int flags) = (void*) (0x050591E8 | 1);
+int (*const mcpcompat_fwrite)(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags) = (void*) (0x050591E8 | 1);
 
 __attribute__((target("thumb")))
 int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags){
@@ -356,7 +357,7 @@ int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t c
 }
 
 __attribute__((target("arm")))
-int get_block_addr_patch1(int r0, int r1, int r2, char *r3){
+int get_block_addr_patch1(int r0, int r1, char* r2, char *r3){
     debug_printf("FSA GET FILE BLOCK ADDRESS\n");
     debug_printf("devid: %d\n", r0);
     haidev = r0;
@@ -487,9 +488,9 @@ static void init_config()
         crash_and_burn();
     }
 
-    const char* p_data = NULL;
+    char* p_data = NULL;
     size_t d_size = 0;
-    int ret = prsh_get_entry("stroopwafel_config", &p_data, &d_size);
+    int ret = prsh_get_entry("stroopwafel_config", (void**)&p_data, &d_size);
     if (ret >= 0) {
         debug_printf("Found stroopwafel_config PRSH:\n%s\n", p_data);
     }
@@ -523,7 +524,7 @@ static void init_config()
     }
 
 
-    ret = prsh_get_entry("otp", &otp_ptr, &d_size);
+    ret = prsh_get_entry("otp", (void**)&otp_ptr, &d_size);
     if(!ret){
         debug_printf("Found OTP in PRSH at %p with size %u\n", otp_ptr, d_size);
     }

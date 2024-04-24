@@ -80,7 +80,7 @@ static inline u16 read16(u32 addr)
     return data;
 }
 
-static inline void write16(u32 addr, u16 data)
+static inline void write16(u16 *addr, u16 data)
 {
     __asm__ volatile ("strh\t%0, [%1]" : : "l" (data), "l" (addr));
 }
