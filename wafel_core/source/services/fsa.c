@@ -526,3 +526,16 @@ int FSA_RawWrite(int fd, void* data, u32 size_bytes, u32 cnt, u64 blocks_offset,
 	freeIobuf(iobuf);
 	return ret;
 }
+
+int FSA_Remove(int fd, const char* path){
+	u8* iobuf = allocIobuf();
+	u32* inbuf = (u32*)iobuf;
+	u32* outbuf = (u32*)&iobuf[0x520];
+
+	strncpy((char*)&inbuf[0x01], path, 0x27F);
+
+	int ret = iosIoctl(fd, 0x08, inbuf, 0x520, outbuf, 0x293);
+
+	freeIobuf(iobuf);
+	return ret;
+}
