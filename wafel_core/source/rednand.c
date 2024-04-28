@@ -18,19 +18,15 @@ extern void createDevThread_hook();
 static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
 
 static u32 mlc_size = 0;
+static int red_mlc_attach_arg[0xb5];
 
 void rednand_register_sd_as_mlc(trampoline_state* state){
-    int *sal_attach_device_arg = (int*) state->r[6];
-    int org_type = sal_attach_device_arg[2];
-    int org_size = sal_attach_device_arg[7];
-    int org_size2 = sal_attach_device_arg[11];
-    sal_attach_device_arg[2] = 5; // set device typte to mlc
-    sal_attach_device_arg[7] = mlc_size;
-    sal_attach_device_arg[11] = sal_attach_device_arg[7] - 0xffff;
-    int mlc_attach = FSSCFM_Attach_fun(sal_attach_device_arg);
-    sal_attach_device_arg[2] = org_type;
-    sal_attach_device_arg[7] = org_size;
-    sal_attach_device_arg[11] = org_size2;
+    memcpy(red_mlc_attach_arg, (int*) state->r[6] -3, sizeof(red_mlc_attach_arg));
+    red_mlc_attach_arg[3] = (int) red_mlc_attach_arg;
+    red_mlc_attach_arg[5] = 5; // set device typte to mlc
+    red_mlc_attach_arg[10] = mlc_size;
+    red_mlc_attach_arg[14] = red_mlc_attach_arg[10] - 0xffff;
+    int mlc_attach = FSSCFM_Attach_fun(red_mlc_attach_arg +3);
     debug_printf("Attaching sdcard as mlc returned %d\n", mlc_attach);
 }
 
