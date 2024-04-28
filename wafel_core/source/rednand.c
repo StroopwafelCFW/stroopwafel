@@ -17,13 +17,21 @@ extern void createDevThread_hook();
 
 static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
 
+static u32 mlc_size = 0;
+
 void rednand_register_sd_as_mlc(trampoline_state* state){
     int *sal_attach_device_arg = (int*) state->r[6];
     int org_type = sal_attach_device_arg[2];
+    int org_size = sal_attach_device_arg[7];
+    int org_size2 = sal_attach_device_arg[11];
     sal_attach_device_arg[2] = 5; // set device typte to mlc
+    sal_attach_device_arg[7] = mlc_size;
+    sal_attach_device_arg[11] = sal_attach_device_arg[7] - 0xffff;
     int mlc_attach = FSSCFM_Attach_fun(sal_attach_device_arg);
     sal_attach_device_arg[2] = org_type;
-    debug_printf("Attaching sdcard as mlc returned %i\n", mlc_attach);
+    sal_attach_device_arg[7] = org_size;
+    sal_attach_device_arg[11] = org_size2;
+    debug_printf("Attaching sdcard as mlc returned %d\n", mlc_attach);
 }
 
 void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
@@ -42,7 +50,8 @@ void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
         "ldr r4, [pc, #0xb8]\n"
     );
     U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
-
+   
+    mlc_size = redmlc_size_sectors + 0xFFFF;
     trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
 }
 
