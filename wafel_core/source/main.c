@@ -18,6 +18,7 @@
 #include "addrs_55x.h"
 #include "patch.h"
 #include "rednand_config.h"
+#include "rednand.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -40,21 +41,12 @@ extern void c2w_otp_replacement_t_end();
 extern void hai_file_patch1_t();
 
 extern void wfs_crypto_hook();
-extern void createDevThread_hook();
 extern void scfm_try_slc_cache_migration();
 extern void usbRead_patch();
 extern void usbWrite_patch();
 extern void usb_sector_spoof();
 extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
-extern void slcRead1_patch();
-extern void slcRead2_patch();
-extern void slcWrite1_patch();
-extern void slcWrite2_patch();
-extern void sdcardRead_patch();
-extern void sdcardWrite_patch();
-extern void getMdDeviceById_hook();
-extern void registerMdDevice_hook();
 
 u32 redmlc_off_sectors;
 u32 redslc_off_sectors;
@@ -694,28 +686,6 @@ static void patch_55x()
         ASM_PATCH_K(0xE60085F8, "mov r3, #2");
         ASM_PATCH_K(0xE6008BEC, "mov r3, #2");
 #endif
-
-        // SEEPROM write disable is restricted to redNAND only:
-        // - if a non-redNAND system upgrades boot1, the version in SEEPROM will become
-        //   mismatched and the system will be boot0-bricked, I think
-        // - if a redNAND system upgrades boot1, it will be written to the SD card,
-        //   but the SEEPROM version should NOT be synced to the SD card version, because NAND
-        //   has not changed
-#if USE_REDNAND
-        if(redslc_size_sectors){
-            // nop a function used for seeprom write enable, disable, nuking (will stay in write disable)
-            ASM_PATCH_K(0xE600CF5C, 
-                "mov r0, #0\n \
-                bx lr\n"
-            );
-
-            // skip seeprom writes in eepromDrvWriteWord for safety
-            ASM_PATCH_K(0xE600D010, 
-                "mov r0, #0\n \
-                bx lr\n"
-            );
-        }
-#endif
     }
 
 #if MCP_PATCHES
@@ -965,55 +935,13 @@ static void patch_55x()
 
 #if USE_REDNAND
         if(rednand){
-            // in createDevThread
-            BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
-
-            // FS_GETMDDEVICEBYID
-            BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
-            // call to FS_REGISTERMDPHYSICALDEVICE in mdMainThreadEntrypoint
-            BL_TRAMPOLINE_K(0x107BD81C, FS_ALTBASE_ADDR(registerMdDevice_hook));
-
-            // sdio rw patches
-            BL_TRAMPOLINE_K(FS_SDCARD_READ1, FS_ALTBASE_ADDR(sdcardRead_patch));
-            BL_TRAMPOLINE_K(FS_SDCARD_WRITE1, FS_ALTBASE_ADDR(sdcardWrite_patch));
-
-            // mdExit : patch out sdcard deinitialization
-            ASM_PATCH_K(0x107BD374, "bx lr");
+            rednand_apply_base_patches();
 
             if(redslc_size_sectors || redslccmpt_size_sectors){
-                debug_printf("Enabeling SLC/SLCCMPT redirection\n");
-
-                // null out references to slcSomething1 and slcSomething2
-                // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
-                U32_PATCH_K(0x107B96B8, 0);
-                U32_PATCH_K(0x107B96BC, 0);
-
-                // slc redirection
-                BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
-                BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
-                BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
-                BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
-                ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
+                rednand_apply_slc_patches();
             }
             if(redmlc_size_sectors){
-                debug_printf("Enabeling MLC redirection\n");
-                //BL_T_TRAMPOLINE_K(0x050077FC, MCP_ALTBASE_ADDR(hai_file_patch1_t));
-                //skip companion file creation
-                //ASM_T_PATCH_K(0x050077E8, "mov r0, #0\nbx lr");
-                //patching offset for HAI on MLC in companion file
-                extern int hai_write_file_shim();
-                BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
-                extern int get_block_addr_patch1_shim();
-                BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
-
-                debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
-                ASM_PATCH_K(0x107bdb10,
-                    "nop\n"
-                    "nop\n"
-                    "nop\n"
-                    "ldr r4, [pc, #0xb8]\n"
-                );
-                U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
+                rednand_apply_mlc_patches(redmlc_size_sectors);
             }
             if(disable_scfm){
                 debug_printf("Disableing SCFM\n");
