@@ -102,4 +102,6 @@
 
 #define HAI_PARAM_POINTER (0x050749d8)
 
+#define FSSCFM_Attach 0x107d1f04
+
 #endif // _ADDRS_55X_H

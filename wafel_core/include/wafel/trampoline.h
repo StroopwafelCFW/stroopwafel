@@ -12,7 +12,7 @@ typedef struct {
 } PACKED trampoline_state;
 
 LINKABLE void trampoline_blreplace(uintptr_t addr, void *target);
-LINKABLE void trampoline_hook_before(uintptr_t addr, void *target);
+LINKABLE void trampoline_hook_before(uintptr_t addr, void (*target)(trampoline_state*));
 
 typedef struct {
     int r[8];
@@ -21,6 +21,6 @@ typedef struct {
 } PACKED trampoline_t_state;
 
 LINKABLE void trampoline_t_blreplace(uintptr_t addr, void *target);
-LINKABLE void trampoline_t_hook_before(uintptr_t addr, void *target);
+LINKABLE void trampoline_t_hook_before(uintptr_t addr, void (*target)(trampoline_state*));
 
 #endif //TRAMPOLINE_H

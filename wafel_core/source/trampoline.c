@@ -2,6 +2,7 @@
 #include "ios/svc.h"
 #include "dynamic.h"
 #include "config.h"
+#include "trampoline.h"
 
 extern u8 trampoline_buffer[];
 uintptr_t trampoline_next = (u32)trampoline_buffer;
@@ -90,7 +91,7 @@ extern void* trampoline_hookbefore_proto_target[];
 extern u32 trampoline_hookbefore_proto_orgins[];
 extern u32 trampoline_hookbefore_proto_chain[];
 
-void trampoline_hook_before(uintptr_t addr, void *target){
+void trampoline_hook_before(uintptr_t addr, void (*target)(trampoline_state*)){
     u32 bl_target = extract_bl_target(addr);
     u32 orgins = *(u32*)ios_elf_vaddr_to_paddr(addr);
     debug_printf("Overwriting %p: %08X -> %p\n", addr, orgins, bl_target);
@@ -144,7 +145,7 @@ extern u8 trampoline_t_hookbefore_proto_end[];
 extern void* trampoline_t_hookbefore_proto_target[];
 extern u16 trampoline_t_hookbefore_proto_orgins[];
 
-static void trampoline_t_hook_before_ins(uintptr_t addr, void *target){
+static void trampoline_t_hook_before_ins(uintptr_t addr, void (*target)(trampoline_state*)){
     u16 *orgins = (u16*)ios_elf_vaddr_to_paddr(addr);
     trampoline_t_hookbefore_proto_target[0] = target;
     //might not be aligned
@@ -159,7 +160,7 @@ extern void* trampoline_t_hookbefore_bl_proto_target[];
 extern u32 trampoline_t_hookbefore_bl_proto_chain[];
 
 
-static void trampoline_t_hook_before_bl(uintptr_t addr, void *target, u32 chain){
+static void trampoline_t_hook_before_bl(uintptr_t addr, void (*target)(trampoline_state*), u32 chain){
     u16 *orgins = (u16*)ios_elf_vaddr_to_paddr(addr);
     trampoline_t_hookbefore_bl_proto_target[0] = target;
     trampoline_t_hookbefore_bl_proto_chain[0] = chain;
@@ -167,7 +168,7 @@ static void trampoline_t_hook_before_bl(uintptr_t addr, void *target, u32 chain)
 }
 
 
-void trampoline_t_hook_before(uintptr_t addr, void *target){
+void trampoline_t_hook_before(uintptr_t addr, void (*target)(trampoline_state*)){
     u32 bl_target = extract_bl_t_target(addr);
     if(bl_target){
         debug_printf("found bl to %p\n", bl_target);
