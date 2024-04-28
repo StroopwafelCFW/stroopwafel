@@ -3,6 +3,10 @@
 
 #include "../types.h"
 
+#define DIR_ENTRY_IS_DIRECTORY      0x80000000
+#define DIR_ENTRY_IS_LINK           0x10000
+#define END_OF_DIR                  -0x30004
+
 typedef struct
 {
     u32 flags;      // 0x0
