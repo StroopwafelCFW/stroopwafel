@@ -3,8 +3,9 @@
 #include <wafel/trampoline.h>
 
 
-void sys_write_r1(int r0, char *buffer){
-    svc_sys_write(buffer);
+void sys_write_r1(trampoline_state *state){
+    // buffer is in r1
+    svc_sys_write((char*)state->r[1]);
 }
 
 // This fn runs before everything else in kernel mode.
