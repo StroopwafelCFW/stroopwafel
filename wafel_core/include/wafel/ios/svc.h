@@ -28,6 +28,11 @@ LINKABLE int iosStartThread(int thread_id);
 LINKABLE int iosSuspendThread(int thread_id);
 LINKABLE int iosYieldThread();
 
+LINKABLE int iosCreateSemaphore(int type, int initialCount);
+LINKABLE int iosWaitSemaphore(int semaphore, int timeout);
+LINKABLE void iosSignalSemaphore(int semaphore);
+LINKABLE int iosDestroySemaphore(int semaphore);
+
 LINKABLE int iosCreateMessageQueue(u32 *ptr, u32 n_msgs);
 LINKABLE int iosDestroyMessageQueue(int queueid);
 LINKABLE int iosSendMessage(int queueid, u32 message, u32 flags);
