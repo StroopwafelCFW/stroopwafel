@@ -3,7 +3,7 @@
 .global trampoline_blre_proto_target
 .global trampoline_blre_proto_end
 
-.align 4
+.align 2
 .arm
 trampoline_blre_proto:
     push {lr}
@@ -45,7 +45,7 @@ trampoline_hookafter_proto_end:
 @ if original instruction was a branch, its address will be placed at 
 @ trampoline_hookbefore_proto_chain, overwriting the bx lr, which won't be needed 
 @ anymore since the ldr pc will branch
-.align 4
+.align 2
 .arm
 trampoline_hookbefore_proto:
     push {r0-r12, lr}
@@ -68,7 +68,7 @@ trampoline_hookbefore_proto_end:
 .global trampoline_t_blre_proto_target
 .global trampoline_t_blre_proto_end
 
-.align 4
+.align 2
 .thumb
 trampoline_t_blre_proto:
     push {r0, r1, lr} @ r1 just to reserve space
@@ -80,8 +80,7 @@ trampoline_t_blre_proto:
     blx lr
     add sp, #4
     pop {pc}
-    nop
-@.align 4
+.align 2
 trampoline_t_blre_proto_target:
     .word 0
 trampoline_t_blre_proto_chain:
@@ -94,7 +93,7 @@ trampoline_t_blre_proto_end:
 .global trampoline_t_hookbefore_proto_target
 .global trampoline_t_hookbefore_proto_end
 
-.align 4
+.align 2
 .thumb
 trampoline_t_hookbefore_proto:
     push {r0-r7,lr}
@@ -120,7 +119,7 @@ trampoline_t_hookbefore_proto_end:
 .global trampoline_t_hookbefore_bl_proto_chain
 .global trampoline_t_hookbefore_bl_proto_end
 
-.align 4
+.align 2
 .thumb
 trampoline_t_hookbefore_bl_proto:
     push {r0-r7, lr}
@@ -132,7 +131,7 @@ trampoline_t_hookbefore_bl_proto:
     ldr r1, trampoline_t_hookbefore_bl_proto_chain
     str r1, [sp, #32]
     pop {r0-r7, pc}
-    nop
+.align 2
 trampoline_t_hookbefore_bl_proto_chain:
     .word 0
 trampoline_t_hookbefore_bl_proto_target:

@@ -41,31 +41,18 @@ extern void c2w_otp_replacement_t_end();
 extern void hai_file_patch1_t();
 
 extern void wfs_crypto_hook();
-extern void scfm_try_slc_cache_migration();
 extern void usbRead_patch();
 extern void usbWrite_patch();
 extern void usb_sector_spoof();
 extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
 
-u32 redmlc_off_sectors;
-u32 redslc_off_sectors;
-u32 redslccmpt_off_sectors;
-
-u32 redmlc_size_sectors = 0;
-u32 redslc_size_sectors = 0;
-u32 redslccmpt_size_sectors = 0;
 
 u32 *otp_ptr = NULL;
-
-bool disable_scfm = false;
-bool scfm_on_slccmpt = false;
 
 bool minute_on_slc = false;
 
 int haidev = 5;
-
-#define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
 
 const char* fw_img_path_slc = "/vol/system/hax";
 char* fw_img_path = "/vol/sdcard";
@@ -497,17 +484,7 @@ static void init_config()
             crash_and_burn();
         }
 
-        redslc_off_sectors = rednand_conf->slc.lba_start;
-        redslc_size_sectors = rednand_conf->slc.lba_length;
-        
-        redslccmpt_off_sectors = rednand_conf->slccmpt.lba_start;
-        redslccmpt_size_sectors = rednand_conf->slccmpt.lba_length;
-
-        redmlc_off_sectors = rednand_conf->mlc.lba_start;
-        redmlc_size_sectors = rednand_conf->mlc.lba_length;
-
-        disable_scfm = rednand_conf->disable_scfm;
-        scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
+        rednand_init(rednand_conf);
     }
 
     ret = prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
@@ -932,26 +909,6 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
 
-
-#if USE_REDNAND
-        if(rednand){
-            rednand_apply_base_patches();
-
-            if(redslc_size_sectors || redslccmpt_size_sectors){
-                rednand_apply_slc_patches();
-            }
-            if(redmlc_size_sectors){
-                rednand_apply_mlc_patches(redmlc_size_sectors);
-            }
-            if(disable_scfm){
-                debug_printf("Disableing SCFM\n");
-                ASM_PATCH_K(0x107d1f28, "nop\n");
-                ASM_PATCH_K(0x107d1e08,"nop\n");
-                ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
-            }
-        }
-#endif // USE_REDNAND || USE_REDMLC
-
         // mlcRead1 logging
 #if PRINT_MLC_READ
         BL_TRAMPOLINE_K(FS_MLC_READ1 + 0x4, FS_ALTBASE_ADDR(mlcRead1_dbg));
@@ -986,25 +943,6 @@ static void patch_55x()
 #if PRINT_FSASEEKFILE
         BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
 #endif // PRINT_FSASEEKFILE
-
-        if(scfm_on_slccmpt){
-#if MLC_ACCELERATE
-        // hooks for supporting scfm.img on sys-slccmpt instead of on the sd card
-        // e.g. doing sd->slc caching instead of sd->sd caching which dramatically slows down ALL i/o
-        
-        // disable scfmInit's slc format on name/partition type error
-        ASM_PATCH_K(0x107E8178, 
-            "mov r0, #0xFFFFFFFE\n"
-        );
-    
-        //hook scfmInit right after fsa initialization, before main thread creation
-        BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
-#else
-        const char* panic = "BUIDL without MLC_ACCELERATE\n";
-        iosPanic(panic, strlen(panic)+1);
-        while(1);
-#endif
-        }
     }
 }
 

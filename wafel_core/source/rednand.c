@@ -1,9 +1,11 @@
 #include "config.h"
 #include "patch.h"
 #include "dynamic.h"
-#include "svc.h"
+#include "ios/svc.h"
 #include "trampoline.h"
 #include "addrs_55x.h"
+#include "rednand.h"
+#include "rednand_config.h"
 
 extern void slcRead1_patch();
 extern void slcRead2_patch();
@@ -14,12 +16,17 @@ extern void sdcardWrite_patch();
 extern void getMdDeviceById_hook();
 extern void registerMdDevice_hook();
 extern void createDevThread_hook();
+extern void scfm_try_slc_cache_migration();
 
 #define LOCAL_HEAP_ID 0xCAFE
 #define MDBLK_SERVER_HANDLE_LEN 0xb5
 #define MDBLK_SERVER_HANDLE_SIZE (MDBLK_SERVER_HANDLE_LEN * sizeof(int))
 
 static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
+
+
+bool disable_scfm = false;
+bool scfm_on_slccmpt = false;
 
 static u32 mlc_size = 0;
 static int* red_mlc_server_handle;
@@ -107,4 +114,55 @@ void rednand_apply_base_patches(void){
 
     // mdExit : patch out sdcard deinitialization
     ASM_PATCH_K(0x107BD374, "bx lr");
+}
+
+
+void rednand_init(rednand_config* rednand_conf){
+
+    redslc_off_sectors = rednand_conf->slc.lba_start;
+    redslc_size_sectors = rednand_conf->slc.lba_length;
+    
+    redslccmpt_off_sectors = rednand_conf->slccmpt.lba_start;
+    redslccmpt_size_sectors = rednand_conf->slccmpt.lba_length;
+
+    redmlc_off_sectors = rednand_conf->mlc.lba_start;
+    redmlc_size_sectors = rednand_conf->mlc.lba_length;
+
+    disable_scfm = rednand_conf->disable_scfm;
+    scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
+
+
+    rednand_apply_base_patches();
+
+    if(redslc_size_sectors || redslccmpt_size_sectors){
+        rednand_apply_slc_patches();
+    }
+    if(redmlc_size_sectors){
+        rednand_apply_mlc_patches(redmlc_size_sectors);
+    }
+    if(disable_scfm){
+        debug_printf("Disableing SCFM\n");
+        ASM_PATCH_K(0x107d1f28, "nop\n");
+        ASM_PATCH_K(0x107d1e08,"nop\n");
+        ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
+    }
+    
+    if(scfm_on_slccmpt){
+#if MLC_ACCELERATE
+        // hooks for supporting scfm.img on sys-slccmpt instead of on the sd card
+        // e.g. doing sd->slc caching instead of sd->sd caching which dramatically slows down ALL i/o
+        
+        // disable scfmInit's slc format on name/partition type error
+        ASM_PATCH_K(0x107E8178, 
+            "mov r0, #0xFFFFFFFE\n"
+        );
+    
+        //hook scfmInit right after fsa initialization, before main thread creation
+        BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
+#else
+        const char* panic = "BUIDL without MLC_ACCELERATE\n";
+        iosPanic(panic, strlen(panic)+1);
+        while(1);
+#endif
+        }
 }

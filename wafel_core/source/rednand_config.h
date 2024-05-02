@@ -1,5 +1,8 @@
 #include "types.h"
 
+#ifndef REDNAND_CONFIG_H
+#define REDNAND_CONFIG_H
+
 typedef struct {
     u32 lba_start;
     u32 lba_length;
@@ -14,3 +17,4 @@ typedef struct {
     bool initilized;
 } PACKED rednand_config;
 
+#endif
