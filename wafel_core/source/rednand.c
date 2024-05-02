@@ -1,6 +1,7 @@
 #include "config.h"
 #include "patch.h"
 #include "dynamic.h"
+#include "svc.h"
 #include "trampoline.h"
 #include "addrs_55x.h"
 
@@ -14,19 +15,23 @@ extern void getMdDeviceById_hook();
 extern void registerMdDevice_hook();
 extern void createDevThread_hook();
 
+#define LOCAL_HEAP_ID 0xCAFE
+#define MDBLK_SERVER_HANDLE_LEN 0xb5
+#define MDBLK_SERVER_HANDLE_SIZE (MDBLK_SERVER_HANDLE_LEN * sizeof(int))
 
 static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
 
 static u32 mlc_size = 0;
-static int red_mlc_attach_arg[0xb5];
+static int* red_mlc_server_handle;
 
 void rednand_register_sd_as_mlc(trampoline_state* state){
-    memcpy(red_mlc_attach_arg, (int*) state->r[6] -3, sizeof(red_mlc_attach_arg));
-    red_mlc_attach_arg[3] = (int) red_mlc_attach_arg;
-    red_mlc_attach_arg[5] = 5; // set device typte to mlc
-    red_mlc_attach_arg[10] = mlc_size;
-    red_mlc_attach_arg[14] = red_mlc_attach_arg[10] - 0xffff;
-    int mlc_attach = FSSCFM_Attach_fun(red_mlc_attach_arg +3);
+    red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    memcpy(red_mlc_server_handle, (int*) state->r[6] -3, MDBLK_SERVER_HANDLE_SIZE);
+    red_mlc_server_handle[3] = (int) red_mlc_server_handle;
+    red_mlc_server_handle[5] = 5; // set device typte to mlc
+    red_mlc_server_handle[10] = mlc_size;
+    red_mlc_server_handle[14] = red_mlc_server_handle[10] - 0xffff;
+    int mlc_attach = FSSCFM_Attach_fun(red_mlc_server_handle +3);
     debug_printf("Attaching sdcard as mlc returned %d\n", mlc_attach);
 }
 
