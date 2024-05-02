@@ -28,27 +28,106 @@ static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 
-static u32 mlc_size = 0;
+static int haidev = 0;
+
 static int* red_mlc_server_handle;
+
+
+static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
+
+static void c2w_patch_mlc()
+{
+    void* ios_paddr = (void*)read32(0x1018);
+    void* ios_end = ios_paddr + 0x260000;
+
+    for (void* a = ios_paddr; a < ios_end; a += 2)
+    {
+        if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
+            write16(a, 0x2300);
+            debug_printf("MLC stuff ptr at: 0x%08x\n", a);
+            break;
+        }
+    }
+
+}
+
+static const char hai_mlc_str[] = "/dev/sdio/MLC01";
+static void c2w_patch_mlc_str(void){
+    void* ios_paddr = (void*)read32(0x1018);
+    void* ios_end = ios_paddr + 0x260000;
+
+    for (void* a = ios_paddr; a < ios_end; a += 2)
+    {
+        if (!memcmp(a, hai_mlc_str, sizeof(hai_mlc_str))) {
+            strcpy(a,"/dev/sdio/slot0");
+            debug_printf("HAI MLC dev str at: %p\n", a);
+            //break;
+        }
+    }
+}
+
+int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int (*mcpcompat_fwrite)(int, uint32_t*, size_t, size_t, int, int),int fh, int flags){
+    debug_printf("HAI WRITE COMPANION\n");
+    if(haidev==5 && redmlc_size_sectors){
+        uint32_t number_extends = buffer[0];
+        debug_printf("number extends: %u\n", number_extends);
+        uint32_t address_unit_base = (buffer[1] >> 16);
+        debug_printf("address_unit_base: %u\n", address_unit_base);
+        uint32_t address_unit_base_lbas = address_unit_base - 9; // 2^9 = 512byte sector
+        debug_printf("address_unit_base_lbas: %u\n", address_unit_base_lbas);
+        debug_printf("redmlc_off_sectors: 0x%X\n", redmlc_off_sectors);
+        uint32_t offset_in_address_units = redmlc_off_sectors >> address_unit_base_lbas;
+        debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
+        for(size_t i = 2; i < number_extends*2 + 2; i+=2){
+            debug_printf("buffer[%u]: %X", i, buffer[i]);
+            buffer[i]+=offset_in_address_units;
+            debug_printf(" => %X\n", buffer[i]);
+            debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
+        }
+    }
+
+    return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
+}
+
+void rednand_patch_hai(void){
+    if(haidev == DEVTYPE_MLC && redmlc_size_sectors){
+    //    c2w_patch_mlc();
+        c2w_patch_mlc_str();
+        //ASM_PATCH_K(0x10733de8, "nop");
+    }
+}
 
 void rednand_register_sd_as_mlc(trampoline_state* state){
     red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
     memcpy(red_mlc_server_handle, (int*) state->r[6] -3, MDBLK_SERVER_HANDLE_SIZE);
     red_mlc_server_handle[3] = (int) red_mlc_server_handle;
-    red_mlc_server_handle[5] = 5; // set device typte to mlc
-    red_mlc_server_handle[10] = mlc_size;
-    red_mlc_server_handle[14] = red_mlc_server_handle[10] - 0xffff;
+    red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
+    red_mlc_server_handle[10] = redmlc_size_sectors + 0xFFFF;
+    red_mlc_server_handle[14] = red_mlc_server_handle[10] = redmlc_size_sectors;
     int mlc_attach = FSSCFM_Attach_fun(red_mlc_server_handle +3);
     debug_printf("Attaching sdcard as mlc returned %d\n", mlc_attach);
 }
 
-void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
+/**
+ * @brief sets the device type for hai, by hooking FSA_GetFileBlockAddress, which is called to create the compangion file
+ */
+static void get_block_addr_haidev_patch(trampoline_state* s){
+    debug_printf("FSA GET FILE BLOCK ADDRESS\n");
+    debug_printf("devid: %d\n", s->r[0]);
+    haidev = s->r[0];
+    //debug_printf("\na1[1]: %s", r0[1]);
+    // char *a2_40 = s->r[2] + 4*39;
+    // debug_printf("a2+40: %p: %s", a2_40, a2_40);
+    // debug_printf("\nv17+1: %p, %s", s->r[3], s->r[3]);
+    // debug_printf("\ncb: %p\n", s->r[2]);
+}
+
+static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     debug_printf("Enabeling MLC redirection\n");
     //patching offset for HAI on MLC in companion file
-    extern int hai_write_file_shim();
-    BL_T_TRAMPOLINE_K(0x050078AE, MCP_ALTBASE_ADDR(hai_write_file_shim));
-    extern int get_block_addr_patch1_shim();
-    BL_TRAMPOLINE_K(0x10707BD0, FS_ALTBASE_ADDR(get_block_addr_patch1_shim));
+    trampoline_t_blreplace(0x050078AE, hai_write_file_patch);
+
+    trampoline_hook_before(0x10707BD0, get_block_addr_haidev_patch);
 
     debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
     ASM_PATCH_K(0x107bdb10,
@@ -59,11 +138,10 @@ void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     );
     U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
    
-    mlc_size = redmlc_size_sectors + 0xFFFF;
     trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
 }
 
-void rednand_apply_slc_patches(void){
+static void rednand_apply_slc_patches(void){
     debug_printf("Enabeling SLC/SLCCMPT redirection\n");
 
     // null out references to slcSomething1 and slcSomething2
@@ -99,7 +177,7 @@ void rednand_apply_slc_patches(void){
 }
 
 
-void rednand_apply_base_patches(void){
+static int rednand_apply_base_patches(void){
     // in createDevThread
     BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
 

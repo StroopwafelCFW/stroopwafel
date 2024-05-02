@@ -52,8 +52,6 @@ u32 *otp_ptr = NULL;
 
 bool minute_on_slc = false;
 
-int haidev = 5;
-
 const char* fw_img_path_slc = "/vol/system/hax";
 char* fw_img_path = "/vol/sdcard";
 
@@ -228,39 +226,6 @@ static void c2w_oc_hax_patch()
     }
 }
 
-static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
-
-static void c2w_patch_mlc()
-{
-    void* ios_paddr = (void*)read32(0x1018);
-    void* ios_end = ios_paddr + 0x260000;
-
-    for (void* a = ios_paddr; a < ios_end; a += 2)
-    {
-        if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
-            write16(a, 0x2300);
-            debug_printf("MLC stuff ptr at: 0x%08x\n", a);
-            break;
-        }
-    }
-
-}
-
-static const char hai_mlc_str[] = "/dev/sdio/MLC01";
-static void c2w_patch_mlc_str(void){
-    void* ios_paddr = (void*)read32(0x1018);
-    void* ios_end = ios_paddr + 0x260000;
-
-    for (void* a = ios_paddr; a < ios_end; a += 2)
-    {
-        if (!memcmp(a, hai_mlc_str, sizeof(hai_mlc_str))) {
-            strcpy(a,"/dev/sdio/slot0");
-            debug_printf("HAI MLC dev str at: %p\n", a);
-            //break;
-        }
-    }
-}
-
 #include "hai_params.h"
 void c2w_patches()
 {
@@ -268,11 +233,7 @@ void c2w_patches()
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
     debug_printf("HAI DEVICE: %s\n", (char*) 0x05074a62);
-    if(redmlc_size_sectors && haidev == 5){
-    //    c2w_patch_mlc();
-        c2w_patch_mlc_str();
-        //ASM_PATCH_K(0x10733de8, "nop");
-    }
+    rednand_patch_hai();
 
     hai_params_print();
 
@@ -310,43 +271,6 @@ void hai_file_patch1(char **a){
 
 
 int (*const mcpcompat_fwrite)(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags) = (void*) (0x050591E8 | 1);
-
-__attribute__((target("thumb")))
-int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags){
-    debug_printf("HAI WRITE COMPANION\n");
-    if(haidev==5 && redmlc_size_sectors){
-        uint32_t number_extends = buffer[0];
-        debug_printf("number extends: %u\n", number_extends);
-        uint32_t address_unit_base = (buffer[1] >> 16);
-        debug_printf("address_unit_base: %u\n", address_unit_base);
-        uint32_t address_unit_base_lbas = address_unit_base - 9; // 2^9 = 512byte sector
-        debug_printf("address_unit_base_lbas: %u\n", address_unit_base_lbas);
-        debug_printf("redmlc_off_sectors: 0x%X\n", redmlc_off_sectors);
-        uint32_t offset_in_address_units = redmlc_off_sectors >> address_unit_base_lbas;
-        debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
-        for(size_t i = 2; i < number_extends*2 + 2; i+=2){
-            debug_printf("buffer[%u]: %X", i, buffer[i]);
-            buffer[i]+=offset_in_address_units;
-            debug_printf(" => %X\n", buffer[i]);
-            debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
-        }
-    }
-
-    return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
-}
-
-__attribute__((target("arm")))
-int get_block_addr_patch1(int r0, int r1, char* r2, char *r3){
-    debug_printf("FSA GET FILE BLOCK ADDRESS\n");
-    debug_printf("devid: %d\n", r0);
-    haidev = r0;
-    //debug_printf("\na1[1]: %s", r0[1]);
-    char *a2_40 = r2 + 4*39;
-    debug_printf("a2+40: %p: %s", a2_40, a2_40);
-    debug_printf("\nv17+1: %p, %s", r3, r3);
-    debug_printf("\ncb: %p\n", r2);
-    return r1;
-}
 
 static u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
 static const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
