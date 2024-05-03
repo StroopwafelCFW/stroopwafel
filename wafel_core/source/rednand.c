@@ -31,7 +31,6 @@ bool scfm_on_slccmpt = false;
 static int haidev = 0;
 
 u32 redmlc_off_sectors = 0;
-//u32 redmlc_size_sectors = 0;
 
 static int* red_mlc_server_handle;
 
@@ -181,15 +180,6 @@ static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     // Don't attach eMMC
     trampoline_hook_before(0x107bd754, skip_mlc_attch_hook);
     ASM_PATCH_K(0x107bdae0, "mov r0, #0xFFFFFFFF\n"); //make extra sure mlc doesn't attach
-
-    // debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
-    // ASM_PATCH_K(0x107bdb10,
-    //     "nop\n"
-    //     "nop\n"
-    //     "nop\n"
-    //     "ldr r4, [pc, #0xb8]\n"
-    // );
-    // U32_PATCH_K(0x107bdbdc, redmlc_size_sectors + 0xFFFF);
    
     trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
 }
