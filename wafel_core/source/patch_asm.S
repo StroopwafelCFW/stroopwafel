@@ -1751,36 +1751,13 @@ write_str:.ascii "write"
 @ SDIO REDIRECTION  @
 @ @ @ @ @ @ @ @ @ @ @
 
-.global redmlc_off_sectors
-.global redmlc_size_sectors
-
 sdcardWrite_patch:
-    mov r12, #0 @ write
-    b sdcardReadWrite_patch
-
-sdcardRead_patch:
-    mov r12, #1 @ read
-
-sdcardReadWrite_patch:
-    ldr r4, [r0, #0x14]
-    cmp r4, #6 @ DEVICETYPE_SDCARD
-    moveq r1, #0
-    beq sdcardReadWrite_patch_cont
-    ldr r4, redmlc_size_sectors
-    cmp r4, #0
-    subeq sp,sp,#0x14 @overwritten instruction
-    bxeq lr
-    ldr r1, redmlc_off_sectors
-    
-sdcardReadWrite_patch_cont:
-    mov r0, r12
-    pop {r4,lr}
+    mov r0, #0 @ write
     b readWriteCallback_patch
 
-redmlc_off_sectors:
-    .word 0 
-redmlc_size_sectors:
-    .word 0
+sdcardRead_patch:
+    mov r0, #1 @ read
+    b readWriteCallback_patch
 
 
 @ @ @ @ @ @ @ @ @ @
