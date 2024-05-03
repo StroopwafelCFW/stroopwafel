@@ -129,6 +129,13 @@ static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
 
     trampoline_hook_before(0x10707BD0, get_block_addr_haidev_patch);
 
+    // Disable eMMC
+    ASM_PATCH_K(0x107bd4a8,
+        "movs    r2, #1\n"
+        "mov     r0, #1\n"
+        "rsbs    r2, r2, #0\n"
+    );
+
     debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
     ASM_PATCH_K(0x107bdb10,
         "nop\n"
