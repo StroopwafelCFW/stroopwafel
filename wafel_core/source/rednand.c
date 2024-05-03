@@ -31,6 +31,7 @@ bool scfm_on_slccmpt = false;
 static int haidev = 0;
 
 u32 redmlc_off_sectors = 0;
+//u32 redmlc_size_sectors = 0;
 
 static int* red_mlc_server_handle;
 
@@ -128,16 +129,22 @@ static int redmlc_write_wrapper(void *device_handle, u32 lba_hi, u32 lba, u32 bl
 }
 
 void rednand_register_sd_as_mlc(trampoline_state* state){
-    red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
-
     int* sd_handle = (int*)state->r[6] -3;
     sd_real_read = (void*)sd_handle[0x76];
     sd_real_write = (void*)sd_handle[0x78];
+
+    red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    if((u32)red_mlc_server_handle > 0x11c39fe4){
+        debug_printf("sd_handle: %p, red_mlc_handle: %p\n", sd_handle, red_mlc_server_handle);
+        debug_printf("All mdblk slots already allocated!!!\n");
+        crash_and_burn();
+    }
+
     memcpy(red_mlc_server_handle, sd_handle, MDBLK_SERVER_HANDLE_SIZE);
 
     red_mlc_server_handle[0x76] = (int)redmlc_read_wrapper;
     red_mlc_server_handle[0x78] = (int)redmlc_write_wrapper;
-    //red_mlc_server_handle[3] = (int) red_mlc_server_handle;
+    red_mlc_server_handle[3] = (int) red_mlc_server_handle;
     red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
     red_mlc_server_handle[10] = redmlc_size_sectors + 0xFFFF;
     red_mlc_server_handle[14] = red_mlc_server_handle[10] = redmlc_size_sectors;
@@ -156,6 +163,12 @@ void print_attach(trampoline_state *s){
 
 }
 
+void skip_mlc_attch_hook(trampoline_state *s){
+    int* piVar8 = (int*)s->r[6];
+    if(piVar8[2] == 3) // eMMC
+        s->r[3] = 0; // cause the next cmp to be false and go to deattach instead
+}
+
 static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     debug_printf("Enabeling MLC redirection\n");
     //patching offset for HAI on MLC in companion file
@@ -166,7 +179,8 @@ static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     trampoline_hook_before(0x107bd7a0, print_attach);
 
     // Don't attach eMMC
-    ASM_PATCH_K(0x107bdae0, "mov r0, #0xFFFFFFFF\n");
+    trampoline_hook_before(0x107bd754, skip_mlc_attch_hook);
+    ASM_PATCH_K(0x107bdae0, "mov r0, #0xFFFFFFFF\n"); //make extra sure mlc doesn't attach
 
     // debug_printf("Setting mlc size to: %u LBAs\n", redmlc_size_sectors);
     // ASM_PATCH_K(0x107bdb10,
