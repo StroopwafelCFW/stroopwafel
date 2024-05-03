@@ -97,7 +97,7 @@ void rednand_patch_hai(void){
     }
 }
 
-void rednand_register_sd_as_mlc(trampoline_state* state){
+void rednand_register_sd_as_mlc(trampoline_t_state* state){
     red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
     memcpy(red_mlc_server_handle, (int*) state->r[6] -3, MDBLK_SERVER_HANDLE_SIZE);
     red_mlc_server_handle[3] = (int) red_mlc_server_handle;
