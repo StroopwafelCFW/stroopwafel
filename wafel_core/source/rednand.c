@@ -31,7 +31,6 @@ bool scfm_on_slccmpt = false;
 static int haidev = 0;
 
 u32 redmlc_off_sectors = 0;
-u32 redmlc_size_sectors = 0;
 
 static int* red_mlc_server_handle;
 

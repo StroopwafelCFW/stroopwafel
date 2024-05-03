@@ -1578,9 +1578,9 @@ getMdDeviceById_hook:
     cmp r0, #0xDA @ magic id (sdcard)
     ldreq r0, =FS_MMC_SDCARD_STRUCT
     popeq {r4,r5,pc}
-    cmp r0, #0xAB @ magic id (mlc)
-    ldreq r0, =FS_MMC_MLC_STRUCT
-    popeq {r4,r5,pc}
+    @cmp r0, #0xAB @ magic id (mlc)
+    @ldreq r0, =FS_MMC_MLC_STRUCT
+    @popeq {r4,r5,pc}
     bx lr @ return if different
 
 registerMdDevice_hook:
@@ -1752,13 +1752,26 @@ write_str:.ascii "write"
 @ @ @ @ @ @ @ @ @ @ @
 
 sdcardWrite_patch:
-    mov r0, #0 @ write
-    b readWriteCallback_patch
+    mov r12, #0 @ write
+    b sdcardReadWrite_patch
 
 sdcardRead_patch:
-    mov r0, #1 @ read
+    mov r12, #1 @ read
+sdcardReadWrite_patch:
+    ldr r4, [r0, #0x14]
+    cmp r4, #5 @ DEVICETYPE_SDCARD
+    ldreq r4, redmlc_size_sectors
+    cmpeq r4, #0
+    subeq sp,sp,#0x14 @overwritten instruction
+    bxeq lr
+    pop {r4,lr}
+    mov r0, r12
+    mov r1, #0
     b readWriteCallback_patch
 
+.global redmlc_size_sectors
+redmlc_size_sectors:
+    .word 0
 
 @ @ @ @ @ @ @ @ @ @
 @ SLC REDIRECTION @
