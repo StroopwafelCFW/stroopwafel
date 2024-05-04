@@ -268,9 +268,6 @@ void hai_file_patch1(char **a){
     }
 }
 
-
-int (*const mcpcompat_fwrite)(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int fh, int flags) = (void*) (0x050591E8 | 1);
-
 static u32 (*FS_REGISTER_FS_DRIVER)(u8* opaque) = (void*)0x10732D70;
 static const char* (*FS_DEVTYPE_TO_NAME)(int a) = (void*)0x107111A8;
 

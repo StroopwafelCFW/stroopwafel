@@ -68,7 +68,8 @@ static void c2w_patch_mlc_str(void){
     }
 }
 
-int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t count, int (*mcpcompat_fwrite)(int, uint32_t*, size_t, size_t, int, int),int fh, int flags){
+void hai_write_file_patch(trampoline_t_state *s){
+    uint32_t *buffer = (uint32_t*)s->r[1];
     debug_printf("HAI WRITE COMPANION\n");
     if(haidev==5 && redmlc_size_sectors){
         uint32_t number_extends = buffer[0];
@@ -88,8 +89,8 @@ int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t c
         }
     }
 
-    debug_printf("Calling mcpcompat_fwrite at: %p\n", mcpcompat_fwrite);    
-    return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
+    //debug_printf("Calling mcpcompat_fwrite at: %p\n", mcpcompat_fwrite);    
+    //return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
 }
 
 void rednand_patch_hai(void){
@@ -171,7 +172,7 @@ void print_state(trampoline_state *s){
 static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     debug_printf("Enabeling MLC redirection\n");
     //patching offset for HAI on MLC in companion file
-    trampoline_t_blreplace(0x050078AE, hai_write_file_patch);
+    trampoline_t_hook_before(0x050078AE, hai_write_file_patch);
 
     trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
 
