@@ -30,32 +30,25 @@ static int (*FSSAL_attach_device_fun)(int*) = (void*)FSSAL_attach_device;
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 
-static int haidev = 0;
-
 u32 redmlc_off_sectors = 0;
+
+static bool hai_from_mlc(void){
+    return hai_getdev() == DEVTYPE_MLC;
+} 
 
 void hai_write_file_patch(trampoline_t_state *s){
     uint32_t *buffer = (uint32_t*)s->r[1];
     debug_printf("HAI WRITE COMPANION\n");
-    if(haidev==5 && redmlc_size_sectors){
+    if(hai_from_mlc() && redmlc_size_sectors){
         hai_companion_add_offset(buffer, redmlc_off_sectors);
     }
 }
 
 void rednand_patch_hai(void){
-    if(haidev == DEVTYPE_MLC && redmlc_size_sectors){
+    if(hai_from_mlc() && redmlc_size_sectors){
     //    c2w_patch_mlc();
         hai_redirect_mlc2sd();
     }
-}
-
-/**
- * @brief sets the device type for hai, by hooking FSA_GetFileBlockAddress, which is called to create the compangion file
- */
-static void get_block_addr_haidev_patch(trampoline_state* s){
-    debug_printf("FSA GET FILE BLOCK ADDRESS\n");
-    debug_printf("devid: %d\n", s->r[0]);
-    haidev = s->r[0];
 }
 
 typedef int read_write_fun(int*, u32, u32, u32, u32, void*, void*, void*);
@@ -136,7 +129,7 @@ static void rednand_apply_mlc_patches(bool nocrypto){
     //patching offset for HAI on MLC in companion file
     trampoline_t_hook_before(0x050078AE, hai_write_file_patch);
 
-    trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
+    hai_apply_getdev_patch();
 
     //trampoline_hook_before(0x107bd7a0, print_attach);
 

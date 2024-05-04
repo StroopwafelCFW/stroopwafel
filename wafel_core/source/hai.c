@@ -1,6 +1,10 @@
 #include "types.h"
 #include "addrs_55x.h"
 #include "patch.h"
+#include "trampoline.h"
+
+
+static int haidev = -1;
 
 static void c2w_patch_mlc()
 {
@@ -51,4 +55,21 @@ void hai_companion_add_offset(uint32_t *buffer, uint32_t offset){
         debug_printf(" => %X\n", buffer[i]);
         debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
     }
+}
+
+/**
+ * @brief sets the device type for hai, by hooking FSA_GetFileBlockAddress, which is called to create the compangion file
+ */
+static void get_block_addr_haidev_patch(trampoline_state* s){
+    debug_printf("FSA GET FILE BLOCK ADDRESS\n");
+    debug_printf("devid: %d\n", s->r[0]);
+    haidev = s->r[0];
+}
+
+void hai_apply_getdev_patch(void){
+    trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
+}
+
+int hai_getdev(void){
+    return haidev;
 }
