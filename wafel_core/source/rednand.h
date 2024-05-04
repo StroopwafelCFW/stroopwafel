@@ -17,7 +17,7 @@ extern u32 redslccmpt_size_sectors;
 
 #define rednand (redmlc_size_sectors || redslc_size_sectors || redslccmpt_size_sectors)
 
-void rednand_init(rednand_config* config);
+void rednand_init(rednand_config* config, size_t config_size);
 
 void rednand_patch_hai(void);
 #endif

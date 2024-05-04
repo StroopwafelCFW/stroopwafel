@@ -163,7 +163,7 @@ void print_attach(trampoline_state *s){
 
 }
 
-void skip_mlc_attch_hook(trampoline_state *s){
+static void skip_mlc_attch_hook(trampoline_state *s){
     int* piVar8 = (int*)s->r[6];
     if(piVar8[2] == 3) // eMMC
         s->lr = 0x107bd714; // jump over all the attach stuff
@@ -173,7 +173,15 @@ void print_state(trampoline_state *s){
     debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
 }
 
-static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
+static void redmlc_crypto_disable_hook(trampoline_state* state){
+    // hope that 0x11 stays constant for mlc
+    if(state->r[5] == redmlc_size_sectors){
+        // tells crypto to not do crypto (depends on stroopwafel patch)
+        state->r[0] = 0xDEADBEEF;
+    }
+}
+
+static void rednand_apply_mlc_patches(bool nocrypto){
     debug_printf("Enabeling MLC redirection\n");
     //patching offset for HAI on MLC in companion file
     trampoline_t_hook_before(0x050078AE, hai_write_file_patch);
@@ -187,6 +195,12 @@ static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     ASM_PATCH_K(0x107bdae0, "mov r0, #0xFFFFFFFF\n"); //make extra sure mlc doesn't attach
    
     trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
+
+    if(nocrypto){
+        debug_printf("REDNAND: disable MLC encryption");
+        trampoline_hook_before(0x10740f48, redmlc_crypto_disable_hook); // hook decrypt call
+        trampoline_hook_before(0x10740fe8, redmlc_crypto_disable_hook); // hook encrypt call
+    }
 }
 
 static void rednand_apply_slc_patches(void){
@@ -242,7 +256,12 @@ static void rednand_apply_slc_patches(void){
 }
 
 
-void rednand_init(rednand_config* rednand_conf){
+void rednand_init(rednand_config* rednand_conf, size_t config_size){
+
+    if(config_size < sizeof(rednand_config_v1)){
+        debug_printf("ERROR: wrong rednand_config size!!!!\n");
+        crash_and_burn();
+    }
 
     redslc_off_sectors = rednand_conf->slc.lba_start;
     redslc_size_sectors = rednand_conf->slc.lba_length;
@@ -256,11 +275,23 @@ void rednand_init(rednand_config* rednand_conf){
     disable_scfm = rednand_conf->disable_scfm;
     scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
 
+    if(config_size>sizeof(rednand_config)){
+        debug_printf("WARNING: newer rednand config detected, not all features are supported in this stroopwafel!!!\n");
+    }
+
+    bool mlc_nocrypto = false;
+    if(config_size>=sizeof(rednand_config)){
+        mlc_nocrypto = rednand_conf->mlc_nocrypto;
+    } else {
+        debug_printf("Old redNAND config detected");
+    }
+
     if(redslc_size_sectors || redslccmpt_size_sectors){
         rednand_apply_slc_patches();
     }
     if(redmlc_size_sectors){
-        rednand_apply_mlc_patches(redmlc_size_sectors);
+        debug_printf("mlc_nocrpyto: %d\n", mlc_nocrypto);
+        rednand_apply_mlc_patches(mlc_nocrypto);
     }
     
     if(scfm_on_slccmpt){

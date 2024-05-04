@@ -395,7 +395,8 @@ static void init_config()
     }
 
     rednand_config *rednand_conf = NULL;
-    ret = prsh_get_entry("rednand", (void**) &rednand_conf, &d_size);
+    size_t rednand_config_size = 0;
+    ret = prsh_get_entry("rednand", (void**) &rednand_conf, &rednand_config_size);
     if(ret >= 0 && rednand_conf->initilized){
         debug_printf("Found redNAND config\n");
 
@@ -404,7 +405,7 @@ static void init_config()
             crash_and_burn();
         }
 
-        rednand_init(rednand_conf);
+        rednand_init(rednand_conf, rednand_config_size);
     }
 
     ret = prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
