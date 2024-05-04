@@ -38,7 +38,6 @@ extern void c2w_seeprom_hook_t();
 extern void c2w_boot_hook_t();
 extern void c2w_otp_replacement_t();
 extern void c2w_otp_replacement_t_end();
-extern void hai_file_patch1_t();
 
 extern void wfs_crypto_hook();
 extern void usbRead_patch();

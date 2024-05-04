@@ -88,6 +88,7 @@ int hai_write_file_patch(int fsa_handle, uint32_t *buffer, size_t size, size_t c
         }
     }
 
+    debug_printf("Calling mcpcompat_fwrite at: %p\n", mcpcompat_fwrite);    
     return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
 }
 
@@ -106,11 +107,6 @@ static void get_block_addr_haidev_patch(trampoline_state* s){
     debug_printf("FSA GET FILE BLOCK ADDRESS\n");
     debug_printf("devid: %d\n", s->r[0]);
     haidev = s->r[0];
-    //debug_printf("\na1[1]: %s", r0[1]);
-    // char *a2_40 = s->r[2] + 4*39;
-    // debug_printf("a2+40: %p: %s", a2_40, a2_40);
-    // debug_printf("\nv17+1: %p, %s", s->r[3], s->r[3]);
-    // debug_printf("\ncb: %p\n", s->r[2]);
 }
 
 typedef int read_write_fun(int*, u32, u32, u32, u32, void*, void*, void*);
@@ -168,12 +164,16 @@ void skip_mlc_attch_hook(trampoline_state *s){
         s->r[3] = 0; // cause the next cmp to be false and go to deattach instead
 }
 
+void print_state(trampoline_state *s){
+    debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
+}
+
 static void rednand_apply_mlc_patches(uint32_t redmlc_size_sectors){
     debug_printf("Enabeling MLC redirection\n");
     //patching offset for HAI on MLC in companion file
     trampoline_t_blreplace(0x050078AE, hai_write_file_patch);
 
-    trampoline_hook_before(0x10707BD0, get_block_addr_haidev_patch);
+    trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
 
     trampoline_hook_before(0x107bd7a0, print_attach);
 
