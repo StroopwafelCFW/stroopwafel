@@ -23,6 +23,7 @@ extern void scfm_try_slc_cache_migration();
 #define MDBLK_SERVER_HANDLE_SIZE (MDBLK_SERVER_HANDLE_LEN * sizeof(int))
 
 static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
+static int (*FSSAL_attach_device_fun)(int*) = (void*)FSSAL_attach_device;
 
 
 bool disable_scfm = false;
@@ -31,9 +32,6 @@ bool scfm_on_slccmpt = false;
 static int haidev = 0;
 
 u32 redmlc_off_sectors = 0;
-
-static int* red_mlc_server_handle;
-
 
 static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
 
@@ -129,7 +127,7 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     sd_real_read = (void*)sd_handle[0x76];
     sd_real_write = (void*)sd_handle[0x78];
 
-    red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    int *red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
     if((u32)red_mlc_server_handle > 0x11c39fe4){
         debug_printf("sd_handle: %p, red_mlc_handle: %p\n", sd_handle, red_mlc_server_handle);
         debug_printf("All mdblk slots already allocated!!!\n");
@@ -145,7 +143,13 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     red_mlc_server_handle[10] = redmlc_size_sectors + 0xFFFF;
     red_mlc_server_handle[14] = red_mlc_server_handle[10] = redmlc_size_sectors;
 
-    int sal_handle = FSSCFM_Attach_fun(red_mlc_server_handle +3);
+    int* sal_attach_device_arg = red_mlc_server_handle + 3;
+
+    int sal_handle;
+    if(disable_scfm)
+        sal_handle = FSSAL_attach_device_fun(sal_attach_device_arg);
+    else
+        sal_handle = FSSCFM_Attach_fun(sal_attach_device_arg);
     red_mlc_server_handle[0x82] = sal_handle;
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
 }
@@ -257,12 +261,6 @@ void rednand_init(rednand_config* rednand_conf){
     }
     if(redmlc_size_sectors){
         rednand_apply_mlc_patches(redmlc_size_sectors);
-    }
-    if(disable_scfm){
-        debug_printf("Disableing SCFM\n");
-        ASM_PATCH_K(0x107d1f28, "nop\n");
-        ASM_PATCH_K(0x107d1e08,"nop\n");
-        ASM_PATCH_K(0x107e7628,"mov r3, #0x0\nstr r3, [r10]\n");
     }
     
     if(scfm_on_slccmpt){
