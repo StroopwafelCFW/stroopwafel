@@ -141,7 +141,7 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     red_mlc_server_handle[3] = (int) red_mlc_server_handle;
     red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
     red_mlc_server_handle[10] = redmlc_size_sectors + 0xFFFF;
-    red_mlc_server_handle[14] = red_mlc_server_handle[10] = redmlc_size_sectors;
+    red_mlc_server_handle[14] = redmlc_size_sectors;
 
     int* sal_attach_device_arg = red_mlc_server_handle + 3;
 
