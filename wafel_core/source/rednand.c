@@ -6,6 +6,7 @@
 #include "addrs_55x.h"
 #include "rednand.h"
 #include "rednand_config.h"
+#include "hai.h"
 
 extern void slcRead1_patch();
 extern void slcRead2_patch();
@@ -33,69 +34,18 @@ static int haidev = 0;
 
 u32 redmlc_off_sectors = 0;
 
-static const char mlc_pattern[] = { 0x00, 0xa3, 0x60, 0xb7, 0x58, 0x98, 0x21, 0x00};
-
-static void c2w_patch_mlc()
-{
-    void* ios_paddr = (void*)read32(0x1018);
-    void* ios_end = ios_paddr + 0x260000;
-
-    for (void* a = ios_paddr; a < ios_end; a += 2)
-    {
-        if (!memcmp(a, mlc_pattern, sizeof(mlc_pattern))) {
-            write16(a, 0x2300);
-            debug_printf("MLC stuff ptr at: 0x%08x\n", a);
-            break;
-        }
-    }
-
-}
-
-static const char hai_mlc_str[] = "/dev/sdio/MLC01";
-static void c2w_patch_mlc_str(void){
-    void* ios_paddr = (void*)read32(0x1018);
-    void* ios_end = ios_paddr + 0x260000;
-
-    for (void* a = ios_paddr; a < ios_end; a += 2)
-    {
-        if (!memcmp(a, hai_mlc_str, sizeof(hai_mlc_str))) {
-            strcpy(a,"/dev/sdio/slot0");
-            debug_printf("HAI MLC dev str at: %p\n", a);
-            //break;
-        }
-    }
-}
-
 void hai_write_file_patch(trampoline_t_state *s){
     uint32_t *buffer = (uint32_t*)s->r[1];
     debug_printf("HAI WRITE COMPANION\n");
     if(haidev==5 && redmlc_size_sectors){
-        uint32_t number_extends = buffer[0];
-        debug_printf("number extends: %u\n", number_extends);
-        uint32_t address_unit_base = (buffer[1] >> 16);
-        debug_printf("address_unit_base: %u\n", address_unit_base);
-        uint32_t address_unit_base_lbas = address_unit_base - 9; // 2^9 = 512byte sector
-        debug_printf("address_unit_base_lbas: %u\n", address_unit_base_lbas);
-        debug_printf("redmlc_off_sectors: 0x%X\n", redmlc_off_sectors);
-        uint32_t offset_in_address_units = redmlc_off_sectors >> address_unit_base_lbas;
-        debug_printf("offset_in_address_units: %X\n", offset_in_address_units);
-        for(size_t i = 2; i < number_extends*2 + 2; i+=2){
-            debug_printf("buffer[%u]: %X", i, buffer[i]);
-            buffer[i]+=offset_in_address_units;
-            debug_printf(" => %X\n", buffer[i]);
-            debug_printf("buffer[%u]: %X\n", i+1, buffer[i+1]);
-        }
+        hai_companion_add_offset(buffer, redmlc_off_sectors);
     }
-
-    //debug_printf("Calling mcpcompat_fwrite at: %p\n", mcpcompat_fwrite);    
-    //return mcpcompat_fwrite(fsa_handle, buffer, size, count, fh, flags);
 }
 
 void rednand_patch_hai(void){
     if(haidev == DEVTYPE_MLC && redmlc_size_sectors){
     //    c2w_patch_mlc();
-        c2w_patch_mlc_str();
-        //ASM_PATCH_K(0x10733de8, "nop");
+        hai_redirect_mlc2sd();
     }
 }
 

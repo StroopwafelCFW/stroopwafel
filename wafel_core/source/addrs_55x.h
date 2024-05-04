@@ -108,4 +108,7 @@
 #define FSSCFMInit 0x107e7604
 #define FSSCFMExit 0x107e5fc8
 
+#define HAI_IOS_PADDR_PTR 0x1018
+#define HAI_IOS_SIZE 0x260000
+
 #endif // _ADDRS_55X_H
