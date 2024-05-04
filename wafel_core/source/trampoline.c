@@ -145,7 +145,7 @@ extern u8 trampoline_t_hookbefore_proto_end[];
 extern void* trampoline_t_hookbefore_proto_target[];
 extern u16 trampoline_t_hookbefore_proto_orgins[];
 
-static void trampoline_t_hook_before_ins(uintptr_t addr, void (*target)(trampoline_state*)){
+static void trampoline_t_hook_before_ins(uintptr_t addr, void (*target)(trampoline_t_state*)){
     u16 *orgins = (u16*)ios_elf_vaddr_to_paddr(addr);
     trampoline_t_hookbefore_proto_target[0] = target;
     //might not be aligned
@@ -160,7 +160,7 @@ extern void* trampoline_t_hookbefore_bl_proto_target[];
 extern u32 trampoline_t_hookbefore_bl_proto_chain[];
 
 
-static void trampoline_t_hook_before_bl(uintptr_t addr, void (*target)(trampoline_state*), u32 chain){
+static void trampoline_t_hook_before_bl(uintptr_t addr, void (*target)(trampoline_t_state*), u32 chain){
     u16 *orgins = (u16*)ios_elf_vaddr_to_paddr(addr);
     trampoline_t_hookbefore_bl_proto_target[0] = target;
     trampoline_t_hookbefore_bl_proto_chain[0] = chain;
@@ -168,7 +168,7 @@ static void trampoline_t_hook_before_bl(uintptr_t addr, void (*target)(trampolin
 }
 
 
-void trampoline_t_hook_before(uintptr_t addr, void (*target)(trampoline_state*)){
+void trampoline_t_hook_before(uintptr_t addr, void (*target)(trampoline_t_state*)){
     u32 bl_target = extract_bl_t_target(addr);
     if(bl_target){
         debug_printf("found bl to %p\n", bl_target);
