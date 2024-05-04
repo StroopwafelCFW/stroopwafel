@@ -166,7 +166,7 @@ void print_attach(trampoline_state *s){
 void skip_mlc_attch_hook(trampoline_state *s){
     int* piVar8 = (int*)s->r[6];
     if(piVar8[2] == 3) // eMMC
-        s->r[3] = 0; // cause the next cmp to be false and go to deattach instead
+        s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
 void print_state(trampoline_state *s){
