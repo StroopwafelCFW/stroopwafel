@@ -154,7 +154,7 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
 }
 
-void print_attach(trampoline_state *s){
+static void print_attach(trampoline_state *s){
     debug_printf("Attaching mdbBlk:\n");
     int* piVar8 = (int*) s->r[6];
     for(int i=0; i<0x1c/sizeof(int); i++){
@@ -169,7 +169,7 @@ static void skip_mlc_attch_hook(trampoline_state *s){
         s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
-void print_state(trampoline_state *s){
+static void print_state(trampoline_state *s){
     debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
 }
 
@@ -188,7 +188,7 @@ static void rednand_apply_mlc_patches(bool nocrypto){
 
     trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
 
-    trampoline_hook_before(0x107bd7a0, print_attach);
+    //trampoline_hook_before(0x107bd7a0, print_attach);
 
     // Don't attach eMMC
     trampoline_hook_before(0x107bd754, skip_mlc_attch_hook);
@@ -255,6 +255,14 @@ static void rednand_apply_slc_patches(void){
     ASM_PATCH_K(0x107BD374, "bx lr");
 }
 
+static void apply_scfm_disable_patches(void){
+    debug_printf("Disabeling SCFM\n");
+    ASM_PATCH_K(FSSCFMInit, "bx lr");
+    ASM_PATCH_K(FSSCFMExit, "bx lr");
+    // change call to SCFM attach (in case MLC redirection is not enabled)
+    BL_TRAMPOLINE_K(0x107bdae0, FSSAL_attach_device);
+}
+
 
 void rednand_init(rednand_config* rednand_conf, size_t config_size){
 
@@ -283,7 +291,11 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     if(config_size>=sizeof(rednand_config)){
         mlc_nocrypto = rednand_conf->mlc_nocrypto;
     } else {
-        debug_printf("Old redNAND config detected");
+        debug_printf("Old redNAND config detected\n");
+    }
+
+    if(disable_scfm){
+        apply_scfm_disable_patches();
     }
 
     if(redslc_size_sectors || redslccmpt_size_sectors){
