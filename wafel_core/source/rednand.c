@@ -242,6 +242,7 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     }
 
     if(disable_scfm){
+        // needs to run before the mlc patches
         apply_scfm_disable_patches();
     }
 
