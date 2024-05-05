@@ -68,6 +68,14 @@ wafel_plugin_example/*.elf
 wafel_plugin_example/*.map
 wafel_plugin_example.ipx
 
+wafel_debug_exts/build
+wafel_debug_exts/debug
+wafel_debug_exts/*.img
+wafel_debug_exts/*.bin
+wafel_debug_exts/*.elf
+wafel_debug_exts/*.map
+wafel_debug_exts.ipx
+
 # extracted sections
 sections/*.bin
 

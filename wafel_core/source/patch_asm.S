@@ -13,18 +13,12 @@
 .extern iosSignalSemaphore
 .extern iosDestroySemaphore
 
-.extern otp_store
-
-.extern redmlc_off_sectors
-.extern redslc_off_sectors
-.extern redslccmpt_off_sectors
-.extern redslc_size_sectors
-.extern redslccmpt_size_sectors
-
+.extern otp_ptr
 .globl otp_read_replace_hacky
 .globl otp_read_replace_hacky_end
 otp_read_replace_hacky:
-     ldr r3, =otp_store
+     ldr r3, =otp_ptr
+     ldr r3, [r3]
      add r0, r3, r0,lsl#2
      add r2, r1, r2
 
@@ -67,25 +61,6 @@ ancast_no_crypt:
     bx r1
 
 .pool
-
-
-.align 4
-.global syslog_hook
-syslog_hook:
-    .arm
-    mov r5, r2
-    mov r6, r0
-    mov r4, r1
-    push {r4-r6, lr}
-    mov r0, r4
-    bl svc_sys_write_arm
-    pop {r4-r6, lr}
-    mov r2, r5
-    mov r0, r6
-    mov r1, r4
-    bx lr
-
-
 
 .align 4
 hai_shift_data_offsets_t:
@@ -567,40 +542,6 @@ usb_seed:
 .pool
 
 
-.extern get_block_addr_patch1
-.global get_block_addr_patch1_shim
-get_block_addr_patch1_shim:
-    LDR R0, [R8,#0x70]
-    add R3, SP, #8
-    SUB R3, R3, #3
-    @push {r0-r10, lr}
-    @mov r0, r6 //a1
-    LDR r2, [R8,#0x1C0] //cb
-    b get_block_addr_patch1
-    #pop {r0-r10, pc}
-
-
-.extern hai_write_file_patch
-.global hai_write_file_shim
-
-.thumb
-hai_write_file_shim:
-    ldr r4, hwf_hook
-    bx r4
-hwf_hook: .word hai_write_file_patch
-
-.extern hai_file_patch1
-.global hai_file_patch1_t
-
-.thumb
-hai_file_patch1_t:
-    add r3, sp, #0x20 @ orig instruction
-    mov r11, r3       @ orig instruction
-    push {r0-r3,lr}
-    ldr r3, hf_hook
-    blx r3
-    pop {r0-r3,pc}
-hf_hook: .word  hai_file_patch1
 @
 @ C2W
 @
@@ -1637,9 +1578,9 @@ getMdDeviceById_hook:
     cmp r0, #0xDA @ magic id (sdcard)
     ldreq r0, =FS_MMC_SDCARD_STRUCT
     popeq {r4,r5,pc}
-    cmp r0, #0xAB @ magic id (mlc)
-    ldreq r0, =FS_MMC_MLC_STRUCT
-    popeq {r4,r5,pc}
+    @cmp r0, #0xAB @ magic id (mlc)
+    @ldreq r0, =FS_MMC_MLC_STRUCT
+    @popeq {r4,r5,pc}
     bx lr @ return if different
 
 registerMdDevice_hook:
@@ -1816,39 +1757,38 @@ sdcardWrite_patch:
 
 sdcardRead_patch:
     mov r12, #1 @ read
-
 sdcardReadWrite_patch:
     ldr r4, [r0, #0x14]
-    cmp r4, #6 @ DEVICETYPE_SDCARD
-    moveq r1, #0
-    beq sdcardReadWrite_patch_cont
-    ldr r4, =redmlc_size_sectors
-    ldr r4, [r4]
-    cmp r4, #0
+    cmp r4, #5 @ DEVICETYPE_SDCARD
+    ldreq r4, redmlc_size_sectors
+    cmpeq r4, #0
     subeq sp,sp,#0x14 @overwritten instruction
     bxeq lr
-    ldr r4, =redmlc_off_sectors
-    ldr r1, [r4]
-    
-sdcardReadWrite_patch_cont:
-    mov r0, r12
     pop {r4,lr}
+    mov r0, r12
+    mov r1, #0
     b readWriteCallback_patch
 
-
+.global redmlc_size_sectors
+redmlc_size_sectors:
+    .word 0
 
 @ @ @ @ @ @ @ @ @ @
 @ SLC REDIRECTION @
 @ @ @ @ @ @ @ @ @ @
+
+.global redslc_off_sectors
+.global redslc_size_sectors
+.global redslccmpt_off_sectors
+.global redslccmpt_size_sectors
 
 slcReadWrite_patch:
     push {r2}
     ldr r2, [r0, #4]
     mov r0, r1
     cmp r2, #0
-    ldrne r1, =redslc_off_sectors
-    ldreq r1, =redslccmpt_off_sectors
-    ldr r1, [r1]
+    ldrne r1, redslc_off_sectors
+    ldreq r1, redslccmpt_off_sectors
     
     lsr r1, #2   @ 4 sd sectors -> 1 slc sector
     pop {r2}
@@ -1858,9 +1798,8 @@ slcRead1_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc_size_sectors
-    ldreq r1, =redslccmpt_size_sectors
-    ldr r1, [r1]
+    ldrne r1, redslc_size_sectors
+    ldreq r1, redslccmpt_size_sectors
     cmp r1, #0
     pop {r0, r1}
     bne slcRead1_patch_cont
@@ -1877,9 +1816,8 @@ slcWrite1_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc_size_sectors
-    ldreq r1, =redslccmpt_size_sectors
-    ldr r1, [r1]
+    ldrne r1, redslc_size_sectors
+    ldreq r1, redslccmpt_size_sectors
     cmp r1, #0
     pop {r0, r1}
     bne slcWrite1_patch_cont
@@ -1896,9 +1834,8 @@ slcRead2_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc_size_sectors
-    ldreq r1, =redslccmpt_size_sectors
-    ldr r1, [r1]
+    ldrne r1, redslc_size_sectors
+    ldreq r1, redslccmpt_size_sectors
     cmp r1, #0
     pop {r0, r1}
     bne slcRead2_patch_cont
@@ -1928,9 +1865,8 @@ slcWrite2_patch:
     push {r0, r1}
     ldr r1, [r0, #4]
     cmp r1, #0
-    ldrne r1, =redslc_size_sectors
-    ldreq r1, =redslccmpt_size_sectors
-    ldr r1, [r1]
+    ldrne r1, redslc_size_sectors
+    ldreq r1, redslccmpt_size_sectors
     cmp r1, #0
     pop {r0, r1}
     bne slcWrite2_patch_cont
@@ -1954,6 +1890,15 @@ slcWrite2_patch_cont:
     bl slcWrite1_patch_cont
     add sp, #0x14
     pop {r1-r4,pc}
+ 
+redslc_off_sectors:
+    .word 0
+redslc_size_sectors:
+    .word 0
+redslccmpt_off_sectors:
+    .word 0
+redslccmpt_size_sectors:
+    .word 0
 
 @ @ @ @ @ @ @ @ @ @
 @   DEBUG STUFF   @
@@ -2115,6 +2060,14 @@ _printf_xylr:
 _printf_string:
     .skip 0x100
 _printf_string_end:
+
+.global trampoline_buffer
+.global trampoline_buffer_end
+.align 0x4
+trampoline_buffer:
+.skip 2048
+trampoline_buffer_end:
+
 
 .skip 32
 .align 0x4

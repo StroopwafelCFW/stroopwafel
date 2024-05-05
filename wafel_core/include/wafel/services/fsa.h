@@ -85,4 +85,6 @@ LINKABLE int FSA_RawRead(int fd, void* data, u32 size_bytes, u32 cnt, u64 sector
 LINKABLE int FSA_RawWrite(int fd, void* data, u32 size_bytes, u32 cnt, u64 sector_offset, int device_handle);
 LINKABLE int FSA_RawClose(int fd, int device_handle);
 
+LINKABLE int FSA_Remove(int fd, const char* path);
+
 #endif

@@ -181,7 +181,7 @@ void ahb_flush_from(enum wb_client dev)
             goto done;
     }
 
-    write16(MEM_FLUSH_MASK, req);
+    write16((void*)MEM_FLUSH_MASK, req);
 
     for(i = 0; i < 1000000; i++)
     {

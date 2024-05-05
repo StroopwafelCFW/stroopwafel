@@ -11,11 +11,10 @@
 .extern memset
 .type memset, %function
 
-.extern __wafel_dynamic
-.type __wafel_dynamic, %function
-
 .globl next_plugin
-.globl wafel_plugin_base_addr
+
+.extern __wafel_dynamic_plt
+.type __wafel_dynamic_plt, %function
 
 .globl kern_entry
 .globl mcp_entry
@@ -33,22 +32,12 @@ next_plugin:
 	.word 0x0
 is_relocated:
 	.word 0x0
-wafel_plugin_base_addr:
+dynamic_phys_base_addr:
 	.word 0x0
-abi_version:
-	.word 0x65667301
 	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-
 
 kern_setup:
-	ldr sp, =(0x28000000-0x80)
+	push {lr}
 	@ get bss start addr
 	adr r2, _start
 	ldr r1, _start_offs
@@ -73,16 +62,15 @@ kern_setup:
 	sub r0, r0, r1
 
 	@ set base addr
-	adr r1, wafel_plugin_base_addr
+	adr r1, dynamic_phys_base_addr
 	str r0, [r1]
 
 	ldr r1, =__dynamic_start__
 	add r1, r0
-	bl __wafel_dynamic
+	bl __wafel_dynamic_plt
 
 	bl kern_main
-	ldr r0, =0xFFFF0000
-	bx r0
+	pop {pc}
 
 .pool
 
@@ -96,3 +84,9 @@ _start_offs:
 	.word __start__
 
 .pool
+
+.text
+	.weak __wafel_dynamic
+	.type __wafel_dynamic_plt, %function
+__wafel_dynamic_plt:
+	b	__wafel_dynamic(PLT)
