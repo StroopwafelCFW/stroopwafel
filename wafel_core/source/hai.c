@@ -67,7 +67,11 @@ static void get_block_addr_haidev_patch(trampoline_state* s){
 }
 
 void hai_apply_getdev_patch(void){
-    trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
+    static bool applied = false;
+    if(!applied){
+        applied = true;
+        trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
+    }
 }
 
 int hai_getdev(void){
