@@ -70,24 +70,28 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     sd_real_read = (void*)sd_handle[0x76];
     sd_real_write = (void*)sd_handle[0x78];
 
-    int *red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
-    if((u32)red_mlc_server_handle > 0x11c39fe4){
-        debug_printf("sd_handle: %p, red_mlc_handle: %p\n", sd_handle, red_mlc_server_handle);
-        debug_printf("All mdblk slots already allocated!!!\n");
-        crash_and_burn();
-    }
+    // Somehow reusing the handle slot for the mlc doesn't work
+    int *red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    // int *red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    // if((u32)red_mlc_server_handle > 0x11c39fe4){
+    //     debug_printf("sd_handle: %p, red_mlc_handle: %p\n", sd_handle, red_mlc_server_handle);
+    //     debug_printf("All mdblk slots already allocated!!!\n");
+    //     crash_and_burn();
+    // }
 
     memcpy(red_mlc_server_handle, sd_handle, MDBLK_SERVER_HANDLE_SIZE);
 
     red_mlc_server_handle[0x76] = (int)redmlc_read_wrapper;
     red_mlc_server_handle[0x78] = (int)redmlc_write_wrapper;
-    red_mlc_server_handle[3] = (int) red_mlc_server_handle;
+    //red_mlc_server_handle[3] = (int) red_mlc_server_handle;
     red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
-    red_mlc_server_handle[10] = redmlc_size_sectors + 0xFFFF;
-    red_mlc_server_handle[14] = redmlc_size_sectors;
+    //adding + 0xFFFF would be closter to the original behaviour
+    //red_mlc_server_handle[0xa] = redmlc_size_sectors + 0xFFFF;
+    // -1 makes more sense and I don't like addressing outside the partition
+    red_mlc_server_handle[0xa] = redmlc_size_sectors - 1;
+    red_mlc_server_handle[0xe] = redmlc_size_sectors;
 
     int* sal_attach_device_arg = red_mlc_server_handle + 3;
-
     int sal_handle;
     if(disable_scfm)
         sal_handle = FSSAL_attach_device_fun(sal_attach_device_arg);
