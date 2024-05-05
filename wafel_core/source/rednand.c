@@ -140,7 +140,7 @@ static void rednand_apply_mlc_patches(bool nocrypto){
     trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
 
     if(nocrypto){
-        debug_printf("REDNAND: disable MLC encryption");
+        debug_printf("REDNAND: disable MLC encryption\n");
         trampoline_hook_before(0x10740f48, redmlc_crypto_disable_hook); // hook decrypt call
         trampoline_hook_before(0x10740fe8, redmlc_crypto_disable_hook); // hook encrypt call
     }
