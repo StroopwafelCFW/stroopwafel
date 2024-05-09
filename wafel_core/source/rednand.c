@@ -149,7 +149,7 @@ static void print_state(trampoline_state *s){
     debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
 }
 
-static void redmlc_crypto_handle(trampoline_state *state){
+static void redmlc_crypto_hook(trampoline_state *state){
     static u32 mlc_crypto_handle = 0;
     static u32 usb_crypto_handle = 0;
     if(state->r[5] == redmlc_size_sectors){
@@ -195,8 +195,8 @@ static void rednand_apply_mlc_patches(bool nocrypto, bool mount_sys){
     trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
 
     if(nocrypto || mount_sys){
-        trampoline_hook_before(0x10740f48, redmlc_crypto_handle); // hook decrypt call
-        trampoline_hook_before(0x10740fe8, redmlc_crypto_handle); // hook encrypt call
+        trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
+        trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
     }
 }
 
