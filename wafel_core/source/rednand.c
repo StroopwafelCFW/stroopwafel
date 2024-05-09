@@ -143,6 +143,7 @@ static int sysmlc_attach_hook(int *attach_arg, int r1, int r2, int r3, void *mlc
     sysmlc_handle = attach_arg-3;
     mlc_attach_fun = mlc_attach_ptr;
     sysmlc_size_sectors = sysmlc_handle[0xe];
+    return 0xFFF;
 }
 
 static void print_state(trampoline_state *s){
