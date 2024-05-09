@@ -134,12 +134,12 @@ static void print_state(trampoline_state *s){
 static void redmlc_crypto_handle(trampoline_state *state){
     if(mlc_nocrypto && state->r[0] == MLC_CRYPTO_HANDLE){
         if(state->r[5] != redmlc_size_sectors){
-            debug_printf("MLC crypto hande %X but size %X doesn't match MLC size %X", state->r[0], state->r[5], redmlc_size_sectors);
+            debug_printf("MLC crypto hande 0x%X but size 0x%X doesn't match MLC size 0x%X", state->r[0], state->r[5], redmlc_size_sectors);
             crash_and_burn();
         }
         state->r[0] = NO_CRYPTO_HANDLE;
     } else if (state->r[5] == sysmlc_size_sectors){
-        debug_printf("Changing crypto handle from %X to %X\n", state->r[0], MLC_CRYPTO_HANDLE);
+        //debug_printf("Changing crypto handle from %X to %X\n", state->r[0], MLC_CRYPTO_HANDLE);
         state->r[0] = MLC_CRYPTO_HANDLE;
     }
 }
@@ -154,6 +154,7 @@ static void rednand_apply_mlc_patches(bool nocrypto, bool mount_sys){
     //trampoline_hook_before(0x107bd7a0, print_attach);
 
     if(mount_sys){
+        debug_printf("Mount sysMLC as USB\n");
         // change mlc type to USB
         ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
         // make SCFM look for usb instead of mlc
@@ -258,13 +259,16 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         debug_printf("WARNING: newer rednand config detected, not all features are supported in this stroopwafel!!!\n");
     }
 
-    if(config_size>=sizeof(rednand_config)){
+    if(config_size>=sizeof(rednand_config_v2)){
         mlc_nocrypto = rednand_conf->mlc_nocrypto;
+    } 
+    
+    bool mount_sys_mlc = false;
+    if(config_size>=sizeof(rednand_config)) {
+        mount_sys_mlc = rednand_conf->sys_mount_mlc;
     } else {
         debug_printf("Old redNAND config detected\n");
     }
-
-    bool mount_sys_mlc = true;
 
     if(mount_sys_mlc && (!disable_scfm || redslc_size_sectors || !redmlc_size_sectors)){
         debug_printf("Mounting sysMLC is only possible with redMLC enabled, redNAND SCFM and SLC redirection disabled\n");
