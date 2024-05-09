@@ -79,6 +79,16 @@ static int redmlc_write_wrapper(void *device_handle, u32 lba_hi, u32 lba, u32 bl
     return sd_real_write(device_handle, lba_hi, lba + redmlc_off_sectors, blkCount, blockSize, buf, cb, cb_ctx);
 }
 
+static void readop2_crash(int *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
+    debug_printf("ERROR: readop2 was called!!!! handle: %p type: %u\n", device_handle, device_handle[5]);
+    crash_and_burn();
+}
+
+static void writeop2_crash(int *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
+    debug_printf("ERROR: readop2 was called!!!! handle: %p type: %u\n", device_handle, device_handle[5]);
+    crash_and_burn();
+}
+
 void rednand_register_sd_as_mlc(trampoline_state* state){
     int* sd_handle = (int*)state->r[6] -3;
     sd_real_read = (void*)sd_handle[0x76];
@@ -97,6 +107,9 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
 
     red_mlc_server_handle[0x76] = (int)redmlc_read_wrapper;
     red_mlc_server_handle[0x78] = (int)redmlc_write_wrapper;
+    red_mlc_server_handle[0x77] = (int)readop2_crash;
+    red_mlc_server_handle[0x79] = (int)writeop2_crash;
+ 
     //red_mlc_server_handle[3] = (int) red_mlc_server_handle;
     red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
     //adding + 0xFFFF would be closter to the original behaviour
@@ -158,10 +171,11 @@ static void redmlc_crypto_hook(trampoline_state *state){
         }
         if(mlc_nocrypto && mlc_crypto_handle == state->r[0]){
             state->r[0] = NO_CRYPTO_HANDLE;
+            return;
         }
     }
     if(state->r[5] == sysmlc_size_sectors){
-        if(learn_usb_crypto_handle){
+        if(learn_usb_crypto_handle && state->r[0] != mlc_crypto_handle){
             learn_usb_crypto_handle = false;
             usb_crypto_handle = state->r[0];
         }
@@ -184,6 +198,7 @@ static void rednand_apply_mlc_patches(bool nocrypto, bool mount_sys){
         // change mlc type to USB
         ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
         // make SCFM look for usb instead of mlc
+        ASM_PATCH_K(0x107d1f24, "cmp r3, #" STR(DEVTYPE_USB));
         ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
         // need to delay sysmlc attachment until mlc crypto handle is learned
         trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
