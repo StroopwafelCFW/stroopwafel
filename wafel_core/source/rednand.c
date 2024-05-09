@@ -112,13 +112,11 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
         sal_handle = FSSAL_attach_device_fun(sal_attach_device_arg);
     else
         sal_handle = FSSCFM_Attach_fun(sal_attach_device_arg);
-    learn_mlc_crypto_handle = false;
     red_mlc_server_handle[0x82] = sal_handle;
 
     if(sysmlc_handle){
         learn_usb_crypto_handle = true;
         sal_handle = mlc_attach_fun(sysmlc_handle+3);
-        learn_usb_crypto_handle = false;
         sysmlc_handle[0x82] = sal_handle;
     }
 
@@ -155,6 +153,7 @@ static void redmlc_crypto_hook(trampoline_state *state){
     static u32 usb_crypto_handle = 0;
     if(state->r[5] == redmlc_size_sectors){
         if(learn_mlc_crypto_handle){
+            learn_mlc_crypto_handle = false;
             mlc_crypto_handle = state->r[0];
         }
         if(mlc_nocrypto && mlc_crypto_handle == state->r[0]){
@@ -163,6 +162,7 @@ static void redmlc_crypto_hook(trampoline_state *state){
     }
     if(state->r[5] == sysmlc_size_sectors){
         if(learn_usb_crypto_handle){
+            learn_usb_crypto_handle = false;
             usb_crypto_handle = state->r[0];
         }
         if(usb_crypto_handle == state->r[0])
