@@ -40,6 +40,12 @@ bool mlc_nocrypto = false;
 u32 redmlc_off_sectors = 0;
 u32 sysmlc_size_sectors = 0;
 
+static volatile bool learn_mlc_crypto_handle = false;
+static volatile bool learn_usb_crypto_handle = false;
+
+static int* sysmlc_handle = NULL;
+static int (*mlc_attach_fun)(int*) = NULL;
+
 static bool hai_from_mlc(void){
     return hai_getdev() == DEVTYPE_MLC;
 } 
@@ -101,11 +107,21 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
 
     int* sal_attach_device_arg = red_mlc_server_handle + 3;
     int sal_handle;
+    learn_mlc_crypto_handle = true;
     if(disable_scfm)
         sal_handle = FSSAL_attach_device_fun(sal_attach_device_arg);
     else
         sal_handle = FSSCFM_Attach_fun(sal_attach_device_arg);
+    learn_mlc_crypto_handle = false;
     red_mlc_server_handle[0x82] = sal_handle;
+
+    if(sysmlc_handle){
+        learn_usb_crypto_handle = true;
+        sal_handle = mlc_attach_fun(sysmlc_handle+3);
+        learn_usb_crypto_handle = false;
+        sysmlc_handle[0x82] = sal_handle;
+    }
+
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
 }
 
@@ -123,8 +139,10 @@ static void skip_mlc_attch_hook(trampoline_state *s){
         s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
-static void mlc_size_hook(trampoline_state *s){
-    sysmlc_size_sectors = s->r[4];
+static int sysmlc_attach_hook(int *attach_arg, int r1, int r2, int r3, void *mlc_attach_ptr){
+    sysmlc_handle = attach_arg-3;
+    mlc_attach_fun = mlc_attach_ptr;
+    sysmlc_size_sectors = sysmlc_handle[0xe];
 }
 
 static void print_state(trampoline_state *s){
@@ -132,15 +150,22 @@ static void print_state(trampoline_state *s){
 }
 
 static void redmlc_crypto_handle(trampoline_state *state){
-    if(mlc_nocrypto && state->r[0] == MLC_CRYPTO_HANDLE){
-        if(state->r[5] != redmlc_size_sectors){
-            debug_printf("MLC crypto hande 0x%X but size 0x%X doesn't match MLC size 0x%X", state->r[0], state->r[5], redmlc_size_sectors);
-            crash_and_burn();
+    static u32 mlc_crypto_handle = 0;
+    static u32 usb_crypto_handle = 0;
+    if(state->r[5] == redmlc_size_sectors){
+        if(learn_mlc_crypto_handle){
+            mlc_crypto_handle = state->r[0];
         }
-        state->r[0] = NO_CRYPTO_HANDLE;
-    } else if (state->r[5] == sysmlc_size_sectors){
-        //debug_printf("Changing crypto handle from %X to %X\n", state->r[0], MLC_CRYPTO_HANDLE);
-        state->r[0] = MLC_CRYPTO_HANDLE;
+        if(mlc_nocrypto && mlc_crypto_handle == state->r[0]){
+            state->r[0] = NO_CRYPTO_HANDLE;
+        }
+    }
+    if(state->r[5] == sysmlc_size_sectors){
+        if(learn_usb_crypto_handle){
+            usb_crypto_handle = state->r[0];
+        }
+        if(usb_crypto_handle == state->r[0])
+            state->r[0] = mlc_crypto_handle;
     }
 }
 
@@ -159,7 +184,8 @@ static void rednand_apply_mlc_patches(bool nocrypto, bool mount_sys){
         ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
         // make SCFM look for usb instead of mlc
         ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
-        trampoline_hook_before(0x107bdb48, mlc_size_hook);
+        // need to delay sysmlc attachment until mlc crypto handle is learned
+        trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
     } else {
         // Don't attach eMMC
         trampoline_hook_before(0x107bd754, skip_mlc_attch_hook);
