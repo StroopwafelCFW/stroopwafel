@@ -33,6 +33,9 @@ LINKABLE int iosWaitSemaphore(int semaphore, int timeout);
 LINKABLE void iosSignalSemaphore(int semaphore);
 LINKABLE int iosDestroySemaphore(int semaphore);
 
+LINKABLE int iosIpcResume(int fd);
+LINKABLE int iosIpcSuspend(int fd);
+
 LINKABLE int iosCreateMessageQueue(u32 *ptr, u32 n_msgs);
 LINKABLE int iosDestroyMessageQueue(int queueid);
 LINKABLE int iosSendMessage(int queueid, u32 message, u32 flags);
@@ -56,6 +59,8 @@ LINKABLE int iosIoctlv(int fd, u32 request, u32 vector_count_in, u32 vector_coun
 LINKABLE int iosInvalidateDCache(void* address, u32 size);
 LINKABLE int iosFlushDCache(void* address, u32 size);
 LINKABLE int iosBackdoor(u32, u32, u32, void* func);
+
+LINKABLE int iosreturn_null();
 
 LINKABLE int svc_sys_write(char* str);
 LINKABLE void crash_and_burn();
