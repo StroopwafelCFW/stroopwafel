@@ -42,7 +42,7 @@ LINKABLE int iosCreateMessageQueue(u32 *ptr, u32 n_msgs);
 LINKABLE int iosDestroyMessageQueue(int queueid);
 LINKABLE int iosSendMessage(int queueid, u32 message, u32 flags);
 LINKABLE int iosJamMessage(int queueid, u32 message, u32 flags);
-LINKABLE int iosReceiveMessage(int queueid, u32 *message, u32 flags);
+LINKABLE int iosReceiveMessage(int queueid, ipcmessage **message, u32 flags);
 
 LINKABLE int iosCreateTimer(int time_us, int repeat_time_us, int queueid, u32 message);
 LINKABLE int iosRestartTimer(int timerid, int time_us, int repeat_time_us);
