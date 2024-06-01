@@ -17,8 +17,8 @@
 #include "utils.h"
 #include "addrs_55x.h"
 #include "patch.h"
-#include "rednand_config.h"
-#include "rednand.h"
+#include "rednand/rednand_config.h"
+#include "rednand/rednand.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 

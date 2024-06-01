@@ -7,6 +7,8 @@
 #include "rednand.h"
 #include "rednand_config.h"
 #include "hai.h"
+#include "sal_partition.h"
+#include "sal.h"
 
 extern void slcRead1_patch();
 extern void slcRead2_patch();
@@ -29,8 +31,8 @@ extern void scfm_try_slc_cache_migration();
 // this makes sure the argument is expanded before converting to string
 #define STR(X) STR_(X)
 
-static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
-static int (*FSSAL_attach_device_fun)(int*) = (void*)FSSAL_attach_device;
+static int (*FSSCFM_Attach_fun)(FSSALAttachDeviceArg*) = (void*)FSSCFM_Attach;
+static int (*FSSAL_attach_device_fun)(FSSALAttachDeviceArg*) = (void*)FSSAL_attach_device;
 
 
 bool disable_scfm = false;
@@ -43,8 +45,8 @@ u32 sysmlc_size_sectors = 0;
 static volatile bool learn_mlc_crypto_handle = false;
 static volatile bool learn_usb_crypto_handle = false;
 
-static int* sysmlc_handle = NULL;
-static int (*mlc_attach_fun)(int*) = NULL;
+static FSSALAttachDeviceArg *sysmlc_attach_arg = NULL;
+static int (*mlc_attach_fun)(FSSALAttachDeviceArg*) = NULL;
 
 static bool hai_from_mlc(void){
     return hai_getdev() == DEVTYPE_MLC;
@@ -67,35 +69,10 @@ void rednand_patch_hai(void){
 
 typedef int read_write_fun(int*, u32, u32, u32, u32, void*, void*, void*);
 
-read_write_fun *sd_real_read = (read_write_fun*)0x107bddd0;
-read_write_fun *sd_real_write = (read_write_fun*)0x107bdd60;
-
-
-static int redmlc_read_wrapper(void *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    return sd_real_read(device_handle, lba_hi, lba + redmlc_off_sectors, blkCount, blockSize, buf, cb, cb_ctx);
-}
-
-static int redmlc_write_wrapper(void *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    return sd_real_write(device_handle, lba_hi, lba + redmlc_off_sectors, blkCount, blockSize, buf, cb, cb_ctx);
-}
-
-static void readop2_crash(int *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    debug_printf("ERROR: readop2 was called!!!! handle: %p type: %u\n", device_handle, device_handle[5]);
-    crash_and_burn();
-}
-
-static void writeop2_crash(int *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    debug_printf("ERROR: readop2 was called!!!! handle: %p type: %u\n", device_handle, device_handle[5]);
-    crash_and_burn();
-}
-
 void rednand_register_sd_as_mlc(trampoline_state* state){
-    int* sd_handle = (int*)state->r[6] -3;
-    sd_real_read = (void*)sd_handle[0x76];
-    sd_real_write = (void*)sd_handle[0x78];
+    int* sd_attach_arg = (int*)state->r[6];
 
-    // Somehow reusing the handle slot for the mlc doesn't work
-    int *red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    FSSALAttachDeviceArg *extra_attach_arg = iosAlloc(LOCAL_HEAP_ID, sizeof(FSSALAttachDeviceArg));
     // int *red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
     // if((u32)red_mlc_server_handle > 0x11c39fe4){
     //     debug_printf("sd_handle: %p, red_mlc_handle: %p\n", sd_handle, red_mlc_server_handle);
@@ -103,37 +80,24 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     //     crash_and_burn();
     // }
 
-    memcpy(red_mlc_server_handle, sd_handle, MDBLK_SERVER_HANDLE_SIZE);
+    memcpy(extra_attach_arg, sd_attach_arg, sizeof(FSSALAttachDeviceArg));
 
-    red_mlc_server_handle[0x76] = (int)redmlc_read_wrapper;
-    red_mlc_server_handle[0x78] = (int)redmlc_write_wrapper;
-    red_mlc_server_handle[0x77] = (int)readop2_crash;
-    red_mlc_server_handle[0x79] = (int)writeop2_crash;
- 
-    //red_mlc_server_handle[3] = (int) red_mlc_server_handle;
-    red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
-    //adding + 0xFFFF would be closter to the original behaviour
-    //red_mlc_server_handle[0xa] = redmlc_size_sectors + 0xFFFF;
-    // -1 makes more sense and I don't like addressing outside the partition
-    red_mlc_server_handle[0xa] = redmlc_size_sectors - 1;
-    red_mlc_server_handle[0xe] = redmlc_size_sectors;
+    patch_partition_attach_arg(extra_attach_arg, DEVTYPE_MLC);
 
-    int* sal_attach_device_arg = red_mlc_server_handle + 3;
     int sal_handle;
     learn_mlc_crypto_handle = true;
     if(disable_scfm)
-        sal_handle = FSSAL_attach_device_fun(sal_attach_device_arg);
+        sal_handle = FSSAL_attach_device_fun(extra_attach_arg);
     else
-        sal_handle = FSSCFM_Attach_fun(sal_attach_device_arg);
-    red_mlc_server_handle[0x82] = sal_handle;
-
-    if(sysmlc_handle){
-        learn_usb_crypto_handle = true;
-        sal_handle = mlc_attach_fun(sysmlc_handle+3);
-        sysmlc_handle[0x82] = sal_handle;
-    }
+        sal_handle = FSSCFM_Attach_fun(extra_attach_arg);
 
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
+
+    if(sysmlc_attach_arg){
+        learn_usb_crypto_handle = true;
+        sal_handle = mlc_attach_fun(sysmlc_attach_arg);
+        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
+    }
 }
 
 static void print_attach(trampoline_state *s){
@@ -150,10 +114,10 @@ static void skip_mlc_attch_hook(trampoline_state *s){
         s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
-static int sysmlc_attach_hook(int *attach_arg, int r1, int r2, int r3, void *mlc_attach_ptr){
-    sysmlc_handle = attach_arg-3;
+static int sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, void *mlc_attach_ptr){
+    sysmlc_attach_arg = attach_arg;
     mlc_attach_fun = mlc_attach_ptr;
-    sysmlc_size_sectors = sysmlc_handle[0xe];
+    sysmlc_size_sectors = attach_arg->params.block_count;
     return 0xFFF;
 }
 
