@@ -39,7 +39,6 @@ bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 bool mlc_nocrypto = false;
 
-u32 redmlc_off_sectors = 0;
 u32 sysmlc_size_sectors = 0;
 
 static volatile bool learn_mlc_crypto_handle = false;
@@ -55,13 +54,13 @@ static bool hai_from_mlc(void){
 void hai_write_file_patch(trampoline_t_state *s){
     uint32_t *buffer = (uint32_t*)s->r[1];
     debug_printf("HAI WRITE COMPANION\n");
-    if(hai_from_mlc() && redmlc_size_sectors){
-        hai_companion_add_offset(buffer, redmlc_off_sectors);
+    if(hai_from_mlc() && partition_size){
+        hai_companion_add_offset(buffer, partition_offset);
     }
 }
 
 void rednand_patch_hai(void){
-    if(hai_from_mlc() && redmlc_size_sectors){
+    if(hai_from_mlc() && partition_size){
     //    c2w_patch_mlc();
         hai_redirect_mlc2sd();
     }
@@ -128,7 +127,7 @@ static void print_state(trampoline_state *s){
 static void redmlc_crypto_hook(trampoline_state *state){
     static u32 mlc_crypto_handle = 0;
     static u32 usb_crypto_handle = 0;
-    if(state->r[5] == redmlc_size_sectors){
+    if(state->r[5] == partition_size){
         if(learn_mlc_crypto_handle){
             learn_mlc_crypto_handle = false;
             mlc_crypto_handle = state->r[0];
@@ -254,8 +253,8 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     redslccmpt_off_sectors = rednand_conf->slccmpt.lba_start;
     redslccmpt_size_sectors = rednand_conf->slccmpt.lba_length;
 
-    redmlc_off_sectors = rednand_conf->mlc.lba_start;
-    redmlc_size_sectors = rednand_conf->mlc.lba_length;
+    partition_offset = rednand_conf->mlc.lba_start;
+    partition_size = rednand_conf->mlc.lba_length;
 
     disable_scfm = rednand_conf->disable_scfm;
     scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
@@ -276,7 +275,7 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         debug_printf("Old redNAND config detected\n");
     }
 
-    if(mount_sys_mlc && (!disable_scfm || redslc_size_sectors || !redmlc_size_sectors)){
+    if(mount_sys_mlc && (!disable_scfm || redslc_size_sectors || !partition_size)){
         debug_printf("Mounting sysMLC is only possible with redMLC enabled, redNAND SCFM and SLC redirection disabled\n");
         mount_sys_mlc = false;
     }
@@ -289,7 +288,7 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     if(redslc_size_sectors || redslccmpt_size_sectors){
         rednand_apply_slc_patches();
     }
-    if(redmlc_size_sectors){
+    if(partition_size){
         debug_printf("mlc_nocrpyto: %d\n", mlc_nocrypto);
         rednand_apply_mlc_patches(mlc_nocrypto, mount_sys_mlc);
     }
