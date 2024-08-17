@@ -47,12 +47,14 @@ extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
 
 
-u32 *otp_ptr = NULL;
-
-bool minute_on_slc = false;
-
+const char* minute_img = "minute.img";
 const char* fw_img_path_slc = "/vol/system/hax";
 char* fw_img_path = "/vol/sdcard";
+
+bool minute_on_slc = false;
+bool use_minute_img = false;
+
+u32 *otp_ptr = NULL;
 
 static int is_55x = 0;
 
@@ -413,6 +415,13 @@ static void init_config()
         minute_on_slc = true;
     }
 
+    u32 minute_location = 0;
+    ret = prsh_get_entry("minute_location", (void**) &minute_location, NULL);
+    if(!ret){
+        minute_on_slc = minute_location & 1;
+        use_minute_img = (minute_location >> 1) & 1;
+    }
+
 
     ret = prsh_get_entry("otp", (void**)&otp_ptr, &d_size);
     if(!ret){
@@ -625,6 +634,10 @@ static void patch_55x()
             BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
             // patch pointer to fw.img loader path
             U32_PATCH_K(0x050284D8, fw_img_path);
+        }
+
+        if(use_minute_img){
+            U32_PATCH_K(0x050284e0, minute_img);
         }
 
         // Nop SHA1 checks on fw.img
