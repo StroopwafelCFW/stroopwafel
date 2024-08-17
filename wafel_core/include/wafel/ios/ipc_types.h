@@ -25,7 +25,7 @@ typedef struct {
     void *ptr;
     uint32_t len;
     uint32_t paddr;
-} IOSVec;
+} __attribute__((packed)) IOSVec;
 
 /* IPC message */
 typedef struct ipcmessage {
