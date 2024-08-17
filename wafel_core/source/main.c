@@ -107,6 +107,11 @@ static void abt_replace(u32* stack, int which)
 
     debug_printf("%08X\n", *(u32*)(stack[16] + ((which == 1) ? -8 : 0)));
 
+    debug_printf("stack: %p\n", stack);
+    for(int i=16; i<128; i++){
+        debug_printf("stack[%03i] = %08X\n", i, stack[i]);
+    }
+
     // TODO: write RTC
     // TODO: write screen?
     while (1);
