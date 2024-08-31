@@ -869,10 +869,10 @@ static void patch_55x()
 #endif // PRINT_FSAOPEN
     
         // FSA general permissions patch
-        ASM_PATCH_K(0x107043E4,
-            "mov r3, #-1\n"
-            "mov r2, #-1\n"
-        );
+        // ASM_PATCH_K(0x107043E4,
+        //     "mov r3, #-1\n"
+        //     "mov r2, #-1\n"
+        // );
     
 #if PRINT_FSAREADWRITE
         BL_TRAMPOLINE_K(0x1070AA1C, FS_ALTBASE_ADDR(fread_hook));
