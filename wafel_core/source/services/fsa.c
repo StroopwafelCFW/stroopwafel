@@ -186,6 +186,19 @@ int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data)
 	return ret;
 }
 
+int FSA_RewindDir(int fd, int handle) {
+    u8 *iobuf   = allocIobuf();
+    u32 *inbuf  = (u32 *) iobuf;
+    u32 *outbuf = (u32 *) &iobuf[0x520];
+
+    inbuf[1] = handle;
+
+    int ret = iosIoctl(fd, 0x0C, inbuf, 0x520, outbuf, 0x293);
+
+    freeIobuf(iobuf);
+    return ret;
+}
+
 int FSA_CloseDir(int fd, int handle)
 {
 	u8* iobuf = allocIobuf();
@@ -198,6 +211,19 @@ int FSA_CloseDir(int fd, int handle)
 
 	freeIobuf(iobuf);
 	return ret;
+}
+
+int FSA_ChangeDir(int fd, char *path) {
+    u8 *iobuf   = allocIobuf();
+    u32 *inbuf  = (u32 *) iobuf;
+    u32 *outbuf = (u32 *) &iobuf[0x520];
+
+    strncpy((char *) &inbuf[0x01], path, 0x27F);
+
+    int ret = iosIoctl(fd, 0x05, inbuf, 0x520, outbuf, 0x293);
+
+    freeIobuf(iobuf);
+    return ret;
 }
 
 int FSA_MakeQuota(int fd, const char* path, u32 mode, u64 size)
@@ -303,6 +329,36 @@ int FSA_StatFile(int fd, int handle, fileStat_s* out_data)
 
 	freeIobuf(iobuf);
 	return ret;
+}
+
+int FSA_GetStat(int fd, char *path, fileStat_s *out_data) {
+    u8 *iobuf   = allocIobuf();
+    u32 *inbuf  = (u32 *) iobuf;
+    u32 *outbuf = (u32 *) &iobuf[0x520];
+
+    strncpy((char *) &inbuf[0x01], path, 0x27F);
+    inbuf[0x284 / 4] = 5;
+
+    int ret = iosIoctl(fd, 0x18, inbuf, 0x520, outbuf, 0x293);
+
+    if (out_data) memcpy(out_data, &outbuf[1], sizeof(fileStat_s));
+
+    freeIobuf(iobuf);
+    return ret;
+}
+
+int FSA_SetPosFile(int fd, int fileHandle, u32 position) {
+    u8 *iobuf   = allocIobuf();
+    u32 *inbuf  = (u32 *) iobuf;
+    u32 *outbuf = (u32 *) &iobuf[0x520];
+
+    inbuf[1] = fileHandle;
+    inbuf[2] = position;
+
+    int ret = iosIoctl(fd, 0x12, inbuf, 0x520, outbuf, 0x293);
+
+    freeIobuf(iobuf);
+    return ret;
 }
 
 // int FSA_CloseFile(int fd, int fileHandle)

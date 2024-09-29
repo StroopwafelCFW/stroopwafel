@@ -3,6 +3,10 @@
 
 #include "../types.h"
 
+#define DIR_ENTRY_IS_DIRECTORY      0x80000000
+#define DIR_ENTRY_IS_LINK           0x10000
+#define END_OF_DIR                  -0x30004
+
 typedef struct
 {
     u32 flags;      // 0x0
@@ -64,7 +68,9 @@ LINKABLE int FSA_GetVolumeInfo(int fd, const char* volume_path, int type, fsa_vo
 LINKABLE int FSA_MakeDir(int fd, const char* path, u32 flags);
 LINKABLE int FSA_OpenDir(int fd, const char* path, int* outHandle);
 LINKABLE int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data);
+LINKABLE int FSA_RewindDir(int fd, int handle);
 LINKABLE int FSA_CloseDir(int fd, int handle);
+LINKABLE int FSA_ChangeDir(int fd, char *path);
 
 LINKABLE int FSA_MakeQuota(int fd, const char* path, u32 mode, u64 size);
 LINKABLE int FSA_RemoveQuota(int fd, const char* path);
@@ -75,6 +81,8 @@ LINKABLE int FSA_WriteFile(int fd, void* data, u32 size, u32 cnt, int fileHandle
 LINKABLE int FSA_StatFile(int fd, int handle, fileStat_s* out_data);
 LINKABLE int FSA_CloseFile(int fd, int fileHandle);
 LINKABLE int FSA_FlushFile(int fd, int fileHandle);
+LINKABLE int FSA_SetPosFile(int fd, int fileHandle, u32 position);
+LINKABLE int FSA_GetStat(int fd, char *path, fileStat_s *out_data);
 
 LINKABLE int FSA_ChangeMode(int fd, const char* path, int mode);
 
