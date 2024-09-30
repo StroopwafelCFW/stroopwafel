@@ -7,7 +7,7 @@
 #define SECTOR_SIZE 512
 
 u32 partition_offset = 0xFFFFFFF;
-u32 partition_size = 0xFFFFFFFF;
+u32 partition_size = 0;
 
 
 static read_func *real_read;
