@@ -614,6 +614,12 @@ static void patch_55x()
         // some selective logging function : enable all the logging !
         BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT_ADDR);
 
+#if PRINT_PAD
+        // some selective logging function : pad module
+        BRANCH_PATCH_K(0x11f7efec, PAD_SYSLOG_OUTPUT_ADDR);
+#endif
+
+
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
