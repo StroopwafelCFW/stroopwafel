@@ -306,7 +306,7 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         //hook scfmInit right after fsa initialization, before main thread creation
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
 #else
-        const char* panic = "BUIDL without MLC_ACCELERATE\n";
+        const char* panic = "BUILD without MLC_ACCELERATE\n";
         iosPanic(panic, strlen(panic)+1);
         while(1);
 #endif
