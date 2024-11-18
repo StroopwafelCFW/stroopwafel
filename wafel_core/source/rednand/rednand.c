@@ -293,6 +293,11 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     if(redslc_size_sectors || redslccmpt_size_sectors){
         rednand_apply_slc_patches();
     }
+
+    if(mount_sys_mlc) {
+        hai_apply_force_mlc_patch();
+    }
+
     if(partition_size){
         debug_printf("mlc_nocrpyto: %d\n", mlc_nocrypto);
         rednand_apply_mlc_patches(mlc_nocrypto, mount_sys_mlc);
