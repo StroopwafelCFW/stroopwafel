@@ -87,6 +87,7 @@
 // *****************************
 // Filesystem debug
 // *****************************
+#define PRINT_PAD           0 // Print PAD to syslog
 #define PRINT_FSAOPEN       0 // Print FSAOpenFile and FSAOpenDirectory calls
 
 #define PRINT_FSAREADWRITE  0 // More intense FSA prints
