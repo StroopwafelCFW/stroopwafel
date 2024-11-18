@@ -275,9 +275,14 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         debug_printf("Old redNAND config detected\n");
     }
 
-    if(mount_sys_mlc && (!disable_scfm || redslc_size_sectors || !partition_size)){
-        debug_printf("Mounting sysMLC is only possible with redMLC enabled, redNAND SCFM and SLC redirection disabled\n");
-        mount_sys_mlc = false;
+    if(mount_sys_mlc && redslc_size_sectors) {
+        debug_printf("Mounting sysMLC as USB isn't allowed with SLC redirection\n");
+        return -1;
+    }
+
+    if(mount_sys_mlc && partition_size && !disable_scfm){
+        debug_printf("Mounting sysMLC on redMLC enabled is only possible with redNAND SCFM and SLC redirection disabled\n");
+        return -1;
     }
 
     if(disable_scfm && !mount_sys_mlc){
