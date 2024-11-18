@@ -275,8 +275,13 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         debug_printf("Old redNAND config detected\n");
     }
 
-    if(mount_sys_mlc && (!disable_scfm || redslc_size_sectors || !partition_size)){
-        debug_printf("Mounting sysMLC is only possible with redMLC enabled, redNAND SCFM and SLC redirection disabled\n");
+    if(mount_sys_mlc && redslc_size_sectors) {
+        debug_printf("Mounting sysMLC as USB isn't allowed with SLC redirection\n");
+        mount_sys_mlc = false;
+    }
+
+    if(mount_sys_mlc && partition_size && !disable_scfm){
+        debug_printf("Mounting sysMLC on redMLC enabled is only possible with redNAND SCFM and SLC redirection disabled\n");
         mount_sys_mlc = false;
     }
 
@@ -288,6 +293,11 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     if(redslc_size_sectors || redslccmpt_size_sectors){
         rednand_apply_slc_patches();
     }
+
+    if(mount_sys_mlc) {
+        hai_apply_force_mlc_patch();
+    }
+
     if(partition_size){
         debug_printf("mlc_nocrpyto: %d\n", mlc_nocrypto);
         rednand_apply_mlc_patches(mlc_nocrypto, mount_sys_mlc);
