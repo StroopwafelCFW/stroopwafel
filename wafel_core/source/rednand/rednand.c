@@ -147,36 +147,34 @@ static void redmlc_crypto_hook(trampoline_state *state){
     }
 }
 
-static void rednand_apply_mlc_patches(bool nocrypto, bool mount_sys){
+static void rednand_apply_mlc_patches(bool mount_sys){
     debug_printf("Enabeling MLC redirection\n");
+    trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
+
     //patching offset for HAI on MLC in companion file
     trampoline_t_hook_before(0x050078AE, hai_write_file_patch);
-
     hai_apply_getdev_patch();
 
     //trampoline_hook_before(0x107bd7a0, print_attach);
 
-    if(mount_sys){
-        debug_printf("Mount sysMLC as USB\n");
-        // change mlc type to USB
-        ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
-        // make SCFM look for usb instead of mlc
-        ASM_PATCH_K(0x107d1f24, "cmp r3, #" STR(DEVTYPE_USB));
-        ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
-        // need to delay sysmlc attachment until mlc crypto handle is learned
-        trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
-    } else {
+    if(!mount_sys) {
         // Don't attach eMMC
         trampoline_hook_before(0x107bd754, skip_mlc_attch_hook);
         ASM_PATCH_K(0x107bdae0, "mov r0, #0xFFFFFFFF\n"); //make extra sure mlc doesn't attach
     }
-   
-    trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
+}
 
-    if(nocrypto || mount_sys){
-        trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
-        trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
-    }
+static void rednand_apply_mount_sys_mlc_patches(void){
+    debug_printf("Mount sysMLC as USB\n");
+    // change mlc type to USB
+    ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
+    // make SCFM look for usb instead of mlc
+    ASM_PATCH_K(0x107d1f24, "cmp r3, #" STR(DEVTYPE_USB));
+    ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
+    // need to delay sysmlc attachment until mlc crypto handle is learned
+    trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
+
+    hai_apply_force_mlc_patch();
 }
 
 static void rednand_apply_slc_patches(void){
@@ -295,12 +293,17 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     }
 
     if(mount_sys_mlc) {
-        hai_apply_force_mlc_patch();
+        rednand_apply_mount_sys_mlc_patches();
     }
 
     if(partition_size){
         debug_printf("mlc_nocrpyto: %d\n", mlc_nocrypto);
-        rednand_apply_mlc_patches(mlc_nocrypto, mount_sys_mlc);
+        rednand_apply_mlc_patches(mount_sys_mlc);
+    }
+
+    if(mlc_nocrypto || mount_sys_mlc){
+        trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
+        trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
     }
     
     if(scfm_on_slccmpt){
