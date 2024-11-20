@@ -90,12 +90,6 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
         sal_handle = FSSCFM_Attach_fun(extra_attach_arg);
 
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
-
-    if(sysmlc_attach_arg){
-        learn_usb_crypto_handle = true;
-        sal_handle = mlc_attach_fun(sysmlc_attach_arg);
-        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
-    }
 }
 
 static void print_attach(trampoline_state *s){
@@ -112,7 +106,14 @@ static void skip_mlc_attch_hook(trampoline_state *s){
         s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
-static int sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, void *mlc_attach_ptr){
+static u32 mlc_crypto_handle = 0;
+
+static int sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, int (*mlc_attach_ptr)(FSSALAttachDeviceArg*)){
+    // if the mlc crypto handle is already learned, we can attach right away
+    if(mlc_crypto_handle) {
+        return mlc_attach_ptr(attach_arg);
+    }
+    // if we don't know the crypto handle yet, we must wait until the mlc was attached -> rednand_sal_fs_attach_hook
     sysmlc_attach_arg = attach_arg;
     mlc_attach_fun = mlc_attach_ptr;
     sysmlc_size_sectors = attach_arg->params.block_count;
@@ -125,19 +126,25 @@ static void print_state(trampoline_state *s){
 
 static u32 sal_mlc_attach_size = 0;
 
-static void rednand_sal_attach_pre_hook(trampoline_state *s){
-    u32 *device = (int*) s->r[6];
-    u32 device_type = device[1];
-    u32 block_count = device[12];
+static void rednand_sal_fs_attach_hook(u32 *attach_arg, int r1, int r2, int r3, void (*fssal_attach_filesystem)(void*, int)){
+    u32 device_type = attach_arg[1];
+    u32 block_count = attach_arg[12];
     debug_printf("SAL Attach: type: %d, block_count: %d\n", device_type, block_count);
     if (device_type == DEVTYPE_MLC) {
         sal_mlc_attach_size = block_count;
         learn_mlc_crypto_handle = true;
     }
+
+    fssal_attach_filesystem(attach_arg, r1);
+
+    // if sysmlc is waiting for attachment, attach now
+    if (device_type == DEVTYPE_MLC && mlc_attach_fun && sysmlc_attach_arg) {
+        int sal_handle = mlc_attach_fun(sysmlc_attach_arg);
+        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
+    }
 }
 
 static void redmlc_crypto_hook(trampoline_state *state){
-    static u32 mlc_crypto_handle = 0;
     static u32 usb_crypto_handle = 0;
     if(state->r[5] == sal_mlc_attach_size){
         if(learn_mlc_crypto_handle){
@@ -159,8 +166,8 @@ static void redmlc_crypto_hook(trampoline_state *state){
     }
 }
 
-static rednand_install_crypto_hooks(void){
-    trampoline_hook_before(0x10733c1c, rednand_sal_attach_pre_hook);
+static void rednand_install_crypto_hooks(void){
+    trampoline_blreplace(0x10733c20, rednand_sal_fs_attach_hook);
     trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
     trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
 }
