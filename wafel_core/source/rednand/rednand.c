@@ -84,7 +84,6 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     patch_partition_attach_arg(extra_attach_arg, DEVTYPE_MLC);
 
     int sal_handle;
-    learn_mlc_crypto_handle = true;
     if(disable_scfm)
         sal_handle = FSSAL_attach_device_fun(extra_attach_arg);
     else
@@ -124,10 +123,23 @@ static void print_state(trampoline_state *s){
     debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
 }
 
+static u32 sal_mlc_attach_size = 0;
+
+static void rednand_sal_attach_pre_hook(trampoline_state *s){
+    u32 *device = (int*) s->r[6];
+    u32 device_type = device[1];
+    u32 block_count = device[12];
+    debug_printf("SAL Attach: type: %d, block_count: %d\n", device_type, block_count);
+    if (device_type == DEVTYPE_MLC) {
+        sal_mlc_attach_size = block_count;
+        learn_mlc_crypto_handle = true;
+    }
+}
+
 static void redmlc_crypto_hook(trampoline_state *state){
     static u32 mlc_crypto_handle = 0;
     static u32 usb_crypto_handle = 0;
-    if(state->r[5] == partition_size){
+    if(state->r[5] == sal_mlc_attach_size){
         if(learn_mlc_crypto_handle){
             learn_mlc_crypto_handle = false;
             mlc_crypto_handle = state->r[0];
@@ -145,6 +157,12 @@ static void redmlc_crypto_hook(trampoline_state *state){
         if(usb_crypto_handle == state->r[0])
             state->r[0] = mlc_crypto_handle;
     }
+}
+
+static rednand_install_crypto_hooks(void){
+    trampoline_hook_before(0x10733c1c, rednand_sal_attach_pre_hook);
+    trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
+    trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
 }
 
 static void rednand_apply_mlc_patches(bool mount_sys){
@@ -302,8 +320,7 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     }
 
     if(mlc_nocrypto || mount_sys_mlc){
-        trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
-        trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
+        rednand_install_crypto_hooks();
     }
     
     if(scfm_on_slccmpt){
