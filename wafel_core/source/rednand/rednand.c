@@ -109,14 +109,18 @@ static void skip_mlc_attch_hook(trampoline_state *s){
 static u32 mlc_crypto_handle = 0;
 
 static int sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, int (*mlc_attach_ptr)(FSSALAttachDeviceArg*)){
+    sysmlc_size_sectors = attach_arg->params.block_count;
     // if the mlc crypto handle is already learned, we can attach right away
     if(mlc_crypto_handle) {
-        return mlc_attach_ptr(attach_arg);
+        learn_usb_crypto_handle = true;
+        int sal_handle = mlc_attach_ptr(attach_arg);
+        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
+        return sal_handle;
     }
+    debug_printf("No crypto handle for mlc yet...\n");
     // if we don't know the crypto handle yet, we must wait until the mlc was attached -> rednand_sal_fs_attach_hook
     sysmlc_attach_arg = attach_arg;
     mlc_attach_fun = mlc_attach_ptr;
-    sysmlc_size_sectors = attach_arg->params.block_count;
     return 0xFFF;
 }
 
@@ -127,18 +131,21 @@ static void print_state(trampoline_state *s){
 static u32 sal_mlc_attach_size = 0;
 
 static void rednand_sal_fs_attach_hook(u32 *attach_arg, int r1, int r2, int r3, void (*fssal_attach_filesystem)(void*, int)){
-    u32 device_type = attach_arg[1];
-    u32 block_count = attach_arg[12];
-    debug_printf("SAL Attach: type: %d, block_count: %d\n", device_type, block_count);
+    u32 device_type = attach_arg[1] >> 24;
+    // ignoring upper half
+    u32 block_count = attach_arg[13];
     if (device_type == DEVTYPE_MLC) {
         sal_mlc_attach_size = block_count;
         learn_mlc_crypto_handle = true;
     }
 
+    debug_printf("SAL Attach: type: %d, block_count: %d\n", device_type, block_count);
     fssal_attach_filesystem(attach_arg, r1);
+    debug_printf("SAL Attach finished\n");
 
     // if sysmlc is waiting for attachment, attach now
     if (device_type == DEVTYPE_MLC && mlc_attach_fun && sysmlc_attach_arg) {
+        learn_usb_crypto_handle = true;
         int sal_handle = mlc_attach_fun(sysmlc_attach_arg);
         debug_printf("Attaching sysmlc returned %d\n", sal_handle);
     }
@@ -150,6 +157,7 @@ static void redmlc_crypto_hook(trampoline_state *state){
         if(learn_mlc_crypto_handle){
             learn_mlc_crypto_handle = false;
             mlc_crypto_handle = state->r[0];
+            debug_printf("Learned mlc_crypto_handle %p\n", mlc_crypto_handle);
         }
         if(mlc_nocrypto && mlc_crypto_handle == state->r[0]){
             state->r[0] = NO_CRYPTO_HANDLE;
