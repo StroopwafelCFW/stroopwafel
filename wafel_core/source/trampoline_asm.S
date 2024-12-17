@@ -7,8 +7,6 @@
 .arm
 trampoline_blre_proto:
     push {lr}
-@trampoline_proto_chain:
-@    adr lr, trampoline_proto_chain @old target
     ldr lr, trampoline_blre_proto_chain
     push {lr}
     ldr lr, trampoline_blre_proto_target
@@ -19,6 +17,29 @@ trampoline_blre_proto_target:
 trampoline_blre_proto_chain:
     .word 0
 trampoline_blre_proto_end:
+
+
+.global trampoline_blre_regs_proto
+.global trampoline_blre_regs_proto_chain
+.global trampoline_blre_regs_proto_target
+.global trampoline_blre_regs_proto_end
+
+.align 2
+.arm
+trampoline_blre_regs_proto:
+    push {lr}
+    ldr lr, trampoline_blre_regs_proto_chain
+    push {r4-r11, lr}
+    ldr lr, trampoline_blre_regs_proto_target
+    blx lr
+    add sp, #32 @8 regs x 4bytes
+    pop {lr, pc}
+trampoline_blre_regs_proto_target:
+    .word 0
+trampoline_blre_regs_proto_chain:
+    .word 0
+trampoline_blre_regs_proto_end:
+
 
 
 trampoline_hookafter_proto:
@@ -86,6 +107,32 @@ trampoline_t_blre_proto_target:
 trampoline_t_blre_proto_chain:
     .word 0
 trampoline_t_blre_proto_end:
+
+
+.global trampoline_t_blre_regs_proto
+.global trampoline_t_blre_regs_proto_chain
+.global trampoline_t_blre_regs_proto_target
+.global trampoline_t_blre_regs_proto_end
+
+.align 2
+.thumb
+trampoline_t_blre_regs_proto:
+    push {lr}
+    push {r0, r4-r7, lr} @ lr just to reserve space
+    ldr r0, trampoline_t_blre_regs_proto_target
+    mov lr, r0
+    ldr r0, trampoline_t_blre_regs_proto_chain
+    str r0, [sp, #20]  @where we pushed lr
+    pop {r0}
+    blx lr
+    add sp, #4
+    pop {pc}
+.align 2
+trampoline_t_blre_regs_proto_target:
+    .word 0
+trampoline_t_blre_regs_proto_chain:
+    .word 0
+trampoline_t_blre_regs_proto_end:
 
 
 .global trampoline_t_hookbefore_proto
