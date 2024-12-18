@@ -12,7 +12,7 @@ typedef struct {
 } PACKED trampoline_state;
 
 LINKABLE void trampoline_blreplace(uintptr_t addr, void *target);
-LINKABLE void trampoline_t_blreplace_with_regs(uintptr_t addr, void *target);
+LINKABLE void trampoline_blreplace_with_regs(uintptr_t addr, void *target);
 LINKABLE void trampoline_hook_before(uintptr_t addr, void (*target)(trampoline_state*));
 
 typedef struct {
