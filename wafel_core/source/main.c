@@ -435,7 +435,7 @@ static void init_config()
     }
 
     void *seeprom_ptr;
-    ret = prsh_get_entry("otp", &seeprom_ptr, &d_size);
+    ret = prsh_get_entry("seeprom", &seeprom_ptr, &d_size);
     if(!ret){
         debug_printf("Found SEEPROM in PRSH at %p with size %u\n", seeprom_ptr, d_size);
         if(d_size < SEEPROM_SIZE) {
