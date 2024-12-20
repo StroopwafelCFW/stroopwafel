@@ -19,6 +19,7 @@
 #include "patch.h"
 #include "rednand/rednand_config.h"
 #include "rednand/rednand.h"
+#include "rednand/redseeprom.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -431,6 +432,17 @@ static void init_config()
     ret = prsh_get_entry("otp", (void**)&otp_ptr, &d_size);
     if(!ret){
         debug_printf("Found OTP in PRSH at %p with size %u\n", otp_ptr, d_size);
+    }
+
+    void *seeprom_ptr;
+    ret = prsh_get_entry("otp", &seeprom_ptr, &d_size);
+    if(!ret){
+        debug_printf("Found SEEPROM in PRSH at %p with size %u\n", seeprom_ptr, d_size);
+        if(d_size < SEEPROM_SIZE) {
+            debug_printf("PRSH SEEPROM too small!!!!!\n");
+            crash_and_burn();
+        }
+        redseeprom_enable(seeprom_ptr);
     }
 }
 
