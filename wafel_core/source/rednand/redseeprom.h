@@ -1,0 +1,1 @@
+void redseeprom_enable(void *buffer);
