@@ -1,5 +1,6 @@
 #include "types.h"
 #include <wafel/trampoline.h>
+#include <wafel/patch.h>
 
 #define IOS_ERROR_MAX -5
 #define IOS_ERROR_NOT_READY -10
@@ -11,66 +12,68 @@ static int dirty = 0;
 
 static u16 *seeprom_buffer;
 
-static void redseeprom_read_word(trampoline_state *regs)
-{
-    u32 index = regs->r[12]; // and r12,r1,#0xff
-    u16 *outbuf = (u16*) regs->r[2];
+extern int redseeprom_read_orig(int handle, u32 index, u16 *out_data);
 
+int redseeprom_read_word(int handle, u32 index, u16 *out_data)
+{
+    debug_printf("Read SEEPROM: handle=%d index=0x%x, outdata=%p\n", handle, index, out_data);
+    index&=0xff;
     // don't redirect the drive key as it is specific for the drive on the wii u
     // the seeprom key is the same for all wiiu's it seems so nothing to re-encrypt here
-    if(index >= 0x40 && index < 0x48)
-        return; //just continue normal flow of the original function
-
-    // directly return, without executing the rest of the function
-    regs->lr = 0xe600d0a8; // ldmia  sp!,{r4,r5,r6,r7,r8,pc}
-
-    *outbuf = seeprom_buffer[index];
-
-    regs->r[0] = IOS_ERROR_OK;
-}
-
-static void redseeprom_write_word(trampoline_state *regs)
-{
-    u32 index = regs->r[1]; // and r1,r1,#0xff
-    u16 data = (u16) regs->r[3];
-
-    regs->lr = 0xe600d038;
-
-    if(writeEnabled == 0){
-        regs->r[0] = IOS_ERROR_NOT_READY;
-        return;
+    if(index >= 0x40 && index < 0x48) {
+        debug_printf("Calling redseeprom_read_orig\n");
+        return redseeprom_read_orig(handle, index, out_data);
     }
 
-    seeprom_buffer[index] = data;
-    dirty = 1;
+    *out_data = seeprom_buffer[index];
 
-    regs->r[0] = IOS_ERROR_OK;
-    return;
+    debug_printf("Read SEEPROM finished: %04X\n", *out_data);
+    return IOS_ERROR_OK;
 }
 
-void redseeprom_write_control(trampoline_state *regs)
+int redseeprom_write_word(int handle, int index, u16 data)
 {
-    int type = regs->r[1];
+    debug_printf("Write SEEPROM: handle=%d index=0x%x, data=0x%02X\n", handle, index, data);
+    if(writeEnabled == 0){
+        return IOS_ERROR_NOT_READY;
+    }
 
-    regs->lr = 0xe600cf70;
-    regs->r[0] = 0;
-    switch(type){
+    seeprom_buffer[index & 0xff] = data;
+    dirty = 1;
+
+    return IOS_ERROR_OK;
+}
+
+int redseeprom_write_control(int handle, int cmd)
+{
+    debug_printf("SEEPROM Write Control: handle=%d cmd=%d\n", handle, cmd);
+    switch(cmd){
         case 1: 
             writeEnabled = 0;
-            break;
+            return IOS_ERROR_OK;
         case 2:
             writeEnabled = 1;
-            break;
+            return IOS_ERROR_OK;
         case 3: // erase all -> skip that part...its actually never used but would be only a memset with 0xFF
         default:
-            regs->r[0] = IOS_ERROR_INVALID;
+            return IOS_ERROR_INVALID;
     }
 }
 
 
 void redseeprom_enable(void *buffer) {
     seeprom_buffer = buffer;
-    trampoline_hook_before(0xe600d0b0, redseeprom_read_word);
-    trampoline_hook_before(0xe600d040, redseeprom_write_word);
-    trampoline_hook_before(0xe600cf78, redseeprom_write_control);
+
+    ASM_PATCH_K(0xe600d08c, 
+        "ldr pc, _seeprom_rd_hook\n"
+        "_seeprom_rd_hook: .word redseeprom_read_word"
+    );
+    ASM_PATCH_K(0xe600d010, 
+        "ldr pc, _seeprom_wr_hook\n"
+        "_seeprom_wr_hook: .word redseeprom_write_word"
+    );
+    ASM_PATCH_K(0xe600cf5c, 
+        "ldr pc, _seeprom_wc_hook\n"
+        "_seeprom_wc_hook: .word redseeprom_write_control"
+    );
 }
