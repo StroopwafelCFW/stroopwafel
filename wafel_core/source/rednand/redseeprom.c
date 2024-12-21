@@ -16,7 +16,7 @@ extern int redseeprom_read_orig(int handle, u32 index, u16 *out_data);
 
 int redseeprom_read_word(int handle, u32 index, u16 *out_data)
 {
-    debug_printf("Read SEEPROM: handle=%d index=0x%x, outdata=%p\n", handle, index, out_data);
+    //debug_printf("Read SEEPROM: handle=%d index=0x%x, outdata=%p\n", handle, index, out_data);
     index&=0xff;
     // don't redirect the drive key as it is specific for the drive on the wii u
     // the seeprom key is the same for all wiiu's it seems so nothing to re-encrypt here
@@ -27,13 +27,13 @@ int redseeprom_read_word(int handle, u32 index, u16 *out_data)
 
     *out_data = seeprom_buffer[index];
 
-    debug_printf("Read SEEPROM finished: %04X\n", *out_data);
+    //debug_printf("Read SEEPROM finished: %04X\n", *out_data);
     return IOS_ERROR_OK;
 }
 
 int redseeprom_write_word(int handle, int index, u16 data)
 {
-    debug_printf("Write SEEPROM: handle=%d index=0x%x, data=0x%02X\n", handle, index, data);
+    //debug_printf("Write SEEPROM: handle=%d index=0x%x, data=0x%02X\n", handle, index, data);
     if(writeEnabled == 0){
         return IOS_ERROR_NOT_READY;
     }
@@ -46,7 +46,7 @@ int redseeprom_write_word(int handle, int index, u16 data)
 
 int redseeprom_write_control(int handle, int cmd)
 {
-    debug_printf("SEEPROM Write Control: handle=%d cmd=%d\n", handle, cmd);
+    //debug_printf("SEEPROM Write Control: handle=%d cmd=%d\n", handle, cmd);
     switch(cmd){
         case 1: 
             writeEnabled = 0;
