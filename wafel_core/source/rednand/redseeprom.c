@@ -21,7 +21,7 @@ int redseeprom_read_word(int handle, u32 index, u16 *out_data)
     // don't redirect the drive key as it is specific for the drive on the wii u
     // the seeprom key is the same for all wiiu's it seems so nothing to re-encrypt here
     if(index >= 0x40 && index < 0x48) {
-        debug_printf("Calling redseeprom_read_orig\n");
+        //debug_printf("Calling redseeprom_read_orig\n");
         return redseeprom_read_orig(handle, index, out_data);
     }
 
