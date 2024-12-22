@@ -29,10 +29,10 @@ trampoline_blre_proto_end:
 trampoline_blre_regs_proto:
     push {lr}
     ldr lr, trampoline_blre_regs_proto_chain
-    push {r4-r11, lr}
+    push {r4-r12, lr}
     ldr lr, trampoline_blre_regs_proto_target
     blx lr
-    add sp, #32 @8 regs x 4bytes
+    add sp, #36 @9 regs x 4bytes
     pop {lr, pc}
 trampoline_blre_regs_proto_target:
     .word 0
