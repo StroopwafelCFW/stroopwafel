@@ -74,16 +74,17 @@ Stroopwafel provides two ways to hook into IOSU to call your C or asm code. The 
   Creates a trampoline and a `BL` at address to call it. The trampoline will push all GP registers, call your function supplied in `target`, after your function is finished it will restore the registers and execute the orginal instruction that was overwritten.
   Since a `BL` is used to branch to the trampoline, the original `LR` will be overwritten. The orignal instruction is not allowed to use `PC` relative addressing, as that would be off. The only exception to this is a `BL`, in that case it will branch to the original `BL` target instead.
   The called function receives a pointer to a `trampoline_state` struct, which allows it to read and modify the register state that will be restored after the function finishes.
-
 - `void trampoline_t_hook_before(uintptr_t addr, void *target)` 
   Same as the previous, but for thumb. The only difference is that two instructions will be overwritten, since thumb instructions are 2 bytes, but the `BL` will take 4. Both instructions will be relocated to the trampoline. The called function receives a pointer to a `trampoline_t_state`
-
 - `void trampoline_blreplace(uintptr_t addr, void *target)`
   Replaces a `BL` function call. The new target function in `target` receives the first four original arguments (in r0-r3) in their original position, the fith argument is a pointer to the original `BL` target, the sixth is the saved `LR` (artifact of how the trampoline works) and after that the other original arguments (on the stack) follow.
   You can descide if, where and whith what argument's you call the original target function using the supplied pointer.
-
 - `void trampoline_t_blreplace(uintptr_t addr, void *target)`
   Same as before, but for thumb
+- `void trampoline_blreplace_with_regs(uintptr_t addr, void *target)`
+  Same as `trampoline_blreplace` but also pushes `r4-r12` on the stack, so they are available as arguments. The signature of the target function looks like this:  `int ums_sync_hook(int r0, int r1, int r2, r3, int r4, int r5, int r6, int r7, int r8, int r9, int r10, int r11, int r12, int *(org_func)(int,..), const void *lr, int stack_arg1, ...)`
+- `void trampoline_t_blreplace_with_regs(uintptr_t addr, void *target)`
+  Same as `trampoline_t_blreplace` but also pushes `r4-r7` on the stack, so they are available as arguments. The signature of the target function looks like this:  `int ums_sync_hook(int r0, int r1, int r2, r3, int r4, int r5, int r6, int r7, int *(org_func)(int,..), const void *lr, int stack_arg1, ...)`
 
 These trampolines support hooking the same address multiple times. With the `blreplace` the replacement function is responsible to call the previous function via the supplied pointer to not break the chain.
 
