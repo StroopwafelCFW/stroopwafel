@@ -57,6 +57,16 @@ void hai_companion_add_offset(uint32_t *buffer, uint32_t offset){
     }
 }
 
+static int hai_path_sprintf_hook_force_mlc(char* parm1, char* parm2, char *fmt, char *dev, int (*sprintf)(char*, char*, char*, char*, char*), int lr, char *companion_file ){
+    dev = "mlc";
+    return sprintf(parm1, parm2, fmt, dev, companion_file);
+}
+
+void hai_apply_force_mlc_patch(void){
+    trampoline_t_blreplace(0x051001d6, hai_path_sprintf_hook_force_mlc);
+}
+
+
 /**
  * @brief sets the device type for hai, by hooking FSA_GetFileBlockAddress, which is called to create the compangion file
  */

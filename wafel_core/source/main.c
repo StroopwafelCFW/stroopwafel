@@ -17,8 +17,9 @@
 #include "utils.h"
 #include "addrs_55x.h"
 #include "patch.h"
-#include "rednand_config.h"
-#include "rednand.h"
+#include "rednand/rednand_config.h"
+#include "rednand/rednand.h"
+#include "rednand/redseeprom.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -47,12 +48,14 @@ extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
 
 
-u32 *otp_ptr = NULL;
-
-bool minute_on_slc = false;
-
+const char* minute_img = "minute.img";
 const char* fw_img_path_slc = "/vol/system/hax";
 char* fw_img_path = "/vol/sdcard";
+
+bool minute_on_slc = false;
+bool use_minute_img = false;
+
+u32 *otp_ptr = NULL;
 
 static int is_55x = 0;
 
@@ -104,6 +107,11 @@ static void abt_replace(u32* stack, int which)
     }
 
     debug_printf("%08X\n", *(u32*)(stack[16] + ((which == 1) ? -8 : 0)));
+
+    debug_printf("stack: %p\n", stack);
+    for(int i=16; i<128; i++){
+        debug_printf("stack[%03i] = %08X\n", i, stack[i]);
+    }
 
     // TODO: write RTC
     // TODO: write screen?
@@ -413,10 +421,28 @@ static void init_config()
         minute_on_slc = true;
     }
 
+    u32 minute_location = 0;
+    ret = prsh_get_entry("minute_location", (void**) &minute_location, NULL);
+    if(!ret){
+        minute_on_slc = minute_location & 1;
+        use_minute_img = (minute_location >> 1) & 1;
+    }
+
 
     ret = prsh_get_entry("otp", (void**)&otp_ptr, &d_size);
     if(!ret){
         debug_printf("Found OTP in PRSH at %p with size %u\n", otp_ptr, d_size);
+    }
+
+    void *seeprom_ptr;
+    ret = prsh_get_entry("seeprom", &seeprom_ptr, &d_size);
+    if(!ret){
+        debug_printf("Found SEEPROM in PRSH at %p with size %u\n", seeprom_ptr, d_size);
+        if(d_size < SEEPROM_SIZE) {
+            debug_printf("PRSH SEEPROM too small!!!!!\n");
+            crash_and_burn();
+        }
+        redseeprom_enable(seeprom_ptr);
     }
 }
 
@@ -631,6 +657,10 @@ static void patch_55x()
             BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
             // patch pointer to fw.img loader path
             U32_PATCH_K(0x050284D8, fw_img_path);
+        }
+
+        if(use_minute_img){
+            U32_PATCH_K(0x050284e0, minute_img);
         }
 
         // Nop SHA1 checks on fw.img
@@ -857,10 +887,10 @@ static void patch_55x()
 #endif // PRINT_FSAOPEN
     
         // FSA general permissions patch
-        ASM_PATCH_K(0x107043E4,
-            "mov r3, #-1\n"
-            "mov r2, #-1\n"
-        );
+        // ASM_PATCH_K(0x107043E4,
+        //     "mov r3, #-1\n"
+        //     "mov r2, #-1\n"
+        // );
     
 #if PRINT_FSAREADWRITE
         BL_TRAMPOLINE_K(0x1070AA1C, FS_ALTBASE_ADDR(fread_hook));

@@ -7,6 +7,8 @@
 #include "rednand.h"
 #include "rednand_config.h"
 #include "hai.h"
+#include "sal_partition.h"
+#include "sal.h"
 
 extern void slcRead1_patch();
 extern void slcRead2_patch();
@@ -29,22 +31,21 @@ extern void scfm_try_slc_cache_migration();
 // this makes sure the argument is expanded before converting to string
 #define STR(X) STR_(X)
 
-static int (*FSSCFM_Attach_fun)(int*) = (void*)FSSCFM_Attach;
-static int (*FSSAL_attach_device_fun)(int*) = (void*)FSSAL_attach_device;
+static int (*FSSCFM_Attach_fun)(FSSALAttachDeviceArg*) = (void*)FSSCFM_Attach;
+static int (*FSSAL_attach_device_fun)(FSSALAttachDeviceArg*) = (void*)FSSAL_attach_device;
 
 
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 bool mlc_nocrypto = false;
 
-u32 redmlc_off_sectors = 0;
 u32 sysmlc_size_sectors = 0;
 
 static volatile bool learn_mlc_crypto_handle = false;
 static volatile bool learn_usb_crypto_handle = false;
 
-static int* sysmlc_handle = NULL;
-static int (*mlc_attach_fun)(int*) = NULL;
+static FSSALAttachDeviceArg *sysmlc_attach_arg = NULL;
+static int (*mlc_attach_fun)(FSSALAttachDeviceArg*) = NULL;
 
 static bool hai_from_mlc(void){
     return hai_getdev() == DEVTYPE_MLC;
@@ -53,13 +54,13 @@ static bool hai_from_mlc(void){
 void hai_write_file_patch(trampoline_t_state *s){
     uint32_t *buffer = (uint32_t*)s->r[1];
     debug_printf("HAI WRITE COMPANION\n");
-    if(hai_from_mlc() && redmlc_size_sectors){
-        hai_companion_add_offset(buffer, redmlc_off_sectors);
+    if(hai_from_mlc() && partition_size){
+        hai_companion_add_offset(buffer, partition_offset);
     }
 }
 
 void rednand_patch_hai(void){
-    if(hai_from_mlc() && redmlc_size_sectors){
+    if(hai_from_mlc() && partition_size){
     //    c2w_patch_mlc();
         hai_redirect_mlc2sd();
     }
@@ -67,35 +68,10 @@ void rednand_patch_hai(void){
 
 typedef int read_write_fun(int*, u32, u32, u32, u32, void*, void*, void*);
 
-read_write_fun *sd_real_read = (read_write_fun*)0x107bddd0;
-read_write_fun *sd_real_write = (read_write_fun*)0x107bdd60;
-
-
-static int redmlc_read_wrapper(void *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    return sd_real_read(device_handle, lba_hi, lba + redmlc_off_sectors, blkCount, blockSize, buf, cb, cb_ctx);
-}
-
-static int redmlc_write_wrapper(void *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    return sd_real_write(device_handle, lba_hi, lba + redmlc_off_sectors, blkCount, blockSize, buf, cb, cb_ctx);
-}
-
-static void readop2_crash(int *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    debug_printf("ERROR: readop2 was called!!!! handle: %p type: %u\n", device_handle, device_handle[5]);
-    crash_and_burn();
-}
-
-static void writeop2_crash(int *device_handle, u32 lba_hi, u32 lba, u32 blkCount, u32 blockSize, void *buf, void *cb, void* cb_ctx){
-    debug_printf("ERROR: readop2 was called!!!! handle: %p type: %u\n", device_handle, device_handle[5]);
-    crash_and_burn();
-}
-
 void rednand_register_sd_as_mlc(trampoline_state* state){
-    int* sd_handle = (int*)state->r[6] -3;
-    sd_real_read = (void*)sd_handle[0x76];
-    sd_real_write = (void*)sd_handle[0x78];
+    int* sd_attach_arg = (int*)state->r[6];
 
-    // Somehow reusing the handle slot for the mlc doesn't work
-    int *red_mlc_server_handle = iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
+    FSSALAttachDeviceArg *extra_attach_arg = iosAlloc(LOCAL_HEAP_ID, sizeof(FSSALAttachDeviceArg));
     // int *red_mlc_server_handle = sd_handle + 0x5b; //iosAlloc(LOCAL_HEAP_ID, MDBLK_SERVER_HANDLE_SIZE);
     // if((u32)red_mlc_server_handle > 0x11c39fe4){
     //     debug_printf("sd_handle: %p, red_mlc_handle: %p\n", sd_handle, red_mlc_server_handle);
@@ -103,35 +79,15 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
     //     crash_and_burn();
     // }
 
-    memcpy(red_mlc_server_handle, sd_handle, MDBLK_SERVER_HANDLE_SIZE);
+    memcpy(extra_attach_arg, sd_attach_arg, sizeof(FSSALAttachDeviceArg));
 
-    red_mlc_server_handle[0x76] = (int)redmlc_read_wrapper;
-    red_mlc_server_handle[0x78] = (int)redmlc_write_wrapper;
-    red_mlc_server_handle[0x77] = (int)readop2_crash;
-    red_mlc_server_handle[0x79] = (int)writeop2_crash;
- 
-    //red_mlc_server_handle[3] = (int) red_mlc_server_handle;
-    red_mlc_server_handle[5] = DEVTYPE_MLC; // set device typte to mlc
-    //adding + 0xFFFF would be closter to the original behaviour
-    //red_mlc_server_handle[0xa] = redmlc_size_sectors + 0xFFFF;
-    // -1 makes more sense and I don't like addressing outside the partition
-    red_mlc_server_handle[0xa] = redmlc_size_sectors - 1;
-    red_mlc_server_handle[0xe] = redmlc_size_sectors;
+    patch_partition_attach_arg(extra_attach_arg, DEVTYPE_MLC);
 
-    int* sal_attach_device_arg = red_mlc_server_handle + 3;
     int sal_handle;
-    learn_mlc_crypto_handle = true;
     if(disable_scfm)
-        sal_handle = FSSAL_attach_device_fun(sal_attach_device_arg);
+        sal_handle = FSSAL_attach_device_fun(extra_attach_arg);
     else
-        sal_handle = FSSCFM_Attach_fun(sal_attach_device_arg);
-    red_mlc_server_handle[0x82] = sal_handle;
-
-    if(sysmlc_handle){
-        learn_usb_crypto_handle = true;
-        sal_handle = mlc_attach_fun(sysmlc_handle+3);
-        sysmlc_handle[0x82] = sal_handle;
-    }
+        sal_handle = FSSCFM_Attach_fun(extra_attach_arg);
 
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
 }
@@ -150,10 +106,21 @@ static void skip_mlc_attch_hook(trampoline_state *s){
         s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
-static int sysmlc_attach_hook(int *attach_arg, int r1, int r2, int r3, void *mlc_attach_ptr){
-    sysmlc_handle = attach_arg-3;
+static u32 mlc_crypto_handle = 0;
+
+static int sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, int (*mlc_attach_ptr)(FSSALAttachDeviceArg*)){
+    sysmlc_size_sectors = attach_arg->params.block_count;
+    // if the mlc crypto handle is already learned, we can attach right away
+    if(mlc_crypto_handle) {
+        learn_usb_crypto_handle = true;
+        int sal_handle = mlc_attach_ptr(attach_arg);
+        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
+        return sal_handle;
+    }
+    debug_printf("No crypto handle for mlc yet...\n");
+    // if we don't know the crypto handle yet, we must wait until the mlc was attached -> rednand_sal_fs_attach_hook
+    sysmlc_attach_arg = attach_arg;
     mlc_attach_fun = mlc_attach_ptr;
-    sysmlc_size_sectors = sysmlc_handle[0xe];
     return 0xFFF;
 }
 
@@ -161,13 +128,36 @@ static void print_state(trampoline_state *s){
     debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
 }
 
+static u32 sal_mlc_attach_size = 0;
+
+static void rednand_sal_fs_attach_hook(u32 *attach_arg, int r1, int r2, int r3, void (*fssal_attach_filesystem)(void*, int)){
+    u32 device_type = attach_arg[1] >> 24;
+    // ignoring upper half
+    u32 block_count = attach_arg[13];
+    if (device_type == DEVTYPE_MLC) {
+        sal_mlc_attach_size = block_count;
+        learn_mlc_crypto_handle = true;
+    }
+
+    debug_printf("SAL Attach: type: %d, block_count: %d\n", device_type, block_count);
+    fssal_attach_filesystem(attach_arg, r1);
+    debug_printf("SAL Attach finished\n");
+
+    // if sysmlc is waiting for attachment, attach now
+    if (device_type == DEVTYPE_MLC && mlc_attach_fun && sysmlc_attach_arg) {
+        learn_usb_crypto_handle = true;
+        int sal_handle = mlc_attach_fun(sysmlc_attach_arg);
+        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
+    }
+}
+
 static void redmlc_crypto_hook(trampoline_state *state){
-    static u32 mlc_crypto_handle = 0;
     static u32 usb_crypto_handle = 0;
-    if(state->r[5] == redmlc_size_sectors){
+    if(state->r[5] == sal_mlc_attach_size){
         if(learn_mlc_crypto_handle){
             learn_mlc_crypto_handle = false;
             mlc_crypto_handle = state->r[0];
+            debug_printf("Learned mlc_crypto_handle %p\n", mlc_crypto_handle);
         }
         if(mlc_nocrypto && mlc_crypto_handle == state->r[0]){
             state->r[0] = NO_CRYPTO_HANDLE;
@@ -184,36 +174,40 @@ static void redmlc_crypto_hook(trampoline_state *state){
     }
 }
 
-static void rednand_apply_mlc_patches(bool nocrypto, bool mount_sys){
+static void rednand_install_crypto_hooks(void){
+    trampoline_blreplace(0x10733c20, rednand_sal_fs_attach_hook);
+    trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
+    trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
+}
+
+static void rednand_apply_mlc_patches(bool mount_sys){
     debug_printf("Enabeling MLC redirection\n");
+    trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
+
     //patching offset for HAI on MLC in companion file
     trampoline_t_hook_before(0x050078AE, hai_write_file_patch);
-
     hai_apply_getdev_patch();
 
     //trampoline_hook_before(0x107bd7a0, print_attach);
 
-    if(mount_sys){
-        debug_printf("Mount sysMLC as USB\n");
-        // change mlc type to USB
-        ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
-        // make SCFM look for usb instead of mlc
-        ASM_PATCH_K(0x107d1f24, "cmp r3, #" STR(DEVTYPE_USB));
-        ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
-        // need to delay sysmlc attachment until mlc crypto handle is learned
-        trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
-    } else {
+    if(!mount_sys) {
         // Don't attach eMMC
         trampoline_hook_before(0x107bd754, skip_mlc_attch_hook);
         ASM_PATCH_K(0x107bdae0, "mov r0, #0xFFFFFFFF\n"); //make extra sure mlc doesn't attach
     }
-   
-    trampoline_hook_before(0x107bd9a8, rednand_register_sd_as_mlc);
+}
 
-    if(nocrypto || mount_sys){
-        trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
-        trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
-    }
+static void rednand_apply_mount_sys_mlc_patches(void){
+    debug_printf("Mount sysMLC as USB\n");
+    // change mlc type to USB
+    ASM_PATCH_K(0x107bdb00, "mov r3, #" STR(DEVTYPE_USB));
+    // make SCFM look for usb instead of mlc
+    ASM_PATCH_K(0x107d1f24, "cmp r3, #" STR(DEVTYPE_USB));
+    ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
+    // need to delay sysmlc attachment until mlc crypto handle is learned
+    trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
+
+    hai_apply_force_mlc_patch();
 }
 
 static void rednand_apply_slc_patches(void){
@@ -290,8 +284,8 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     redslccmpt_off_sectors = rednand_conf->slccmpt.lba_start;
     redslccmpt_size_sectors = rednand_conf->slccmpt.lba_length;
 
-    redmlc_off_sectors = rednand_conf->mlc.lba_start;
-    redmlc_size_sectors = rednand_conf->mlc.lba_length;
+    partition_offset = rednand_conf->mlc.lba_start;
+    partition_size = rednand_conf->mlc.lba_length;
 
     disable_scfm = rednand_conf->disable_scfm;
     scfm_on_slccmpt = rednand_conf->scfm_on_slccmpt;
@@ -312,8 +306,13 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         debug_printf("Old redNAND config detected\n");
     }
 
-    if(mount_sys_mlc && (!disable_scfm || redslc_size_sectors || !redmlc_size_sectors)){
-        debug_printf("Mounting sysMLC is only possible with redMLC enabled, redNAND SCFM and SLC redirection disabled\n");
+    if(mount_sys_mlc && redslc_size_sectors) {
+        debug_printf("Mounting sysMLC as USB isn't allowed with SLC redirection\n");
+        mount_sys_mlc = false;
+    }
+
+    if(mount_sys_mlc && partition_size && !disable_scfm){
+        debug_printf("Mounting sysMLC on redMLC enabled is only possible with redNAND SCFM and SLC redirection disabled\n");
         mount_sys_mlc = false;
     }
 
@@ -325,9 +324,18 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
     if(redslc_size_sectors || redslccmpt_size_sectors){
         rednand_apply_slc_patches();
     }
-    if(redmlc_size_sectors){
+
+    if(mount_sys_mlc) {
+        rednand_apply_mount_sys_mlc_patches();
+    }
+
+    if(partition_size){
         debug_printf("mlc_nocrpyto: %d\n", mlc_nocrypto);
-        rednand_apply_mlc_patches(mlc_nocrypto, mount_sys_mlc);
+        rednand_apply_mlc_patches(mount_sys_mlc);
+    }
+
+    if(mlc_nocrypto || mount_sys_mlc){
+        rednand_install_crypto_hooks();
     }
     
     if(scfm_on_slccmpt){
@@ -343,7 +351,7 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
         //hook scfmInit right after fsa initialization, before main thread creation
         BL_TRAMPOLINE_K(0x107E7B88, FS_ALTBASE_ADDR(scfm_try_slc_cache_migration));
 #else
-        const char* panic = "BUIDL without MLC_ACCELERATE\n";
+        const char* panic = "BUILD without MLC_ACCELERATE\n";
         iosPanic(panic, strlen(panic)+1);
         while(1);
 #endif

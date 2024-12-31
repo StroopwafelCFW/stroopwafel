@@ -18,10 +18,10 @@ export TARGET		:=	wafel_core
 export BUILD		?=	debug
 
 R_SOURCES			:=	
-SOURCES				:=	source source/ios source/services source/wupserver source/latte source/externals/inih
+SOURCES				:=	source source/ios source/services source/wupserver source/latte source/externals/inih source/rednand
 
 R_INCLUDES			:=	
-INCLUDES 			:=	source include/wafel source/externals/inih
+INCLUDES 			:=	source include/wafel source/externals/inih include
 
 DATA				:=	
 
@@ -34,7 +34,7 @@ CFLAGS			:=	-g -std=c11 -Os \
 					-fomit-frame-pointer -fdata-sections -ffunction-sections \
 					$(ARCH) -nostartfiles
 
-CFLAGS			+=	$(INCLUDE) -D_GNU_SOURCE -DCAN_HAZ_IRQ -fno-builtin-printf -Wno-nonnull -Werror=implicit
+CFLAGS			+=	$(INCLUDE) -D_GNU_SOURCE -DCAN_HAZ_IRQ -fno-builtin-printf -Wno-nonnull -Werror=implicit -DPLUGIN_NAME='"STROOPWAFEL"'
 
 CXXFLAGS		:=	$(CFLAGS) -fno-rtti -fno-exceptions
 

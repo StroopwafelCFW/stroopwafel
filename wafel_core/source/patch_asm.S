@@ -1900,6 +1900,13 @@ redslccmpt_off_sectors:
 redslccmpt_size_sectors:
     .word 0
 
+.global redseeprom_read_orig
+redseeprom_read_orig:
+    cmp r0,#0x0
+    push {r4,r5,r6,r7,r8,lr}
+    ldr pc, _read_orig_cont
+_read_orig_cont: .word 0xe600d094
+
 @ @ @ @ @ @ @ @ @ @
 @   DEBUG STUFF   @
 @ @ @ @ @ @ @ @ @ @

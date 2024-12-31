@@ -6,7 +6,7 @@ int usleep(u32 amt)
 {
     ios_retval ret;
     u32 tmpQueue;
-    u32 throwaway;
+    ipcmessage *throwaway;
 
     ret = iosCreateMessageQueue(&tmpQueue, 1);
     if (ret >= 0)
