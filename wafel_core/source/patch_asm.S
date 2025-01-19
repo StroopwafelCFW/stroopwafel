@@ -54,11 +54,10 @@ ancast_crypt_check:
     bx lr
 
 ancast_no_crypt:
-    pop {r4-r7}
-    pop {r1}
+    pop {r4-r7,lr}
     add sp, #0x10
     mov r0, #0
-    bx r1
+    bx lr
 
 .pool
 

@@ -14,11 +14,11 @@
  * If size is not aligned, the remaining bytes are not copied
  */
 LINKABLE void memset32(void *dst, u32 value, u32 size);
-LINKABLE void memcpy32(void *dst, void *src, u32 size);
+LINKABLE void memcpy32(void *dst, const void *src, u32 size);
 LINKABLE void memset16(void *dst, u16 value, u32 size);
-LINKABLE void memcpy16(void *dst, void *src, u32 size);
+LINKABLE void memcpy16(void *dst, const void *src, u32 size);
 LINKABLE void memset8(void *dst, u8 value, u32 size);
-LINKABLE void memcpy8(void *dst, void *src, u32 size);
+LINKABLE void memcpy8(void *dst, const void *src, u32 size);
 
 static inline u32 read32(u32 addr)
 {
