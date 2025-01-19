@@ -85,6 +85,17 @@ void trampoline_blreplace(uintptr_t addr, void *target){
     trampoline_install(addr, trampoline_blre_proto, trampoline_blre_proto_end);
 }
 
+extern u8 trampoline_blre_regs_proto[];
+extern u8 trampoline_blre_regs_proto_end[];
+extern u32 trampoline_blre_regs_proto_chain[];
+extern void* trampoline_blre_regs_proto_target[];
+
+void trampoline_blreplace_with_regs(uintptr_t addr, void *target){
+    trampoline_blre_regs_proto_chain[0] = extract_bl_target(addr);
+    trampoline_blre_regs_proto_target[0] = target;
+    trampoline_install(addr, trampoline_blre_regs_proto, trampoline_blre_regs_proto_end);
+}
+
 extern u8 trampoline_hookbefore_proto[];
 extern u8 trampoline_hookbefore_proto_end[];
 extern void* trampoline_hookbefore_proto_target[];
@@ -138,6 +149,17 @@ void trampoline_t_blreplace(uintptr_t addr, void *target){
     trampoline_t_blre_proto_chain[0] = extract_bl_t_target(addr);
     trampoline_t_blre_proto_target[0] = target;
     trampoline_t_install(addr, trampoline_t_blre_proto, trampoline_t_blre_proto_end);
+}
+
+extern u8 trampoline_t_blre_regs_proto[];
+extern u8 trampoline_t_blre_regs_proto_end[];
+extern u32 trampoline_t_blre_regs_proto_chain[];
+extern void* trampoline_t_blre_regs_proto_target[];
+
+void trampoline_t_blreplace_with_regs(uintptr_t addr, void *target){
+    trampoline_t_blre_regs_proto_chain[0] = extract_bl_t_target(addr);
+    trampoline_t_blre_regs_proto_target[0] = target;
+    trampoline_t_install(addr, trampoline_t_blre_regs_proto, trampoline_t_blre_regs_proto_end);
 }
 
 extern u8 trampoline_t_hookbefore_proto[];
