@@ -14,7 +14,7 @@ include $(MAKEFILE_ROOT_DIR)/elf_rules
 # INCLUDES is a list of directories containing header files
 # SPECS is the directory containing the important build and link files
 #---------------------------------------------------------------------------------
-export TARGET		:=	wafel_debug_exts
+export TARGET		:=	5debug
 export BUILD		?=	debug
 
 R_SOURCES			:=	

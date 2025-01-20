@@ -12,8 +12,8 @@ sections/%.bin: $(INPUT)
 	@mkdir -p sections
 	python3 scripts/anpack.py -in $(INPUT) -e $*,$@
 
-wafel_core.ipx: wafel_core/wafel_core.elf
-	@cp wafel_core/wafel_core.elf wafel_core.ipx
+00core.ipx: wafel_core/00core.elf
+	@cp wafel_core/00core.elf 00core.ipx
 
 wafel_core/wafel_core.elf:
 	@cd wafel_core && make

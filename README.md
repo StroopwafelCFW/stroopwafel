@@ -32,7 +32,7 @@ Warnings:
 export STROOPWAFEL_ROOT=$(pwd)
 
 # wafel_core
-make wafel_core.ipx
+make 00core.ipx
 
 # plugin example
 make -C wafel_plugin_example

@@ -57,7 +57,7 @@ wafel_core/*.img
 wafel_core/*.bin
 wafel_core/*.elf
 wafel_core/*.map
-wafel_core.ipx
+00core.ipx
 
 # wafel_plugin_example
 wafel_plugin_example/build
@@ -74,7 +74,7 @@ wafel_debug_exts/*.img
 wafel_debug_exts/*.bin
 wafel_debug_exts/*.elf
 wafel_debug_exts/*.map
-wafel_debug_exts.ipx
+5debug.ipx
 
 # extracted sections
 sections/*.bin
