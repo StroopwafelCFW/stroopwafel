@@ -2,6 +2,7 @@
 #define WAFEL_PATCH_H
 
 #include <string.h>
+#include <wafel/bm.h>
 #include "ios_dynamic.h"
 #include "latte/cache.h"
 #include "utils.h"
