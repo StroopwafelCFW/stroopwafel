@@ -4,9 +4,9 @@ BSS_SECTIONS :=
 INPUT_SECTIONS := $(addprefix sections/, $(addsuffix .bin, $(SECTIONS)))
 PATCHED_SECTIONS := $(addprefix patched_sections/, $(addsuffix .bin, $(SECTIONS)))
 
-.PHONY: all clean wafel_core/wafel_core.elf
+.PHONY: all clean wafel_core/00core.elf
 
-all: wafel_core.ipx
+all: 00core.ipx
 
 sections/%.bin: $(INPUT)
 	@mkdir -p sections
@@ -15,7 +15,7 @@ sections/%.bin: $(INPUT)
 00core.ipx: wafel_core/00core.elf
 	@cp wafel_core/00core.elf 00core.ipx
 
-wafel_core/wafel_core.elf:
+wafel_core/00core.elf:
 	@cd wafel_core && make
 
 patched_sections/%.bin: sections/%.bin patches/%.s
@@ -23,7 +23,7 @@ patched_sections/%.bin: sections/%.bin patches/%.s
 	@echo patches/$*.s
 	@armips patches/$*.s
 
-ios.img: $(INPUT) $(PATCHED_SECTIONS) wafel_core/wafel_core.elf
+ios.img: $(INPUT) $(PATCHED_SECTIONS) wafel_core/00core.elf
 	python3 scripts/anpack.py -nc -in $(INPUT) -out ios.img $(foreach s,$(SECTIONS),-r $(s),patched_sections/$(s).bin) $(foreach s,$(BSS_SECTIONS),-b $(s),patched_sections/$(s).bin)
     
 ios.patch: ios.img salt-patch
@@ -46,5 +46,5 @@ patch: ios.patch $(PATCHED_SECTIONS)
 clean:
 	@$(MAKE) -C salt-patch-src clean
 	@$(MAKE) -C wafel_core clean
-	@rm -f fw.img ios.img ios.patch wafel_core.ipx $(SP_EXECNAME)
+	@rm -f fw.img ios.img ios.patch 00core.ipx $(SP_EXECNAME)
 	@rm -rf patched_sections
