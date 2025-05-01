@@ -20,6 +20,9 @@ LINKABLE void memcpy16(void *dst, const void *src, u32 size);
 LINKABLE void memset8(void *dst, u8 value, u32 size);
 LINKABLE void memcpy8(void *dst, const void *src, u32 size);
 
+static void* (*FS_memcpy)(void *dst, const void *src, size_t size) = (void*)0x107f4f7c;
+static void* (*FS_memset)(void *dst, int fill, size_t size) = (void*)0x107f5018;
+
 static inline u32 read32(u32 addr)
 {
     u32 data;
