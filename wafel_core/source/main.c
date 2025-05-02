@@ -302,12 +302,25 @@ static const char* fsa_dev_register_hook(int a)
     return FS_DEVTYPE_TO_NAME(a);
 }
 
+static void add_mirror(size_t vaddr){
+    size_t code_trampoline_sz = 0x100000; // TODO?
+   
+    Elf32_Phdr* phdr = ios_elf_add_phdr(wafel_plugin_base_addr);
+
+    phdr->p_type = 1;   // LOAD
+    phdr->p_offset = 0; // doesn't matter
+    phdr->p_vaddr = vaddr;
+    phdr->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
+    phdr->p_filesz = 0;
+    phdr->p_memsz = code_trampoline_sz;
+    phdr->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_KERNEL);
+    phdr->p_align = 1;
+}
+
 static void init_phdrs()
 {
     // Init memory mappings
     Elf32_Phdr* phdr_base = ios_elf_add_phdr(wafel_plugin_base_addr);
-
-    size_t code_trampoline_sz = 0x100000; // TODO?
 
     phdr_base->p_type = 1;   // LOAD
     phdr_base->p_offset = 0; // doesn't matter
@@ -315,33 +328,22 @@ static void init_phdrs()
     phdr_base->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
     phdr_base->p_filesz = CARVEOUT_SZ;
     phdr_base->p_memsz = CARVEOUT_SZ;
-    phdr_base->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_MCP); // RWX, MCP
+    phdr_base->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_KERNEL);
     phdr_base->p_align = 1;
     phdr_base[-1].p_memsz -= CARVEOUT_SZ;
 
-    Elf32_Phdr* phdr_mcp = ios_elf_add_phdr(wafel_plugin_base_addr);
-
+    debug_printf("Add MCP_ALT_BASE\n");
     // Add mirror at 0x05800000 for MCP trampolines
-    phdr_mcp->p_type = 1;   // LOAD
-    phdr_mcp->p_offset = 0; // doesn't matter
-    phdr_mcp->p_vaddr = MCP_ALT_BASE;
-    phdr_mcp->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
-    phdr_mcp->p_filesz = 0;
-    phdr_mcp->p_memsz = code_trampoline_sz;
-    phdr_mcp->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_MCP);
-    phdr_mcp->p_align = 1;
+    add_mirror(MCP_ALT_BASE);
 
-    Elf32_Phdr* phdr_fs = ios_elf_add_phdr(wafel_plugin_base_addr);
-
+    debug_printf("Add FS_ALT_BASE\n");
     // Add mirror at 0x10600000 for FS trampolines
-    phdr_fs->p_type = 1;   // LOAD
-    phdr_fs->p_offset = 0; // doesn't matter
-    phdr_fs->p_vaddr = FS_ALT_BASE;
-    phdr_fs->p_paddr = wafel_plugin_base_addr; // ramdisk is consistent so we can do this.
-    phdr_fs->p_filesz = 0;
-    phdr_fs->p_memsz = code_trampoline_sz;
-    phdr_fs->p_flags = IOS_PHDR_FLAGS(IOS_RWX, IOS_MCP); // RWX, MCP
-    phdr_fs->p_align = 1;
+    add_mirror(FS_ALT_BASE);
+
+    debug_printf("Add KERNEL_ALT_BASE\n");
+    // Add mirror at 0x08135000 for kernel trampolines
+    add_mirror(KERNEL_ALT_BASE);
+
 
     ios_elf_print_map();
 }
