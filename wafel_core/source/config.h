@@ -10,7 +10,7 @@
 
 #define MCP_ALT_BASE (0x05200000)
 #define FS_ALT_BASE (0x10600000)
-#define KERNEL_ALT_BASE (0x09000000)
+#define NET_ALT_BASE (0x12200000)
 
 // *****************************
 // Filesystem config

@@ -62,7 +62,7 @@ u32 trampoline_find_mapping(uintptr_t addr, void* trampoline_addr, u32 offset_bi
     if(trampoline_alt>>offset_bits == addr>>offset_bits)
         return trampoline_alt;
 
-    trampoline_alt = KERNEL_ALTBASE_ADDR((u32)trampoline_addr);
+    trampoline_alt = NET_ALTBASE_ADDR((u32)trampoline_addr);
     if(trampoline_alt>>offset_bits == addr>>offset_bits)
         return trampoline_alt;
 
