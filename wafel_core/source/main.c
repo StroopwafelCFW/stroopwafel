@@ -548,6 +548,10 @@ static void patch_55x()
             "str r3, [r7,#0x34]\n"
         );
 
+        // patch domains for NET (Module 7, each entry is 4 bytes). 
+        // Relies on stroopwafel patching other domains to make the overwritten instruction irrelevant
+        ASM_PATCH_K(0x081253b8, "str r3, [r7,#28]\n");
+
         // ARM MMU Access Permissions patches
         // set AP bits for 1MB pages to r/w for all
         ASM_PATCH_K(0x08124678, "mov r6, #3");
