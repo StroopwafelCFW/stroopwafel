@@ -49,6 +49,13 @@ typedef struct
     char mount_path[0x80];
 } fsa_volume_info;
 
+typedef struct {
+    u8 unknown[0x08];
+    uint64_t deviceSizeInSectors;
+    uint32_t deviceSectorSize;
+    u8 unknown2[0x14];
+} PACKED fsa_device_info;
+
 #define FSA_MOUNTFLAGS_BINDMOUNT (1 << 0)
 #define FSA_MOUNTFLAGS_GLOBAL (1 << 1)
 
@@ -62,7 +69,7 @@ LINKABLE int FSA_Mount(int fd, const char* device_path, const char* volume_path,
 LINKABLE int FSA_Unmount(int fd, const char* path, u32 flags);
 LINKABLE int FSA_FlushVolume(int fd, const char* volume);
 
-LINKABLE int FSA_GetDeviceInfo(int fd, const char* device_path, int type, u32* out_data);
+LINKABLE int FSA_GetDeviceInfo(int fd, const char* device_path, int type, fsa_device_info* info);
 LINKABLE int FSA_GetVolumeInfo(int fd, const char* volume_path, int type, fsa_volume_info* out_data);
 
 LINKABLE int FSA_MakeDir(int fd, const char* path, u32 flags);
