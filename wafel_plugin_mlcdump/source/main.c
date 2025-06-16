@@ -38,38 +38,12 @@ typedef enum NotifLedType {
 // (Ideally this would be in a proper header)
 extern void SetNotificationLED(uint8_t mask);
 
-// --- Placeholder Raw IOS Device Functions ---
-// These need to be replaced with actual IOS calls for raw device access.
-// Signatures and behavior are assumed for now.
-typedef int RawDeviceHandle; // Placeholder type for raw device handle
-#define INVALID_RAW_DEVICE_HANDLE (-1)
-
-static RawDeviceHandle IOS_RawOpen(const char* deviceName, int mode) {
-    debug_printf("IOS_RawOpen (Placeholder) called for %s\n", deviceName);
-    // Actual implementation needed. For now, return a dummy handle or error.
-    // To allow some testing of the structure, let's simulate failure for now.
-    return INVALID_RAW_DEVICE_HANDLE; // Simulate failure to force error paths
-}
-
-static int IOS_RawRead(RawDeviceHandle handle, void* buffer, size_t size) {
-    debug_printf("IOS_RawRead (Placeholder) called for handle %d, size %zu\n", handle, size);
-    // Actual implementation needed.
-    return -1; // Simulate read error
-}
-
-static long long IOS_RawGetSize(RawDeviceHandle handle) {
-    debug_printf("IOS_RawGetSize (Placeholder) called for handle %d\n", handle);
-    // Actual implementation needed.
-    return -1; // Simulate failure to get size
-}
-
-static int IOS_RawClose(RawDeviceHandle handle) {
-    debug_printf("IOS_RawClose (Placeholder) called for handle %d\n", handle);
-    // Actual implementation needed.
-    return 0; // Simulate success
-}
-// --- End Placeholder Raw IOS Device Functions ---
-
+// IMPORTANT: Console Power-Off Mechanism
+// The following IOS_Shutdown function is a PLACEHOLDER.
+// The actual mechanism for powering off or restarting the console via IOS
+// needs to be researched (e.g., specific SVC calls, or a library function if available
+// in Wafel's headers, though IOS_Shutdown itself was not found in the checked headers).
+// The current placeholder will NOT actually power off the console.
 // --- Placeholder IOS_Shutdown ---
 // Placeholder for IOS_Shutdown function (usually from <wafel/ios/svc.h> or similar)
 // If not found in includes, this signature is assumed.
@@ -252,48 +226,71 @@ static void dump_raw_mlc_device(void) {
     log_to_sd("Starting raw MLC device dump...\n");
     SetNotificationLED(NOTIF_LED_BLUE_BLINKING);
 
-    RawDeviceHandle mlcFileHandle = INVALID_RAW_DEVICE_HANDLE; // Use new type and init
-    int sdFileHandle = -1; // Stays as int for FSA SD card access
+    int mlcFileHandle = -1; // Changed back to int for FSA_Raw*
+    int sdFileHandle = -1;
     char* dump_buffer = NULL;
-    // int ret; // 'ret' may not be needed for IOS_RawOpen if it directly returns handle or error code
 
-    // Attempt to open MLC using Raw IOS placeholder
-    log_to_sd("Opening /dev/mlc01 via IOS_RawOpen (Placeholder)...\n");
-    // Placeholder for actual raw device open. Mode '0' is a placeholder.
-    mlcFileHandle = IOS_RawOpen("/dev/mlc01", 0 /* mode placeholder */);
-    if (mlcFileHandle == INVALID_RAW_DEVICE_HANDLE) {
-        log_to_sd("Failed to open /dev/mlc01 via IOS_RawOpen. Handle: %d\n", mlcFileHandle);
+    // Attempt to open MLC using FSA_RawOpen
+    log_to_sd("Opening /dev/mlc01 via FSA_RawOpen...\n");
+    int ret_open = FSA_RawOpen(fsaHandle, "/dev/mlc01", &mlcFileHandle);
+    if (ret_open < 0 || mlcFileHandle < 0) {
+        log_to_sd("Failed to open /dev/mlc01 via FSA_RawOpen. Error: %d, Handle: %d\n", ret_open, mlcFileHandle);
         SetNotificationLED(NOTIF_LED_RED);
         return;
     }
-    log_to_sd("/dev/mlc01 opened successfully via IOS_RawOpen. Handle: %d\n", mlcFileHandle);
+    log_to_sd("/dev/mlc01 opened successfully via FSA_RawOpen. Handle: %d\n", mlcFileHandle);
 
-    // Attempt to get MLC size using Raw IOS placeholder
-    log_to_sd("Getting MLC size via IOS_RawGetSize (Placeholder)...\n");
-    long long retrieved_size = IOS_RawGetSize(mlcFileHandle);
+    // Attempt to get MLC size using FSA_GetDeviceInfo
+    // NOTE: The type for FSA_GetDeviceInfo (e.g., FSA_GETDEVICEINFO_TOTAL_SECTORS) and
+    // the structure of device_info are ASSUMED here and need verification.
+    #define FSA_GETDEVICEINFO_TOTAL_SECTORS 0 // Placeholder for actual type for FSA_GetDeviceInfo
+    #define DEFAULT_MLC_SECTOR_SIZE 512     // Fallback if sector_size isn't available or is 0
+
+    u32 device_info[2]; // Assuming [0]=total_sectors, [1]=sector_size based on typical patterns
+    u32 mlc_sector_size = DEFAULT_MLC_SECTOR_SIZE;
+    unsigned long long mlc_total_sectors = 0;
     unsigned long long mlc_total_size = 0;
 
-    if (retrieved_size < 0) { // Check if IOS_RawGetSize indicates error
-        log_to_sd("Failed to get MLC size using IOS_RawGetSize. Error: %lld. Will attempt to dump up to a maximum assumed size or until error.\n", retrieved_size);
-        SetNotificationLED(NOTIF_LED_ORANGE); // Warning state
-        // mlc_total_size remains 0, indicating unknown size
+    log_to_sd("Getting MLC size using FSA_GetDeviceInfo...\n");
+    int ret_info = FSA_GetDeviceInfo(fsaHandle, "/dev/mlc01", FSA_GETDEVICEINFO_TOTAL_SECTORS, device_info);
+    if (ret_info < 0) {
+        log_to_sd("Failed to get MLC size via FSA_GetDeviceInfo. Error: %d. Will dump until read error.\n", ret_info);
+        SetNotificationLED(NOTIF_LED_ORANGE); // Non-fatal warning
+        mlc_total_size = 0; // Indicate unknown size
     } else {
-        mlc_total_size = (unsigned long long)retrieved_size;
-        log_to_sd("MLC size from IOS_RawGetSize: %llu bytes (%llu MB)\n", mlc_total_size, mlc_total_size / (1024*1024));
-        if (mlc_total_size == 0) {
-            log_to_sd("Warning: MLC size reported as 0 by IOS_RawGetSize. Will attempt to dump up to a maximum assumed size or until error.\n");
-            SetNotificationLED(NOTIF_LED_ORANGE); // Warning state
+        mlc_total_sectors = device_info[0];
+        if (device_info[1] > 0) { // Check if sector size is plausible
+            mlc_sector_size = device_info[1];
+        } else {
+            log_to_sd("Warning: FSA_GetDeviceInfo returned sector size 0 or invalid, defaulting to %u bytes.\n", DEFAULT_MLC_SECTOR_SIZE);
         }
+        mlc_total_size = mlc_total_sectors * mlc_sector_size;
+        log_to_sd("MLC Info: Total Sectors: %llu, Sector Size: %u bytes, Total Size: %llu bytes (%llu MB)\n",
+                  mlc_total_sectors, mlc_sector_size, mlc_total_size, mlc_total_size / (1024*1024));
+        if (mlc_total_size == 0 && mlc_total_sectors > 0) { // If sectors are reported but size is 0 (e.g. bad sector_size)
+             log_to_sd("Warning: Calculated MLC total size is 0 despite %llu sectors. Check sector size. Will dump until read error.\n", mlc_total_sectors);
+             SetNotificationLED(NOTIF_LED_ORANGE);
+        } else if (mlc_total_size == 0) {
+            log_to_sd("Warning: Calculated MLC total size is 0. Will dump until read error.\n");
+            SetNotificationLED(NOTIF_LED_ORANGE);
+        }
+    }
+
+    // Ensure MLC_DUMP_CHUNK_SIZE_BYTES is a multiple of mlc_sector_size if possible
+    if (MLC_DUMP_CHUNK_SIZE_BYTES % mlc_sector_size != 0) {
+        log_to_sd("Error: MLC_DUMP_CHUNK_SIZE_BYTES (%u) is not a multiple of reported sector size (%u). This may cause issues.\n",
+                  MLC_DUMP_CHUNK_SIZE_BYTES, mlc_sector_size);
+        // For now, proceed, but this should ideally be handled (e.g. adjust chunk size or error out)
     }
 
     // Allocate dump buffer
     log_to_sd("Allocating %lluMB dump buffer...\n", MLC_DUMP_CHUNK_SIZE_BYTES / (1024*1024ULL));
-    dump_buffer = (char*)iosAlloc(0xCAFE, MLC_DUMP_CHUNK_SIZE_BYTES); // Using placeholder IOS heap ID
+    dump_buffer = (char*)iosAlloc(0xCAFE, MLC_DUMP_CHUNK_SIZE_BYTES);
     if (!dump_buffer) {
         log_to_sd("Failed to allocate dump buffer.\n");
         SetNotificationLED(NOTIF_LED_RED);
-        if (mlcFileHandle != INVALID_RAW_DEVICE_HANDLE) { // Check against new invalid handle
-            IOS_RawClose(mlcFileHandle); // Use new close function
+        if (mlcFileHandle >= 0) {
+            FSA_RawClose(fsaHandle, mlcFileHandle);
         }
         return;
     }
@@ -303,22 +300,26 @@ static void dump_raw_mlc_device(void) {
     unsigned long long total_bytes_read = 0;
     unsigned long long current_part_bytes_written = 0;
     int part_number = 0;
-    // sdFileHandle is already declared above, initialize to -1
     sdFileHandle = -1;
     char current_sd_path[128];
     bool dump_error_occurred = false;
+    u64 current_sector_offset = 0;
+    // NOTE: The interpretation of FSA_RawRead parameters (size_bytes vs cnt) needs verification.
+    // Assuming size_bytes = total bytes for this read, cnt = 1.
+    // If size_bytes is per-sector, then size_bytes = mlc_sector_size and cnt = sectors_per_chunk.
+    // u32 sectors_per_chunk = MLC_DUMP_CHUNK_SIZE_BYTES / mlc_sector_size; // Used if cnt is num_sectors
 
     log_to_sd("Starting main dump loop...\n");
 
     // Main dumping loop
-    for (;;) { // or while(true)
-        // Part File Management
+    for (;;) {
+        // Part File Management (remains the same)
         if (sdFileHandle < 0) {
-            sprintf(current_sd_path, "%s%s%02d.bin", MLC_DUMP_PATH, MLC_DUMP_PART_PREFIX, part_number); // Added .bin extension
+            sprintf(current_sd_path, "%s%s%02d.bin", MLC_DUMP_PATH, MLC_DUMP_PART_PREFIX, part_number);
             log_to_sd("Opening SD part file: %s\n", current_sd_path);
-            ret = FSA_OpenFile(fsaHandle, current_sd_path, "wb", &sdFileHandle);
-            if (ret < 0 || sdFileHandle < 0) {
-                log_to_sd("Failed to open SD part file %s. Error: %d, Handle: %d\n", current_sd_path, ret, sdFileHandle);
+            int ret_sdf_open = FSA_OpenFile(fsaHandle, current_sd_path, "wb", &sdFileHandle);
+            if (ret_sdf_open < 0 || sdFileHandle < 0) {
+                log_to_sd("Failed to open SD part file %s. Error: %d, Handle: %d\n", current_sd_path, ret_sdf_open, sdFileHandle);
                 SetNotificationLED(NOTIF_LED_RED);
                 dump_error_occurred = true;
                 break;
@@ -327,24 +328,22 @@ static void dump_raw_mlc_device(void) {
             current_part_bytes_written = 0;
         }
 
-        // Read from MLC using Raw IOS placeholder
-        // log_to_sd("Reading %llu bytes from MLC via IOS_RawRead...\n", MLC_DUMP_CHUNK_SIZE_BYTES); // Too verbose
-        int bytes_actually_read = IOS_RawRead(mlcFileHandle, dump_buffer, MLC_DUMP_CHUNK_SIZE_BYTES);
+        // Read from MLC using FSA_RawRead
+        int bytes_actually_read = FSA_RawRead(fsaHandle, dump_buffer, MLC_DUMP_CHUNK_SIZE_BYTES, 1, current_sector_offset, mlcFileHandle);
 
-        // Handle Read Results (logic remains similar)
-        if (bytes_actually_read < 0) { // Read error
-            log_to_sd("Error reading from MLC. Error: %d. Approx offset: 0x%llx (%llu MB)\n", bytes_actually_read, total_bytes_read, total_bytes_read / (1024*1024));
+        // Handle Read Results
+        if (bytes_actually_read < 0) {
+            log_to_sd("Error reading from MLC via FSA_RawRead. Error: %d. Sector offset: %llu\n", bytes_actually_read, current_sector_offset);
             SetNotificationLED(NOTIF_LED_ORANGE);
             dump_error_occurred = true;
-            // For a raw dump, typically stop on error.
             break;
         }
-        if (bytes_actually_read == 0) { // End of File
-            log_to_sd("End of MLC device reached (FSA_ReadFile returned 0 bytes).\n");
+        if (bytes_actually_read == 0) {
+            log_to_sd("End of MLC device reached (FSA_RawRead returned 0 bytes at sector %llu).\n", current_sector_offset);
             break;
         }
 
-        // Write to SD Part File
+        // Write to SD Part File (remains the same)
         if (bytes_actually_read > 0) {
             // log_to_sd("Writing %d bytes to %s...\n", bytes_actually_read, current_sd_path); // Too verbose
             int bytes_written = FSA_WriteFile(fsaHandle, dump_buffer, 1, bytes_actually_read, sdFileHandle, 0);
@@ -399,9 +398,9 @@ static void dump_raw_mlc_device(void) {
         iosFree(0xCAFE, dump_buffer);
         log_to_sd("Dump buffer freed.\n");
     }
-    if (mlcFileHandle != INVALID_RAW_DEVICE_HANDLE) { // Check against new invalid handle
-        IOS_RawClose(mlcFileHandle); // Use new close function
-        log_to_sd("/dev/mlc01 closed via IOS_RawClose.\n");
+    if (mlcFileHandle >= 0) {
+        FSA_RawClose(fsaHandle, mlcFileHandle);
+        log_to_sd("/dev/mlc01 closed via FSA_RawClose.\n");
     }
 
     if (dump_error_occurred) {
