@@ -341,9 +341,10 @@ static void init_phdrs()
     add_mirror(FS_ALT_BASE);
 
     debug_printf("Add NET_ALT_BASE\n");
-    // Add mirror at 0x12200000 for kernel trampolines
+    // Add mirror at 0x12200000 for NET trampolines
     add_mirror(NET_ALT_BASE);
 
+    add_mirror(NSEC_ALT_BASE);
 
     ios_elf_print_map();
 }
