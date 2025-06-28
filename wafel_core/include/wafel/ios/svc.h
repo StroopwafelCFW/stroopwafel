@@ -35,7 +35,7 @@ LINKABLE int iosWaitSemaphore(int semaphore, int timeout);
 LINKABLE void iosSignalSemaphore(int semaphore);
 LINKABLE int iosDestroySemaphore(int semaphore);
 
-LINKABLE int iosIpcResume(int fd);
+LINKABLE int iosIpcResume(int fd, u32 system_mode, u32 power_flags);
 LINKABLE int iosIpcSuspend(int fd);
 
 LINKABLE int iosCreateMessageQueue(u32 *ptr, u32 n_msgs);
