@@ -12,6 +12,7 @@
 #define FS_ALT_BASE (0x10600000)
 #define NET_ALT_BASE (0x12200000)
 #define NSEC_ALT_BASE (0xE1300000)
+#define BSP_ALT_BASE (0xE5F00000)
 
 // *****************************
 // Filesystem config

@@ -70,6 +70,10 @@ u32 trampoline_find_mapping(uintptr_t addr, void* trampoline_addr, u32 offset_bi
     if(trampoline_alt>>offset_bits == addr>>offset_bits)
         return trampoline_alt;
 
+    trampoline_alt = BSP_ALTBASE_ADDR((u32)trampoline_addr);
+    if(trampoline_alt>>offset_bits == addr>>offset_bits)
+        return trampoline_alt;
+
     debug_printf("Trampoline at %p not reachable from %p\n", trampoline_next, addr);
     crash_and_burn();
     return 0;
