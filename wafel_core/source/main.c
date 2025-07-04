@@ -234,6 +234,7 @@ static void c2w_oc_hax_patch()
 }
 
 #include "hai_params.h"
+#include <trampoline.h>
 void c2w_patches()
 {
     c2w_boot_hook_fixup_c2w_ptrs();
@@ -527,6 +528,10 @@ static void patch_general()
     // then search back 
 }
 
+static void sleep_hook(trampoline_t_state *regs){
+    msleep(1000);
+}
+
 static void patch_55x()
 {
     // KERNEL
@@ -699,6 +704,11 @@ static void patch_55x()
             "mov r0, #0x0\n"
         );
 
+        // When returning from vWii the Wii U reboots into IOSU to 
+        // shutdown the DRH and DRC. There is a race that IOSU starts shutting
+        // down, before the gamepad could be shut down.
+        // this extra sleep helps mitigating the race
+        trampoline_t_hook_before(0x0502001e, sleep_hook);
 
         // patch OS launch sig check
         ASM_T_PATCH_K(0x0500A818,
