@@ -529,7 +529,7 @@ static void patch_general()
 }
 
 static void sleep_hook(trampoline_t_state *regs){
-    msleep(1000);
+    msleep(3000);
 }
 
 static void patch_55x()
