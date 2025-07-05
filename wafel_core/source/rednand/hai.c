@@ -4,6 +4,7 @@
 #include "trampoline.h"
 
 
+static int force_haidev = false;
 static int haidev = -1;
 
 static void c2w_patch_mlc()
@@ -71,6 +72,8 @@ void hai_apply_force_mlc_patch(void){
  * @brief sets the device type for hai, by hooking FSA_GetFileBlockAddress, which is called to create the compangion file
  */
 static void get_block_addr_haidev_patch(trampoline_state* s){
+    if(force_haidev)
+        return;
     debug_printf("FSA GET FILE BLOCK ADDRESS\n");
     debug_printf("devid: %d\n", s->r[0]);
     haidev = s->r[0];
@@ -78,7 +81,7 @@ static void get_block_addr_haidev_patch(trampoline_state* s){
 
 void hai_apply_getdev_patch(void){
     static bool applied = false;
-    if(!applied){
+    if(!applied && !force_haidev){
         applied = true;
         trampoline_hook_before(0x10707b70, get_block_addr_haidev_patch);
     }
@@ -86,4 +89,9 @@ void hai_apply_getdev_patch(void){
 
 int hai_getdev(void){
     return haidev;
+}
+
+void hai_setdev(int devid){
+    force_haidev = true;
+    haidev = devid;
 }

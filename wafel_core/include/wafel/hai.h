@@ -13,4 +13,6 @@ LINKABLE int hai_getdev(void);
 
 LINKABLE void hai_apply_force_mlc_patch(void);
 
+LINKABLE void hai_setdev(int devid);
+
 #endif
