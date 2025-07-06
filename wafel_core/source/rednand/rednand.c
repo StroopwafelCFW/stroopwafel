@@ -9,6 +9,7 @@
 #include "hai.h"
 #include "sal_partition.h"
 #include "sal.h"
+#include "wfs.h"
 
 extern void slcRead1_patch();
 extern void slcRead2_patch();
@@ -31,15 +32,9 @@ extern void scfm_try_slc_cache_migration();
 // this makes sure the argument is expanded before converting to string
 #define STR(X) STR_(X)
 
-static int (*FSSCFM_Attach_fun)(FSSALAttachDeviceArg*) = (void*)FSSCFM_Attach;
-static int (*FSSAL_attach_device_fun)(FSSALAttachDeviceArg*) = (void*)FSSAL_attach_device;
-
-
 bool disable_scfm = false;
 bool scfm_on_slccmpt = false;
 bool mlc_nocrypto = false;
-
-u32 sysmlc_size_sectors = 0;
 
 static volatile bool learn_mlc_crypto_handle = false;
 static volatile bool learn_usb_crypto_handle = false;
@@ -68,6 +63,7 @@ void rednand_patch_hai(void){
 
 typedef int read_write_fun(int*, u32, u32, u32, u32, void*, void*, void*);
 
+static void *mlc_server_handle = 0;
 void rednand_register_sd_as_mlc(trampoline_state* state){
     int* sd_attach_arg = (int*)state->r[6];
 
@@ -83,11 +79,13 @@ void rednand_register_sd_as_mlc(trampoline_state* state){
 
     patch_partition_attach_arg(extra_attach_arg, DEVTYPE_MLC);
 
-    int sal_handle;
+    mlc_server_handle = extra_attach_arg->server_handle;
+
+    FSSALHandle sal_handle;
     if(disable_scfm)
-        sal_handle = FSSAL_attach_device_fun(extra_attach_arg);
+        sal_handle = FSSAL_attach_device(extra_attach_arg);
     else
-        sal_handle = FSSCFM_Attach_fun(extra_attach_arg);
+        sal_handle = FSSCFM_attach_device(extra_attach_arg);
 
     debug_printf("Attaching sdcard as mlc returned %d\n", sal_handle);
 }
@@ -106,78 +104,28 @@ static void skip_mlc_attch_hook(trampoline_state *s){
         s->lr = 0x107bd714; // jump over all the attach stuff
 }
 
-static u32 mlc_crypto_handle = 0;
-
-static int sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, int (*mlc_attach_ptr)(FSSALAttachDeviceArg*)){
-    sysmlc_size_sectors = attach_arg->params.block_count;
-    // if the mlc crypto handle is already learned, we can attach right away
-    if(mlc_crypto_handle) {
-        learn_usb_crypto_handle = true;
-        int sal_handle = mlc_attach_ptr(attach_arg);
-        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
-        return sal_handle;
-    }
-    debug_printf("No crypto handle for mlc yet...\n");
-    // if we don't know the crypto handle yet, we must wait until the mlc was attached -> rednand_sal_fs_attach_hook
-    sysmlc_attach_arg = attach_arg;
-    mlc_attach_fun = mlc_attach_ptr;
-    return 0xFFF;
+static void *sysmlc_server_handle = 0;
+static FSSALHandle sysmlc_attach_hook(FSSALAttachDeviceArg *attach_arg, int r1, int r2, int r3, FSSALHandle (*mlc_attach_ptr)(FSSALAttachDeviceArg*)){
+    sysmlc_server_handle = attach_arg->server_handle;
+    FSSALHandle sal_handle = mlc_attach_ptr(attach_arg);
+    debug_printf("Attaching sysmlc returned %d\n", sal_handle);
+    return sal_handle;
 }
 
-static void print_state(trampoline_state *s){
-    debug_printf("10707b70: r0: %d, r1: %d, r2: %d, r3: %d\n", s->r[0], s->r[1], s->r[2], s->r[3]);
-}
-
-static u32 sal_mlc_attach_size = 0;
-
-static void rednand_sal_fs_attach_hook(u32 *attach_arg, int r1, int r2, int r3, void (*fssal_attach_filesystem)(void*, int)){
-    u32 device_type = attach_arg[1] >> 24;
-    // ignoring upper half
-    u32 block_count = attach_arg[13];
-    if (device_type == DEVTYPE_MLC) {
-        sal_mlc_attach_size = block_count;
-        learn_mlc_crypto_handle = true;
-    }
-
-    debug_printf("SAL Attach: type: %d, block_count: %d\n", device_type, block_count);
-    fssal_attach_filesystem(attach_arg, r1);
-    debug_printf("SAL Attach finished\n");
-
-    // if sysmlc is waiting for attachment, attach now
-    if (device_type == DEVTYPE_MLC && mlc_attach_fun && sysmlc_attach_arg) {
-        learn_usb_crypto_handle = true;
-        int sal_handle = mlc_attach_fun(sysmlc_attach_arg);
-        debug_printf("Attaching sysmlc returned %d\n", sal_handle);
-    }
-}
-
-static void redmlc_crypto_hook(trampoline_state *state){
-    static u32 usb_crypto_handle = 0;
-    if(state->r[5] == sal_mlc_attach_size){
-        if(learn_mlc_crypto_handle){
-            learn_mlc_crypto_handle = false;
-            mlc_crypto_handle = state->r[0];
-            debug_printf("Learned mlc_crypto_handle %p\n", mlc_crypto_handle);
-        }
-        if(mlc_nocrypto && mlc_crypto_handle == state->r[0]){
-            state->r[0] = NO_CRYPTO_HANDLE;
-            return;
-        }
-    }
-    if(state->r[5] == sysmlc_size_sectors){
-        if(learn_usb_crypto_handle && state->r[0] != mlc_crypto_handle){
-            learn_usb_crypto_handle = false;
-            usb_crypto_handle = state->r[0];
-        }
-        if(usb_crypto_handle == state->r[0])
-            state->r[0] = mlc_crypto_handle;
+static void wfs_initDeviceParams_exit_hook(trampoline_state *regs){
+    WFS_Device *wfs_device = (WFS_Device*)regs->r[5];
+    FSSALDevice *sal_device = FSSAL_LookupDevice(wfs_device->handle);
+    void *server_handle = sal_device->server_handle;
+    debug_printf("wfs_initDeviceParams_exit_hook server_handle: %p\n", server_handle);
+    if(server_handle == sysmlc_server_handle) {
+        wfs_device->crypto_key_handle = WFS_KEY_HANDLE_MLC;
+    } else if(mlc_nocrypto && server_handle == mlc_server_handle) {
+        wfs_device->crypto_key_handle = WFS_KEY_HANDLE_NOCRYPTO;
     }
 }
 
 static void rednand_install_crypto_hooks(void){
-    trampoline_blreplace(0x10733c20, rednand_sal_fs_attach_hook);
-    trampoline_hook_before(0x10740f48, redmlc_crypto_hook); // hook decrypt call
-    trampoline_hook_before(0x10740fe8, redmlc_crypto_hook); // hook encrypt call
+    trampoline_hook_before(0x107435f4, wfs_initDeviceParams_exit_hook);
 }
 
 static void rednand_apply_mlc_patches(bool mount_sys){
@@ -204,7 +152,7 @@ static void rednand_apply_mount_sys_mlc_patches(void){
     // make SCFM look for usb instead of mlc
     ASM_PATCH_K(0x107d1f24, "cmp r3, #" STR(DEVTYPE_USB));
     ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
-    // need to delay sysmlc attachment until mlc crypto handle is learned
+
     trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
 
     hai_apply_force_mlc_patch();
