@@ -5,6 +5,8 @@
 // SALT IOSUHAX CONFIGURATION
 // *****************************
 
+#define IOS_VERSION 9000
+
 // Please note: This will largely be succeeded by an ini-based realtime config system
 // similar to that used with firmloader+firmbuild on 3DS.
 
@@ -18,10 +20,10 @@
 // Filesystem config
 // *****************************
 // Enable NAND redirection (use minute to prepare your SD card)
-#define USE_REDNAND 1
+#define USE_REDNAND 0
 
 // OTP does not exist, and should be loaded from memory instead
-#define OTP_IN_MEM 1
+#define OTP_IN_MEM 0
 
 // WIP vWii junk that doesn't really work quite yet
 #define WIP_VWII_JUNK 0
@@ -74,7 +76,7 @@
 #define FAT32_USB 0
 
 // Don't use MCP patches (useful for MenuChangers)
-#define MCP_PATCHES 1
+#define MCP_PATCHES 0
 
 // *****************************
 // Crypto config

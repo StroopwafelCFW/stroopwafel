@@ -1,3 +1,7 @@
+#include "config.h"
+
+#if USE_REDNAND
+
 #include "types.h"
 #include <wafel/trampoline.h>
 #include <wafel/patch.h>
@@ -77,3 +81,5 @@ void redseeprom_enable(void *buffer) {
         "_seeprom_wc_hook: .word redseeprom_write_control"
     );
 }
+
+#endif // USE_REDNAND

@@ -20,6 +20,8 @@
 #include "rednand/rednand_config.h"
 #include "rednand/rednand.h"
 #include "rednand/redseeprom.h"
+#include "hai_params.h"
+#include <trampoline.h>
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -233,10 +235,9 @@ static void c2w_oc_hax_patch()
     }
 }
 
-#include "hai_params.h"
-#include <trampoline.h>
 void c2w_patches()
 {
+#if IOS_VERSION == 555
     c2w_boot_hook_fixup_c2w_ptrs();
     c2w_boot_hook_find_and_replace_otpread();
     c2w_boot_hook_fixup_ios_ptrs();
@@ -248,6 +249,7 @@ void c2w_patches()
 #if VWII_OVERCLOCK
     c2w_oc_hax_patch();
 #endif
+#endif // IOS_VERSION
 }
 
 static inline u32 read32_unaligned_reversed(void* pData)
@@ -417,8 +419,12 @@ static void init_config()
             debug_printf("redNAND is only supported on 5.5.X\n");
             crash_and_burn();
         }
-
+#if USE_REDNAND
         rednand_init(rednand_conf, rednand_config_size);
+#else
+        debug_printf("Build without redNAND\n");
+        crash_and_burn();
+#endif
     }
 
     ret = prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
@@ -442,12 +448,17 @@ static void init_config()
     void *seeprom_ptr;
     ret = prsh_get_entry("seeprom", &seeprom_ptr, &d_size);
     if(!ret){
+#if USE_REDNAND
         debug_printf("Found SEEPROM in PRSH at %p with size %u\n", seeprom_ptr, d_size);
         if(d_size < SEEPROM_SIZE) {
             debug_printf("PRSH SEEPROM too small!!!!!\n");
             crash_and_burn();
         }
         redseeprom_enable(seeprom_ptr);
+#else 
+        debug_printf("Build without redNAND\n");
+        crash_and_burn();
+#endif        
     }
 }
 
@@ -541,12 +552,13 @@ static void patch_55x()
         //BL_TRAMPOLINE_K(0x08122490, 0x08122374); // __iosMemMapDisableProtection
 
         //
-        U32_PATCH_K(0x08140DE0, (u32)mcpIoMappings_patch); // ptr to iomapping structs
-        U32_PATCH_K(0x08140DE4, 0x00000003); // number of iomappings
-        U32_PATCH_K(0x08140DE8, IOS_MCP); // pid
+        U32_PATCH_K(KERNEL_IO_MAPPINGS_MCP, (u32)mcpIoMappings_patch); // ptr to iomapping structs
+        U32_PATCH_K(KERNEL_IO_MAPPINGS_MCP_NUMBER, 0x00000003); // number of iomappings
+        U32_PATCH_K(KERNEL_IO_MAPPINGS_MCP_PID, IOS_MCP); // pid
 
         // patch domains
-        ASM_PATCH_K(0x081253C4,
+        ASM_PATCH_K(KERNEL_DARC_WRITE,
+            "str r3, [r7,#0x0]\n"
             "str r3, [r7,#0x10]\n"
             "str r3, [r7,#0x0C]\n"
             "str r3, [r7,#0x04]\n"
@@ -555,56 +567,61 @@ static void patch_55x()
             "str r3, [r7,#0x34]\n"
         );
 
-        // patch domains for NET (Module 7, each entry is 4 bytes). 
-        // Relies on stroopwafel patching other domains to make the overwritten instruction irrelevant
-        ASM_PATCH_K(0x081253b8, "str r3, [r7,#28]\n");
+        // // patch domains for NET (Module 7, each entry is 4 bytes). 
+        // // Relies on stroopwafel patching other domains to make the overwritten instruction irrelevant
+        // ASM_PATCH_K(KERNEL_DARC_NET_PATCH, "str r3, [r7,#28]\n");
 
         // ARM MMU Access Permissions patches
         // set AP bits for 1MB pages to r/w for all
-        ASM_PATCH_K(0x08124678, "mov r6, #3");
+        ASM_PATCH_K(KERNEL_AP_BITS_1M, "mov r6, #3");
+#if IOS_VERSION == 555
+        // OSv9 somehow doesn't have this
         // set AP bits for section descriptors to r/w for all
         ASM_PATCH_K(0x08125270, "orr r3, #0x650");
+#endif
         // set AP bits for second-level table entries to be r/w for all
-        ASM_PATCH_K(0x08124D88, "mov r12, #3");
+        ASM_PATCH_K(KERNEL_AP_BITS_SECOND, "mov r12, #3");
 
         // Don't enable system protection
-        ASM_PATCH_K(0x081223FC, "bx lr");
+        ASM_PATCH_K(KERNEL_ENABLE_SYSPROT, "bx lr");
 
-        // patch out restrictions on syscall 0x22 (otp_read)
-        ASM_PATCH_K(0x08120374, "mov r12, #0x3");
-        ASM_PATCH_K(0x081203C4, "nop");
+//         // patch out restrictions on syscall 0x22 (otp_read)
+//         ASM_PATCH_K(KERNEL_OTP_READ_CHECK1, "mov r12, #0x3");
+//         ASM_PATCH_K(KERNEL_OTP_READ_CHECK2, "nop");
 
         // Always pass pointer checks
         //ASM_PATCH_K(0x081249C0, "mov r0, #0x0\nbx lr\n");
-        ASM_PATCH_K(0x08124AD8, "mov r0, #0x0\nbx lr\n");
+        ASM_PATCH_K(KERNEL_POINTER_CHECK, "mov r0, #0x0\nbx lr\n");
 
+#if IOS_VERSION == 555
         // skip 49mb memclear for faster loading.
         ASM_PATCH_K(0x812A088, 
             "mov r1, r5\n"
             "mov r2, r6\n"
             "mov r3, r7\n"
             "bx r4\n");
-
+#endif
+    
         // insn abort
-        ASM_PATCH_K(0x0812A134, 
+        ASM_PATCH_K(KERNEL_INSN_ABORT, 
             "ldr r3, _iabt_hook\n"
             "bx r3\n"
             "_iabt_hook: .word iabt_replace");
 
         // data abort
-        ASM_PATCH_K(0x0812A1AC, 
+        ASM_PATCH_K(KERNEL_DATA_ABORT, 
             "ldr r3, _dabt_hook\n"
             "bx r3\n"
             "_dabt_hook: .word dabt_replace");
 
         // undef insn abort
-        ASM_PATCH_K(0x08129E50, 
+        ASM_PATCH_K(KERNEL_UNDEF_INSN_ABORT, 
             "ldr r3, _undef_hook\n"
             "bx r3\n"
             "_undef_hook: .word undef_abt_replace");
 
         // IOS panic hook
-        ASM_PATCH_K(0x8129AA0, //0x8129AA0
+        ASM_PATCH_K(KERNEL_PANIC_HOOK, //0x8129AA0
             "ldr r3, _panic_hook\n"
             "bx r3\n"
             "_panic_hook: .word ios_panic_replace");
@@ -625,6 +642,7 @@ static void patch_55x()
 #endif
     }
 
+#if IOS_VERSION == 555
 #if MCP_PATCHES
     // MCP
     {
@@ -892,8 +910,10 @@ static void patch_55x()
         BL_TRAMPOLINE_K(FS_MLC_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
 #endif // PRINT_MLC_WRITE
 
+//#endif // IOS_VERSION
         // some selective logging function : enable all the logging!
-        BRANCH_PATCH_K(0x107F5720, FS_SYSLOG_OUTPUT);
+        BRANCH_PATCH_K(FS_PRINTF, FS_SYSLOG_OUTPUT);
+//#if IOS_VERSION == 555
 
 //open_base equ 0x1070AF0C
 //opendir_base equ 
@@ -919,6 +939,7 @@ static void patch_55x()
         BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
 #endif // PRINT_FSASEEKFILE
     }
+#endif // IOS_VERSION
 }
 
 // TODO: make a service
@@ -928,6 +949,11 @@ static u32 main_thread(void* arg)
         usleep(10*1000*1000);
         debug_printf("alive\n");
     }
+}
+
+
+void print_hook(trampoline_state *regs){
+    debug_printf("Hello From BSP\n");
 }
 
 // This fn runs before everything else in kernel mode.
@@ -956,7 +982,7 @@ void kern_main()
     init_config();
 
     patch_general();
-    if (is_55x) {
+    if (is_55x || IOS_VERSION == 9000) {
         patch_55x();
     }
     else {

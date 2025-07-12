@@ -1275,6 +1275,7 @@ str_wplus: .ascii "w+"
 .align 4
 #endif
 
+#if PRINT_FSASEEKFILE
 .align 4
 seekfile_hook:
     push {r0-r3, lr}
@@ -1301,8 +1302,10 @@ str_seekfile_format:
 .ascii "SALT: fileseek to 0x%X pid %d handle 0x%X"
 .byte 0xA
 .byte 0
-.align 4
+#endif
 
+#if PRINT_FSAREADWRITE
+.align 4
 fread_hook:
     push {r0-r3, lr}
     adr r1, str_read
@@ -1343,6 +1346,9 @@ str_write: .ascii "write"
 str_read_write_print_format: 
 .ascii "SALT: file %s size 0x%X handle 0x%X pid %d"
 .byte 0xA,0
+
+#endif
+
 .align 4
     
 
@@ -1372,8 +1378,9 @@ wfs_crypto_hook_ret:
     pop {r4-r7}
 #endif // USB_SHRINKSHIFT | NOCRYPTO
     b REL_WFS_CRYPTO_HOOK_RET_ADDR
-.align 4
     
+#if PRINT_FSAOPEN
+.align 4
 fsaopen_fullstr_dump_hook:
     push {r4, lr}
     bl REL_FS_GET_FULL_DIR_STR   @ fsa_get_full_dir_str
@@ -1402,8 +1409,11 @@ opendir_hook:
 fsaopendir_str: 
 .ascii "SALT: FSAOpenDir %s"
 .byte 0xA,0
+
+#endif
+
+#if USE_REDNAND
 .align 4
-    
 sdcard_init:
     @ this should run *after* /dev/mmc thread is created
     push {lr}
@@ -1658,6 +1668,8 @@ readWriteCallback_patch:
     add sp, #4
     pop {r1,r2,r3,r4,r5,pc}
 
+#endif
+
 @ @ @ @ @ @ @ @ @ @
 @    USB TWEAKS   @
 @ @ @ @ @ @ @ @ @ @
@@ -1745,7 +1757,7 @@ write_str:.ascii "write"
 .byte 0
 .align 4
 
-
+#if USE_REDNAND
 @ @ @ @ @ @ @ @ @ @ @
 @ SDIO REDIRECTION  @
 @ @ @ @ @ @ @ @ @ @ @
@@ -1960,6 +1972,8 @@ rw_data_offset:
     bl sdcard_readwrite
     add sp, #0xC
     pop {r4,pc}
+#endif
+
 .pool
 
 .equ FRAMEBUFFER_ADDRESS, (0x14000000+0x38C0000)

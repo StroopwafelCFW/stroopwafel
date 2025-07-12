@@ -1,4 +1,7 @@
 #include "config.h"
+
+#if USE_REDNAND
+
 #include "patch.h"
 #include "dynamic.h"
 #include "ios/svc.h"
@@ -305,3 +308,5 @@ void rednand_init(rednand_config* rednand_conf, size_t config_size){
 #endif
         }
 }
+
+#endif // USE_REDNAND
