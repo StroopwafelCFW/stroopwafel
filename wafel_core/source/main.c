@@ -642,7 +642,6 @@ static void patch_55x()
 #endif
     }
 
-#if IOS_VERSION == 555
 #if MCP_PATCHES
     // MCP
     {
@@ -657,7 +656,7 @@ static void patch_55x()
             "NOP\n"
         );
         */
-        
+#if IOS_VERSION == 555        
         // Power off instead of standby
         ASM_T_PATCH_K(0x0501F7A2, "MOVS R0,#1");
 
@@ -667,16 +666,16 @@ static void patch_55x()
         // TODO: move this to general patches after early MMU stuff is generalized
         // MCP main thread hook
         BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
-
+#endif
         // some selective logging function : enable all the logging !
-        BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT_ADDR);
+        BRANCH_PATCH_K(MCP_debug_print, MCP_SYSLOG_OUTPUT_ADDR);
 
 #if PRINT_PAD
         // some selective logging function : pad module
         BRANCH_PATCH_K(0x11f7efec, PAD_SYSLOG_OUTPUT_ADDR);
 #endif
 
-
+#if IOS_VERSION == 555
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
@@ -825,9 +824,11 @@ static void patch_55x()
         BL_T_TRAMPOLINE_K(0x05008810, MCP_ALTBASE_ADDR(c2w_boot_hook_t));
         ASM_T_PATCH_K(0x05008814, "nop\n");
 #endif // OTP_IN_MEM
+#endif // IOS_VERSION
     }
 #endif // MCP_PATCHES
-    
+
+#if IOS_VERSION == 555
     // ACP
     {
         // Enable all logging
@@ -910,10 +911,10 @@ static void patch_55x()
         BL_TRAMPOLINE_K(FS_MLC_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
 #endif // PRINT_MLC_WRITE
 
-//#endif // IOS_VERSION
+#endif // IOS_VERSION
         // some selective logging function : enable all the logging!
         BRANCH_PATCH_K(FS_PRINTF, FS_SYSLOG_OUTPUT);
-//#if IOS_VERSION == 555
+#if IOS_VERSION == 555
 
 //open_base equ 0x1070AF0C
 //opendir_base equ 
@@ -988,6 +989,18 @@ void kern_main()
     else {
         debug_printf("Firmware not 5.5.x! All you get is the OTP patch, sorry.\n");
     }
+
+
+    // TODO: move to plugin 
+
+    // Patch out ODM error
+    ASM_PATCH_K(0x108a5320, "mov r0, #0\n bx lr");
+
+    // ISFShax
+    ASM_PATCH_K(0x1081d668, "mvn r5, #0x8000");
+
+    // END move to plugin
+
 
     // Make sure bss and such doesn't get initted again.
     //ASM_PATCH_K(kern_entry, "bx lr");
