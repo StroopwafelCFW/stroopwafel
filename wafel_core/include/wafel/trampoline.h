@@ -2,6 +2,7 @@
 #define TRAMPOLINE_H
 
 #include "dynamic.h"
+#include <stdbool.h>
 
 LINKABLE void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end);
 
@@ -14,6 +15,7 @@ typedef struct {
 LINKABLE void trampoline_blreplace(uintptr_t addr, void *target);
 LINKABLE void trampoline_blreplace_with_regs(uintptr_t addr, void *target);
 LINKABLE void trampoline_hook_before(uintptr_t addr, void (*target)(trampoline_state*));
+LINKABLE void trampoline_hook_before_v2(uintptr_t addr, bool (*target)(trampoline_state*));
 
 typedef struct {
     int r[8];

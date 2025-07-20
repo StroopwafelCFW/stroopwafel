@@ -18,12 +18,7 @@ static u32 align(u32 x, u32 to){
  * pecify a branch of +/- 32Mbytes. The branch offset must take account of the prefetch
  * operation, which causes the PC to be 2 words (8 bytes) ahead of the current instruction
 */
-u32 extract_bl_target(uintptr_t addr){
-    uintptr_t paddr = ios_elf_vaddr_to_paddr(addr);
-    u32 ins = *(u32*)paddr;
-    if(ins>>24 != 0xEB){
-        return 0;
-    }
+static u32 extract_target(uintptr_t addr, u32 ins){
     u32 off = ins & 0xFFFFFF;
     off <<= 2;
     const u32 m = 1<<25;
@@ -31,6 +26,24 @@ u32 extract_bl_target(uintptr_t addr){
     u32 target = addr + soff + 8;
     debug_printf("%p: %08X -> %p\n", addr, ins, target);
     return target;
+}
+
+static u32 extract_bl_target(uintptr_t addr){
+    uintptr_t paddr = ios_elf_vaddr_to_paddr(addr);
+    u32 ins = *(u32*)paddr;
+    if(ins>>24 != 0xEB){
+        return 0;
+    }
+    return extract_target(addr, ins);
+}
+
+static u32 extract_b_target(uintptr_t addr){
+    uintptr_t paddr = ios_elf_vaddr_to_paddr(addr);
+    u32 ins = *(u32*)paddr;
+    if(ins>>24 != 0xEA){
+        return 0;
+    }
+    return extract_target(addr, ins);
 }
 
 void* trampoline_copy(uintptr_t addr, void *trampoline, void *trampoline_end){
@@ -79,6 +92,13 @@ u32 trampoline_find_mapping(uintptr_t addr, void* trampoline_addr, u32 offset_bi
     return 0;
 }
 
+void* trampoline_install_nolink(uintptr_t addr, void *trampoline, void *trampoline_end){
+    void *installed_trampoline = trampoline_copy(addr, trampoline, trampoline_end);
+    u32 trampoline_alt = trampoline_find_mapping(addr, installed_trampoline, 26);
+    BRANCH_PATCH_K(addr, trampoline_alt);
+    return installed_trampoline;
+}
+
 void* trampoline_install(uintptr_t addr, void *trampoline, void *trampoline_end){
     void *installed_trampoline = trampoline_copy(addr, trampoline, trampoline_end);
     u32 trampoline_alt = trampoline_find_mapping(addr, installed_trampoline, 26);
@@ -125,6 +145,25 @@ void trampoline_hook_before(uintptr_t addr, void (*target)(trampoline_state*)){
         *(u32*)(tramp_base + ((void*)trampoline_hookbefore_proto_chain - (void*)trampoline_hookbefore_proto)) = bl_target;
     } else {
         *(u32*)(tramp_base + ((void*)trampoline_hookbefore_proto_orgins - (void*)trampoline_hookbefore_proto)) = orgins;
+    }
+}
+
+extern u8 trampoline_hookbefore_lr_proto[];
+extern u8 trampoline_hookbefore_lr_proto_end[];
+extern void* trampoline_hookbefore_lr_proto_target[];
+extern u32 trampoline_hookbefore_lr_proto_orgins[];
+extern u32 trampoline_hookbefore_lr_proto_ret[];
+
+void trampoline_hook_before_v2(uintptr_t addr, bool (*target)(trampoline_state*)){
+    u32 b_target = extract_b_target(addr);
+    u32 orgins = *(u32*)ios_elf_vaddr_to_paddr(addr);
+    debug_printf("Overwriting %p: %08X -> %p\n", addr, orgins, b_target);
+    trampoline_hookbefore_lr_proto_target[0] = target;
+    trampoline_hookbefore_lr_proto_ret[0] = b_target ? b_target : addr+4;
+    void* tramp_base = trampoline_install(addr, trampoline_hookbefore_lr_proto, trampoline_hookbefore_lr_proto_end);
+    // can't do this on the proto as that would overwrite the other case
+    if(!b_target){
+        *(u32*)(tramp_base + ((void*)trampoline_hookbefore_lr_proto_orgins - (void*)trampoline_hookbefore_lr_proto)) = orgins;
     }
 }
 

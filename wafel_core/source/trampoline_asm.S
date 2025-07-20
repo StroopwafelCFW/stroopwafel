@@ -84,6 +84,31 @@ trampoline_hookbefore_proto_end:
 
 
 
+.global trampoline_hookbefore_lr_proto
+.global trampoline_hookbefore_lr_proto_orgins
+.global trampoline_hookbefore_lr_proto_target
+.global trampoline_hookbefore_lr_proto_ret
+.global trampoline_hookbefore_lr_proto_end
+
+.align 2
+.arm
+trampoline_hookbefore_lr_proto:
+    push {r0-r12, lr}
+    mov r0, sp
+    ldr  lr, trampoline_hookbefore_lr_proto_target
+    blx lr
+    cmp r0, #0
+    pop {r0-r12, lr}
+    ldrne pc, trampoline_hookbefore_lr_proto_ret
+trampoline_hookbefore_lr_proto_orgins:
+    nop
+    ldr pc, trampoline_hookbefore_lr_proto_ret
+trampoline_hookbefore_lr_proto_target:
+    .word 0
+trampoline_hookbefore_lr_proto_ret:
+    .word 0
+trampoline_hookbefore_lr_proto_end:  
+
 .global trampoline_t_blre_proto
 .global trampoline_t_blre_proto_chain
 .global trampoline_t_blre_proto_target
