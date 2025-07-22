@@ -18,7 +18,7 @@ export TARGET		:=	00core
 export BUILD		?=	debug
 
 R_SOURCES			:=	
-SOURCES				:=	source source/ios source/services source/wupserver source/latte source/externals/inih source/rednand
+SOURCES				:=	source source/ios source/services source/wupserver source/latte source/externals/inih source/rednand source/gpu
 
 R_INCLUDES			:=	
 INCLUDES 			:=	source include/wafel source/externals/inih include
