@@ -155,12 +155,19 @@ extern u32 trampoline_hookbefore_lr_proto_orgins[];
 extern u32 trampoline_hookbefore_lr_proto_ret[];
 
 void trampoline_hook_before_v2(uintptr_t addr, bool (*target)(trampoline_state*)){
-    u32 b_target = extract_b_target(addr);
+    u32 b_target = extract_bl_t_target(addr);
+    bool is_bl = b_target!=0;
+    if(!b_target)
+        b_target = extract_b_target(addr);
     u32 orgins = *(u32*)ios_elf_vaddr_to_paddr(addr);
     debug_printf("Overwriting %p: %08X -> %p\n", addr, orgins, b_target);
     trampoline_hookbefore_lr_proto_target[0] = target;
     trampoline_hookbefore_lr_proto_ret[0] = b_target ? b_target : addr+4;
-    void* tramp_base = trampoline_install_nolink(addr, trampoline_hookbefore_lr_proto, trampoline_hookbefore_lr_proto_end);
+    void* tramp_base;
+    if(is_bl)
+        tramp_base = trampoline_install(addr, trampoline_hookbefore_lr_proto, trampoline_hookbefore_lr_proto_end);
+    else
+        tramp_base = trampoline_install_nolink(addr, trampoline_hookbefore_lr_proto, trampoline_hookbefore_lr_proto_end);
     // can't do this on the proto as that would overwrite the other case
     if(!b_target){
         *(u32*)(tramp_base + ((void*)trampoline_hookbefore_lr_proto_orgins - (void*)trampoline_hookbefore_lr_proto)) = orgins;
