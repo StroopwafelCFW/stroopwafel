@@ -155,7 +155,7 @@ extern u32 trampoline_hookbefore_lr_proto_orgins[];
 extern u32 trampoline_hookbefore_lr_proto_ret[];
 
 void trampoline_hook_before_v2(uintptr_t addr, bool (*target)(trampoline_state*)){
-    u32 b_target = extract_bl_t_target(addr);
+    u32 b_target = extract_bl_target(addr);
     bool is_bl = b_target!=0;
     if(!b_target)
         b_target = extract_b_target(addr);
