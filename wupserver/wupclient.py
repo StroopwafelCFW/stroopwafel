@@ -32,7 +32,11 @@ def get_string(buffer, offset):
 class wupclient:
     s=None
 
-    def __init__(self, ip='192.168.50.19', port=1337):
+    def __init__(self, ip=None, port=1337):
+        if "WUP_SERVER_IP" in os.environ and ip is None:
+            ip = os.environ["WUP_SERVER_IP"]
+        if ip is None:
+            ip = "192.168.50.19"
         self.s=socket.socket()
         self.s.connect((ip, port))
         self.fsa_handle = None
