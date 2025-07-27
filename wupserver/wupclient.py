@@ -1,12 +1,11 @@
 # may or may not be inspired by plutoo's ctrrpc
-import errno
-import socket
-import os, sys
-import struct
+from argparse import ArgumentParser
 import binascii
-from binascii import hexlify
-from time import sleep
-import glob
+import errno
+import os
+import socket
+import struct
+import sys
 import time
 
 def buffer(size):
@@ -32,11 +31,7 @@ def get_string(buffer, offset):
 class wupclient:
     s=None
 
-    def __init__(self, ip=None, port=1337):
-        if "WUP_SERVER_IP" in os.environ and ip is None:
-            ip = os.environ["WUP_SERVER_IP"]
-        if ip is None:
-            ip = "192.168.50.19"
+    def __init__(self, ip="192.168.50.19", port=1337):
         self.s=socket.socket()
         self.s.connect((ip, port))
         self.fsa_handle = None
@@ -1189,65 +1184,10 @@ def clock_test_loop():
         clock_test(0x34)
         time.sleep(5)
 
-#0xfffcffe9
+
 if __name__ == '__main__':
-    w = wupclient()
-    #mount_sd()
-    #mount_usbfat_ext()
-    #mount_slccmpt()
-    # mount_odd()
-
-    #clock_test_loop()
-    
-
-    '''
-    print("Listing for /vol/storage_usb02:")
-    w.cd("/vol/storage_usb02")
-    w.ls()
-    print("Listing for /vol/storage_sdcard:")
-    w.cd("/vol/storage_sdcard/")
-    w.ls()
-    '''
-
-    '''
-    mkdir_p("sysnand")
-    os.chdir("sysnand")
-
-    fldnm = "rights"
-    mkdir_p(fldnm)
-    os.chdir(fldnm)
-    w.dldir("/vol/system_slc/" + fldnm)
-    '''
-
-    #mkdir_p("old_save")
-    #os.chdir("old_save")
-    #w.dldir("/vol/storage_usb01/usr/save/00050000/101c9400/user/80000006/")
-
-    #w.cpdir("vol/storage_sdcard/new_save/", "/vol/storage_usb01/usr/save/00050000/101c9400/user/80000006/")
-
-    
-    #w.cd("/vol/storage_usb01/usr/save/00050000/101c9400/user/80000006/") #
-    #w.ls()
-    
-    #print_devinfo("/dev/ext01")
-    #print_devinfo("/dev/ext02")
-    #install_usb("woominstaller")
-
-    #w.dl("/vol/system_slc/title/00050010/1000400a/code/fw.img", "fw_crypted_bad.img")
-    #w.dldir("/vol/system_slc/title")
-    #w.dldir("/vol/compat_slc/")
-
-    # w.read(0x1167BDA0+0x408E0, 0x20) # get disk serial id
-    # ret, data = w.otpread(0x0, 0x400)
-    # open("otp-dump.bin", "wb").write(data)
-    
-    #print_devinfo("/dev/sdcard01")
-    #w.cd("/vol/storage_sdcard/")
-    #print(w.pwd())
-    #w.ls()
-    
-    #w.dump_syslog()
-    # w.mkdir("/vol/storage_sdcard/usr", 0x600)
-    # install_title("test")
-    # get_nim_status()
-    # w.kill()
+    parser = ArgumentParser(prog="wupclient", usage="%(prog)s [ip] (port)")
+    parser.add_argument("ip")
+    parser.add_argument("port", default=1337, nargs='?', type=int)
+    args = parser.parse_args()
+    w = wupclient(args.ip, args.port)

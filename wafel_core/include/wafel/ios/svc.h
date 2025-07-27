@@ -13,12 +13,10 @@ typedef enum {
     MEM_PERM_RW = (MEM_PERM_R | MEM_PERM_W),
 } MemPermFlags;
 
-typedef int ios_retval;
-
 LINKABLE void _wafel_SyscallStart();
 #define wafel_SyscallStart ((uintptr_t)_wafel_SyscallStart)
 
-LINKABLE uintptr_t wafel_SyscallTable[0x88];
+typedef int ios_retval;
 
 // threading
 LINKABLE int iosCreateThread(u32 (*proc)(void* arg), void* arg, u32* stack_top, u32 stacksize, int priority, u32 flags);
