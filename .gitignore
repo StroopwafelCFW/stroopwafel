@@ -68,6 +68,13 @@ wafel_plugin_example/*.elf
 wafel_plugin_example/*.map
 wafel_plugin_example.ipx
 
+wafel_plugin_wupserver/build
+wafel_plugin_wupserver/debug
+wafel_plugin_wupserver/*.bin
+wafel_plugin_wupserver/*.elf
+wafel_plugin_wupserver/*.map
+wafel_plugin_wupserver.ipx
+
 wafel_debug_exts/build
 wafel_debug_exts/debug
 wafel_debug_exts/*.img

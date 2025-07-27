@@ -4,8 +4,10 @@ export STROOPWAFEL_ROOT=$(pwd)
 
 make -C wafel_core clean
 make -C wafel_plugin_example clean
+make -C wafel_plugin_wupserver clean
 make wafel_core.ipx
 make -C wafel_plugin_example
+make -C wafel_plugin_wupserver
 cp wafel_plugin_example/wafel_plugin_example.elf wafel_plugin_example.ipx
 
 disk=$(hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount /Users/maxamillion/workspace/Wii-U-Firmware-Emulator/files/sdcard.bin | head -n1 | cut -d " " -f1)

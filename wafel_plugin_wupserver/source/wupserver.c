@@ -8,6 +8,8 @@
 #include <wafel/ios/thread.h>
 #include "text.h"
 
+#define MCP_SVC_BASE ((void*) 0x050567ec)
+
 void fsa_copydir(int fd, char* src, char* dst)
 {
     int src_dir = 0;
@@ -149,7 +151,7 @@ int serverCommandHandler(u32* command_buffer, u32 length, int sock)
             {
                 void* dst = (void*)command_buffer[1];
                 int length = command_buffer[2];
-                
+
                 u32 offset = 0;
                 while(offset < length)
                     offset += recv(sock, dst + offset, length - offset, 0);
@@ -161,7 +163,7 @@ int serverCommandHandler(u32* command_buffer, u32 length, int sock)
             {
                 void* src = (void*)command_buffer[1];
                 length = command_buffer[2];
-                
+
                 u32 offset = 0;
                 while(offset < length)
                     offset += send(sock, src + offset, length - offset, 0);
@@ -180,7 +182,7 @@ int serverCommandHandler(u32* command_buffer, u32 length, int sock)
 
                 // return error code as data
                 out_length = 8;
-                command_buffer[1] = ((int (*const)(u32, u32, u32, u32, u32, u32, u32, u32))(wafel_SyscallTable[svc_id]))(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], arguments[7]);
+                command_buffer[1] = ((int (*const)(u32, u32, u32, u32, u32, u32, u32, u32))(MCP_SVC_BASE + svc_id * 8))(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], arguments[7]);
             }
             break;
         case 3:
@@ -249,7 +251,6 @@ void serverClientHandler(int sock)
     while(!serverKilled)
     {
         int ret = recv(sock, command_buffer, sizeof(command_buffer), 0);
-
         if(ret <= 0) break;
 
         ret = serverCommandHandler(command_buffer, ret, sock);
