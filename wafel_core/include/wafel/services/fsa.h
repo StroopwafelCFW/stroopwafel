@@ -7,21 +7,24 @@
 #define DIR_ENTRY_IS_LINK           0x10000
 #define END_OF_DIR                  -0x30004
 
-typedef struct
-{
-    u32 flags;      // 0x0
-    u32 permissions;// 0x4
-	u32 unk1[0x2];  // 0x8
-	u32 size;       // 0x10 size in bytes
-	u32 physsize;   // 0x14 physical size on disk in bytes
-	u32 unk2[0x13];
-}fileStat_s;
+typedef struct {
+    uint32_t flags;
+    uint32_t mode;
+    uint32_t owner;
+    uint32_t group;
+    uint32_t size;
+    uint32_t allocSize;
+    uint32_t unk[3];
+    uint32_t id;
+    uint32_t ctime;
+    uint32_t mtime;
+    uint32_t unk2[0x0D];
+} FSStat;
 
-typedef struct
-{
-	fileStat_s dirStat;
-	char name[0x100];
-}directoryEntry_s;
+typedef struct {
+    FSStat stat;
+    char name[0x100];
+} FSDirectoryEntry;
 
 typedef enum
 {
@@ -67,7 +70,7 @@ LINKABLE int FSA_GetVolumeInfo(int fd, const char* volume_path, int type, fsa_vo
 
 LINKABLE int FSA_MakeDir(int fd, const char* path, u32 flags);
 LINKABLE int FSA_OpenDir(int fd, const char* path, int* outHandle);
-LINKABLE int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data);
+LINKABLE int FSA_ReadDir(int fd, int handle, FSDirectoryEntry* out_data);
 LINKABLE int FSA_RewindDir(int fd, int handle);
 LINKABLE int FSA_CloseDir(int fd, int handle);
 LINKABLE int FSA_ChangeDir(int fd, char *path);
@@ -78,11 +81,11 @@ LINKABLE int FSA_RemoveQuota(int fd, const char* path);
 LINKABLE int FSA_OpenFile(int fd, const char* path, const char* mode, int* outHandle);
 LINKABLE int FSA_ReadFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u32 flags);
 LINKABLE int FSA_WriteFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u32 flags);
-LINKABLE int FSA_StatFile(int fd, int handle, fileStat_s* out_data);
+LINKABLE int FSA_StatFile(int fd, int handle, FSStat* out_data);
 LINKABLE int FSA_CloseFile(int fd, int fileHandle);
 LINKABLE int FSA_FlushFile(int fd, int fileHandle);
 LINKABLE int FSA_SetPosFile(int fd, int fileHandle, u32 position);
-LINKABLE int FSA_GetStat(int fd, char *path, fileStat_s *out_data);
+LINKABLE int FSA_GetStat(int fd, char *path, FSStat *out_data);
 
 LINKABLE int FSA_ChangeMode(int fd, const char* path, int mode);
 
