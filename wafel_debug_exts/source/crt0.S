@@ -46,15 +46,17 @@ kern_setup:
 	add r0, r2, r0
 	
 	@ get size (why won't GCC allow me to subtract those two ptrs? is it trying to relocate them?)
-	ldr r2, =__bss_end__-4
+	ldr r2, =__bss_end__
 	ldr r1, =__bss_start__
-	sub r2, r2, r1
+	subs r2, r2, r1
+	beq no_bss
 
 	mov r1, #0x00
-
-1:  subs r2, r2, #4
+clear_bss:
+	subs r2, r2, #4
     str  r1, [r0], #4
-    bne  1b
+    bne  clear_bss
+no_bss:
 
     @ set up all of the relocations
 	adr r0, _start
