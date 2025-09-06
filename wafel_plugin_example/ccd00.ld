@@ -144,9 +144,9 @@ SECTIONS
 		SORT(CONSTRUCTORS)
 	} :data
 
-	__bss_start__ = .;
 	.bss ALIGN(8) :
 	{
+		__bss_start__ = .;
 		*(.dynbss)
 		*(.bss .bss.* .gnu.linkonce.b.*)
 		*(COMMON)
@@ -161,8 +161,10 @@ SECTIONS
 		__heap_start = .;
 		. += 0x10000;
 		__heap_end = .;
+
+		. = ALIGN(4);
+		__bss_end__ = .;
 	} : data
-	__bss_end__ = .;
 
 	__end__ = ABSOLUTE(.) ;
 
