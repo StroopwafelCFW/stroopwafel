@@ -347,6 +347,7 @@ static void init_phdrs()
 
     add_mirror(NSEC_ALT_BASE);
     add_mirror(BSP_ALT_BASE);
+    add_mirror(KERN_ALT_BASE);
 
     ios_elf_print_map();
 }

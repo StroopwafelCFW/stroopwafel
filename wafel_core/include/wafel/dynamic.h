@@ -27,6 +27,7 @@ extern uintptr_t wafel_plugin_base_addr;
 #define NET_ALTBASE_ADDR(_addr) (((u32)_addr) - wafel_plugin_base_addr + NET_ALT_BASE)
 #define NSEC_ALTBASE_ADDR(_addr) (((u32)_addr) - wafel_plugin_base_addr + NSEC_ALT_BASE)
 #define BSP_ALTBASE_ADDR(_addr) (((u32)_addr) - wafel_plugin_base_addr + BSP_ALT_BASE)
+#define KERN_ALTBASE_ADDR(_addr) (((u32)_addr) - wafel_plugin_base_addr + KERN_ALT_BASE)
 
 #define RAMDISK_END (0x28000000)
 #define CARVEOUT_SZ (RAMDISK_END - wafel_plugin_base_addr)

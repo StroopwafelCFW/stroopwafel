@@ -13,6 +13,7 @@
 #define NET_ALT_BASE (0x12200000)
 #define NSEC_ALT_BASE (0xE1300000)
 #define BSP_ALT_BASE (0xE5F00000)
+#define KERN_ALT_BASE (0x08200000)
 
 // *****************************
 // Filesystem config
