@@ -170,7 +170,7 @@ int FSA_OpenDir(int fd, const char* path, int* outHandle)
 	return ret;
 }
 
-int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data)
+int FSA_ReadDir(int fd, int handle, FSDirectoryEntry* out_data)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -180,7 +180,7 @@ int FSA_ReadDir(int fd, int handle, directoryEntry_s* out_data)
 
 	int ret = iosIoctl(fd, 0x0B, inbuf, 0x520, outbuf, 0x293);
 
-	if(out_data) memcpy(out_data, &outbuf[1], sizeof(directoryEntry_s));
+	if(out_data) memcpy(out_data, &outbuf[1], sizeof(FSDirectoryEntry));
 
 	freeIobuf(iobuf);
 	return ret;
@@ -315,7 +315,7 @@ int FSA_WriteFile(int fd, void* data, u32 size, u32 cnt, int fileHandle, u32 fla
 	return _FSA_ReadWriteFile(fd, data, size, cnt, fileHandle, flags, false);
 }
 
-int FSA_StatFile(int fd, int handle, fileStat_s* out_data)
+int FSA_StatFile(int fd, int handle, FSStat *out_data)
 {
 	u8* iobuf = allocIobuf();
 	u32* inbuf = (u32*)iobuf;
@@ -325,13 +325,13 @@ int FSA_StatFile(int fd, int handle, fileStat_s* out_data)
 
 	int ret = iosIoctl(fd, 0x14, inbuf, 0x520, outbuf, 0x293);
 
-	if(out_data) memcpy(out_data, &outbuf[1], sizeof(fileStat_s));
+	if(out_data) memcpy(out_data, &outbuf[1], sizeof(FSStat));
 
 	freeIobuf(iobuf);
 	return ret;
 }
 
-int FSA_GetStat(int fd, char *path, fileStat_s *out_data) {
+int FSA_GetStat(int fd, char *path, FSStat *out_data) {
     u8 *iobuf   = allocIobuf();
     u32 *inbuf  = (u32 *) iobuf;
     u32 *outbuf = (u32 *) &iobuf[0x520];
@@ -341,7 +341,7 @@ int FSA_GetStat(int fd, char *path, fileStat_s *out_data) {
 
     int ret = iosIoctl(fd, 0x18, inbuf, 0x520, outbuf, 0x293);
 
-    if (out_data) memcpy(out_data, &outbuf[1], sizeof(fileStat_s));
+    if (out_data) memcpy(out_data, &outbuf[1], sizeof(FSStat));
 
     freeIobuf(iobuf);
     return ret;
