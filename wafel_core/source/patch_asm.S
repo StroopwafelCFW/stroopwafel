@@ -312,6 +312,7 @@ ppc_hook_pre:
 
     pop {pc}
 
+#if 0
 @ this runs immediately after BSP boots the PowerPC
 @ this replaces syscall 0x5B ("flush_ipc_server"), run it later
 ppc_hook_post:
@@ -438,6 +439,7 @@ ppc_hook_post:
     @ return to the original code
         add sp, #12
         pop {r4-r8, pc}
+#endif
 
 .pool
 

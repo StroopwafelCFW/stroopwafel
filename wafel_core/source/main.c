@@ -49,12 +49,9 @@ extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
 
 
-const char* minute_img = "minute.img";
-const char* fw_img_path_slc = "/vol/system/hax";
-char* fw_img_path = "/vol/sdcard";
-
-bool minute_on_slc = false;
-bool use_minute_img = false;
+// Buffers for runtime fw.img path patching
+char fw_img_path_buffer[256] = "/vol/sdcard";
+char fw_img_filename_buffer[32] = "fw.img";
 
 u32 *otp_ptr = NULL;
 
@@ -423,16 +420,17 @@ static void init_config()
         rednand_init(rednand_conf, rednand_config_size);
     }
 
-    ret = prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
-    if(!ret){
-        minute_on_slc = true;
-    }
+    int minute_on_slc = !prsh_get_entry("minute_on_slc", (void**) NULL, NULL);
 
     u32 minute_location = 0;
     ret = prsh_get_entry("minute_location", (void**) &minute_location, NULL);
     if(!ret){
         minute_on_slc = minute_location & 1;
-        use_minute_img = (minute_location >> 1) & 1;
+        if((minute_location >> 1) & 1)
+            strcpy(fw_img_filename_buffer, "minute.img");
+    }
+    if(minute_on_slc) {
+        strcpy(fw_img_path_buffer, "/vol/system/hax");
     }
 
 
@@ -666,19 +664,13 @@ static void patch_55x()
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
-        if(minute_on_slc){
-            // patch pointer to fw.img loader path
-            U32_PATCH_K(0x050284D8, fw_img_path_slc);
-        } else {
-            // launch OS hook (fw.img -> sdcard)
-            BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
-            // patch pointer to fw.img loader path
-            U32_PATCH_K(0x050284D8, fw_img_path);
-        }
+        // Always hook fw.img loading to allow runtime path changes.
+        BL_T_TRAMPOLINE_K(0x050282AE, MCP_ALTBASE_ADDR(launch_os_hook));
+        
+        // Always patch the pointers to our buffers
+        U32_PATCH_K(0x050284D8, fw_img_path_buffer);
+        U32_PATCH_K(0x050284e0, fw_img_filename_buffer);
 
-        if(use_minute_img){
-            U32_PATCH_K(0x050284e0, minute_img);
-        }
 
         // Nop SHA1 checks on fw.img
         //U32_PATCH_K(0x0500A84C, 0);

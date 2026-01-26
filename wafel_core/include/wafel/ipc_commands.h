@@ -1,0 +1,6 @@
+#ifndef WAFEL_IPC_COMMANDS_H
+#define WAFEL_IPC_COMMANDS_H
+
+#define IOCTL_SET_FW_PATH 0x1
+
+#endif // WAFEL_IPC_COMMANDS_H
