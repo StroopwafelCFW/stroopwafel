@@ -38,6 +38,16 @@ static int ipc_ioctl(ipcmessage *message) {
             res = 0;
             break;
         }
+        case IOCTL_GET_API_VERSION: {
+            if (message->ioctl.buffer_io && message->ioctl.length_io >= sizeof(u32)) {
+                *((u32*)message->ioctl.buffer_io) = WAFEL_API_VERSION;
+                res = sizeof(u32);
+                debug_printf("IPC: Get API Version: 0x%08X\n", WAFEL_API_VERSION);
+            } else {
+                res = IOS_ERROR_INVALID_ARG;
+            }
+            break;
+        }
         default:
             res = IOS_ERROR_INVALID_ARG;
             break;
