@@ -20,6 +20,7 @@
 #include "rednand/rednand_config.h"
 #include "rednand/rednand.h"
 #include "rednand/redseeprom.h"
+#include "ipc.h"
 
 #define NEW_TIMEOUT (0xFFFFFFFF)
 
@@ -609,6 +610,8 @@ static void patch_55x()
             "ldr r3, _panic_hook\n"
             "bx r3\n"
             "_panic_hook: .word ios_panic_replace");
+
+        trampoline_hook_before(0x081214dc, ipc_init);
 
 #if HOOK_SEMIHOSTING
         // Hook SVC handler for semihosting

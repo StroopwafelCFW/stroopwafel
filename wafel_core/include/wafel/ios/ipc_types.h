@@ -19,6 +19,12 @@
 #define IOS_RESUME          0x0D
 #define IOS_SVCMSG          0x0E
 
+#define IOS_ERROR_UNKNOWN_VALUE  0xFFFFFFD6
+#define IOS_ERROR_INVALID_ARG    0xFFFFFFE3
+#define IOS_ERROR_INVALID_SIZE   0xFFFFFFE9
+#define IOS_ERROR_UNKNOWN        0xFFFFFFF7
+#define IOS_ERROR_NOEXISTS       0xFFFFFFFA
+
 
 
 typedef struct {
