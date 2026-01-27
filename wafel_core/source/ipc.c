@@ -3,6 +3,7 @@
 #include "wafel/ios/ipc_types.h"
 #include "wafel/ios/svc.h"
 #include "wafel/ipc_commands.h"
+#include "wafel/latte/cache.h"
 #include "utils.h"
 #include "ipc.h"
 
@@ -87,8 +88,30 @@ static int ipc_ioctlv(ipcmessage *message) {
                 u32 size = message->ioctlv.vector[i + 1].len;
                 if (src && size > 0) {
                     memcpy(dest, src, size);
+                    dc_flushrange(dest, size);
                 }
             }
+            ic_invalidateall();
+            res = 0;
+            break;
+        }
+        case IOCTLV_EXECUTE: {
+            if (message->ioctlv.num_in < 1 || message->ioctlv.vector[0].len < sizeof(u32)) {
+                res = IOS_ERROR_INVALID_ARG;
+                break;
+            }
+
+            u32 target_addr = *(u32 *)message->ioctlv.vector[0].ptr;
+            void *config = (message->ioctlv.num_in > 1) ? message->ioctlv.vector[1].ptr : NULL;
+            void *output = (message->ioctlv.num_io > 0) ? message->ioctlv.vector[message->ioctlv.num_in].ptr : NULL;
+
+            debug_printf("IPC: IOCTLV_EXECUTE, target: 0x%08X, config: %p, output: %p\n", target_addr, config, output);
+
+            if (target_addr) {
+                void (*func)(void *, void *) = (void (*)(void *, void *))target_addr;
+                func(config, output);
+            }
+
             res = 0;
             break;
         }
