@@ -56,6 +56,50 @@ static int ipc_ioctl(ipcmessage *message) {
     return res;
 }
 
+static int ipc_ioctlv(ipcmessage *message) {
+    int res = 0;
+
+    switch (message->ioctlv.command) {
+        case IOCTLV_WRITE_MEMORY: {
+            if (message->ioctlv.num_in < 1 || message->ioctlv.num_io != 0) {
+                res = IOS_ERROR_INVALID_ARG;
+                break;
+            }
+
+            if (message->ioctlv.vector[0].len % sizeof(u32) != 0) {
+                res = IOS_ERROR_INVALID_SIZE;
+                break;
+            }
+
+            u32 *dest_addrs = (u32 *)message->ioctlv.vector[0].ptr;
+            u32 num_writes = message->ioctlv.vector[0].len / sizeof(u32);
+
+            if (message->ioctlv.num_in != 1 + num_writes) {
+                res = IOS_ERROR_INVALID_SIZE;
+                break;
+            }
+
+            debug_printf("IPC: IOCTLV_WRITE_MEMORY, num_writes: %d\n", num_writes);
+
+            for (u32 i = 0; i < num_writes; i++) {
+                void *dest = (void *)dest_addrs[i];
+                void *src = message->ioctlv.vector[i + 1].ptr;
+                u32 size = message->ioctlv.vector[i + 1].len;
+                if (src && size > 0) {
+                    memcpy(dest, src, size);
+                }
+            }
+            res = 0;
+            break;
+        }
+        default:
+            res = IOS_ERROR_INVALID_ARG;
+            break;
+    }
+
+    return res;
+}
+
 
 static u32 ipc_thread(void *) {
     int res;
@@ -89,7 +133,7 @@ static u32 ipc_thread(void *) {
                 }
                 case IOS_IOCTLV: {
                     debug_printf("IPC: /dev/stoopwafel IOCTLV %d\n", message->ioctlv.command);
-                    res = 0; //ipc_ioctlv(message);
+                    res = ipc_ioctlv(message);
                     break;
                 }
                 default: {
