@@ -10,7 +10,7 @@
 #include "ios/memory.h"
 #include "ios/prsh.h"
 #include "latte/cache.h"
-#include "latte/irq.h"
+#include "wafel/latte/irq.h"
 #include "latte/serial.h"
 #include "dynamic.h"
 #include "ios_dynamic.h"

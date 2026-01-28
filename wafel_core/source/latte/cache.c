@@ -2,7 +2,7 @@
 
 #include "latte/cache.h"
 
-#include "irq.h"
+#include "wafel/latte/irq.h"
 #include "latte.h"
 
 void _dc_inval_entries(void *start, int count);
@@ -13,10 +13,6 @@ void _drain_write_buffer(void);
 
 #define LINESIZE 0x20
 #define CACHESIZE 0x4000
-
-#define CR_MMU      (1 << 0)
-#define CR_DCACHE   (1 << 2)
-#define CR_ICACHE   (1 << 12)
 
 void _ahb_flush_to(enum rb_client dev) {
     u32 mask;

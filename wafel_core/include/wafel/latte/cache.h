@@ -55,6 +55,10 @@ enum wb_client {
     WB_ALL = 22
 };
 
+#define CR_MMU      (1 << 0)
+#define CR_DCACHE   (1 << 2)
+#define CR_ICACHE   (1 << 12)
+
 LINKABLE void dc_flushrange(const void *start, u32 size);
 LINKABLE void dc_invalidaterange(void *start, u32 size);
 LINKABLE void dc_flushall(void);
