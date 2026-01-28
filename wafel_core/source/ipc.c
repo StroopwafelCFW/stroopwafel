@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include "wafel/ios/ipc_types.h"
 #include "wafel/ios/svc.h"
+#include "wafel/ios/mmu.h"
 #include "wafel/ipc_commands.h"
 #include "wafel/latte/cache.h"
 #include "utils.h"
@@ -44,6 +45,16 @@ static int ipc_ioctl(ipcmessage *message) {
                 *((u32*)message->ioctl.buffer_io) = WAFEL_API_VERSION;
                 res = sizeof(u32);
                 debug_printf("IPC: Get API Version: 0x%08X\n", WAFEL_API_VERSION);
+            } else {
+                res = IOS_ERROR_INVALID_ARG;
+            }
+            break;
+        }
+        case IOCTL_MAP_MEMORY: {
+            if (message->ioctl.buffer_in && message->ioctl.length_in >= sizeof(ios_map_shared_info_t)) {
+                int (*_iosMapSharedUserExecution)(void *descr) = (void *) 0x08124F88;
+                res = _iosMapSharedUserExecution(message->ioctl.buffer_in);
+                debug_printf("IPC: Map Memory: res %d\n", res);
             } else {
                 res = IOS_ERROR_INVALID_ARG;
             }
