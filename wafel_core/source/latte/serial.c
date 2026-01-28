@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include "irq.h"
+#include "wafel/latte/irq.h"
 
 u8 serial_buffer[256];
 u16 serial_len = 0;

@@ -5,6 +5,7 @@
 #include "wafel/ios/mmu.h"
 #include "wafel/ipc_commands.h"
 #include "wafel/latte/cache.h"
+#include "wafel/latte/irq.h"
 #include "utils.h"
 #include "ipc.h"
 
@@ -112,6 +113,65 @@ static int ipc_ioctlv(ipcmessage *message) {
             debug_printf("ic_invalidateall\n");
             ic_invalidateall();
             debug_printf("IPC: IOCTLV_WRITE_MEMORY FINISHED\n");
+            res = 0;
+            break;
+        }
+        case IOCTLV_WRITE_PHYSICAL: {
+            if (message->ioctlv.num_in < 1 || message->ioctlv.num_io != 0) {
+                res = IOS_ERROR_INVALID_ARG;
+                break;
+            }
+
+            if (message->ioctlv.vector[0].len % sizeof(u32) != 0) {
+                res = IOS_ERROR_INVALID_SIZE;
+                break;
+            }
+
+            u32 *dest_addrs_v = (u32 *)message->ioctlv.vector[0].ptr;
+            u32 num_writes = message->ioctlv.vector[0].len / sizeof(u32);
+
+            if (message->ioctlv.num_in != 1 + num_writes) {
+                res = IOS_ERROR_INVALID_SIZE;
+                break;
+            }
+
+            if (num_writes > 32) {
+                res = IOS_ERROR_INVALID_SIZE;
+                break;
+            }
+
+            struct {
+                u32 src_paddr;
+                u32 dest_paddr;
+                u32 size;
+            } writes[32];
+
+            for (u32 i = 0; i < num_writes; i++) {
+                writes[i].dest_paddr = dest_addrs_v[i];
+                writes[i].src_paddr = message->ioctlv.vector[i + 1].paddr;
+                writes[i].size = message->ioctlv.vector[i + 1].len;
+            }
+
+            debug_printf("IPC: IOCTLV_WRITE_PHYSICAL, num_writes: %d\n", num_writes);
+
+            u32 cookie = irq_kill();
+            dc_flushall();
+
+            u32 cr = get_cr();
+            set_cr(cr & ~(CR_MMU | CR_DCACHE));
+
+            for (u32 i = 0; i < num_writes; i++) {
+                if (writes[i].src_paddr && writes[i].size > 0) {
+                    memcpy8((void*)writes[i].dest_paddr, (void*)writes[i].src_paddr, writes[i].size);
+                }
+            }
+
+            set_cr(cr);
+            dc_flushall();
+            ic_invalidateall();
+            irq_restore(cookie);
+
+            debug_printf("IPC: IOCTLV_WRITE_PHYSICAL FINISHED\n");
             res = 0;
             break;
         }
