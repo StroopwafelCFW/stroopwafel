@@ -104,7 +104,7 @@ static void abt_replace(u32* stack, int which)
         debug_printf("r%u = %08X \n", i, stack[i+1]);
     }
 
-    debug_printf("%08X\n", *(u32*)(stack[16] + ((which == 1) ? -8 : 0)));
+    debug_printf("%08X\n", *(u32*)(stack[16] + ((which == 1) ? -8 : (which == 2) ? -4 : 0)));
 
     debug_printf("stack: %p\n", stack);
     for(int i=16; i<128; i++){
