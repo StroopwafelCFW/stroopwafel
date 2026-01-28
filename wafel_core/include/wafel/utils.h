@@ -23,7 +23,7 @@ LINKABLE void memcpy8(void *dst, const void *src, u32 size);
 static void* (*FS_memcpy)(void *dst, const void *src, size_t size) = (void*)0x107f4f7c;
 static void* (*FS_memset)(void *dst, int fill, size_t size) = (void*)0x107f5018;
 static void* (*KERN_memcpy)(void *dst, const void *src, size_t size) = (void*)0x08131d04;
-void (*flush_dcache)(unsigned int, unsigned int)      = (void (*)()) 0x08120160;
+static void (*flush_dcache)(void *ptr, unsigned int)      = (void (*)()) 0x08120160;
 
 static inline u32 read32(u32 addr)
 {
