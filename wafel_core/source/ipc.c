@@ -81,17 +81,26 @@ static int ipc_ioctlv(ipcmessage *message) {
             }
 
             debug_printf("IPC: IOCTLV_WRITE_MEMORY, num_writes: %d\n", num_writes);
+            //dc_flushrange(NULL, 0xFFFFFFFF);
 
             for (u32 i = 0; i < num_writes; i++) {
-                void *dest = (void *)dest_addrs[i];
-                void *src = message->ioctlv.vector[i + 1].ptr;
+                u8 *dest = (u8*)dest_addrs[i];
+                u8 *src = (u8*)message->ioctlv.vector[i + 1].ptr;
                 u32 size = message->ioctlv.vector[i + 1].len;
+                debug_printf("write %d: %p -> %p (%d)\n", i, src, dest, size);
                 if (src && size > 0) {
-                    memcpy(dest, src, size);
-                    dc_flushrange(dest, size);
+                    // for(size_t k=0; k<size; k++)
+                    //     dest[i] = src[i];
+                    KERN_memcpy(dest, src, size);
+                    flush_dcache(dest, size);
+                    //dc_flushrange(dest, size);
                 }
             }
+            //debug_printf("dc_flushrange\n");
+            //dc_flushrange(NULL, 0xFFFFFFFF);
+            debug_printf("ic_invalidateall\n");
             ic_invalidateall();
+            debug_printf("IPC: IOCTLV_WRITE_MEMORY FINISHED\n");
             res = 0;
             break;
         }
@@ -178,5 +187,6 @@ void ipc_init() {
 
     int threadId = iosCreateThread(ipc_thread, 0, (u32 *) (threadStack + sizeof(threadStack)), sizeof(threadStack), 0x78, 1);
     if (threadId >= 0)
+        //*(u32*)(0xffff4d78 + 0xc8 * threadId) |= 0x1f;
         iosStartThread(threadId);
 }
