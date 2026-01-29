@@ -12,7 +12,6 @@ static int ipcNodeKilled;
 static u8 threadStack[0x1000] __attribute__((aligned(0x20)));
 
 static int ipc_ioctl(ipcmessage *message) {
-    int res = 0;
 
     switch (message->ioctl.command) {
         case IOCTL_SET_FW_PATH: {
@@ -37,58 +36,53 @@ static int ipc_ioctl(ipcmessage *message) {
                     debug_printf("IPC: Set fw_img_filename_buffer to '%s' (no path)\n", fw_img_filename_buffer);
                 }
             }
-            res = 0;
-            break;
+            return 0;
         }
         case IOCTL_GET_API_VERSION: {
             if (message->ioctl.buffer_io && message->ioctl.length_io >= sizeof(u32)) {
                 *((u32*)message->ioctl.buffer_io) = WAFEL_API_VERSION;
-                res = sizeof(u32);
                 debug_printf("IPC: Get API Version: 0x%08X\n", WAFEL_API_VERSION);
+                return sizeof(u32);
             } else {
-                res = IOS_ERROR_INVALID_ARG;
+                return IOS_ERROR_INVALID_ARG;
             }
             break;
         }
         case IOCTL_MAP_MEMORY: {
             if (message->ioctl.buffer_in && message->ioctl.length_in >= sizeof(ios_map_shared_info_t)) {
                 int (*_iosMapSharedUserExecution)(void *descr) = (void *) 0x08124F88;
-                res = _iosMapSharedUserExecution(message->ioctl.buffer_in);
-                debug_printf("IPC: Map Memory: res %d\n", res);
+                int _res = _iosMapSharedUserExecution(message->ioctl.buffer_in);
+                debug_printf("IPC: Map Memory: res %d\n", _res);
+                return _res;
             } else {
-                res = IOS_ERROR_INVALID_ARG;
+                return IOS_ERROR_INVALID_ARG;
             }
             break;
         }
         default:
-            res = IOS_ERROR_INVALID_ARG;
-            break;
+            return IOS_ERROR_INVALID_ARG;
     }
 
-    return res;
+    return 0;
 }
 
 static int ipc_ioctlv(ipcmessage *message) {
-    int res = 0;
 
     switch (message->ioctlv.command) {
         case IOCTLV_WRITE_MEMORY: {
             if (message->ioctlv.num_in < 1 || message->ioctlv.num_io != 0) {
-                res = IOS_ERROR_INVALID_ARG;
-                break;
+                return IOS_ERROR_INVALID_ARG;
             }
 
             if (message->ioctlv.vector[0].len % sizeof(u32) != 0) {
-                res = IOS_ERROR_INVALID_SIZE;
-                break;
+                return IOS_ERROR_INVALID_SIZE;
             }
 
             u32 *dest_addrs = (u32 *)message->ioctlv.vector[0].ptr;
             u32 num_writes = message->ioctlv.vector[0].len / sizeof(u32);
 
             if (message->ioctlv.num_in != 1 + num_writes) {
-                res = IOS_ERROR_INVALID_SIZE;
-                break;
+                return IOS_ERROR_INVALID_SIZE;
             }
 
             debug_printf("IPC: IOCTLV_WRITE_MEMORY, num_writes: %d\n", num_writes);
@@ -112,13 +106,11 @@ static int ipc_ioctlv(ipcmessage *message) {
             debug_printf("ic_invalidateall\n");
             ic_invalidateall();
             debug_printf("IPC: IOCTLV_WRITE_MEMORY FINISHED\n");
-            res = 0;
-            break;
+            return 0;
         }
         case IOCTLV_EXECUTE: {
             if (message->ioctlv.num_in < 1 || message->ioctlv.vector[0].len < sizeof(u32)) {
-                res = IOS_ERROR_INVALID_ARG;
-                break;
+                return IOS_ERROR_INVALID_ARG;
             }
 
             u32 target_addr = *(u32 *)message->ioctlv.vector[0].ptr;
@@ -132,15 +124,13 @@ static int ipc_ioctlv(ipcmessage *message) {
                 func(config, output);
             }
 
-            res = 0;
-            break;
+            return 0;
         }
         default:
-            res = IOS_ERROR_INVALID_ARG;
-            break;
+            return IOS_ERROR_INVALID_ARG;
     }
 
-    return res;
+    return 0;
 }
 
 
