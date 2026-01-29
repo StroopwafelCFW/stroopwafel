@@ -198,6 +198,6 @@ void ipc_init() {
 
     int threadId = iosCreateThread(ipc_thread, 0, (u32 *) (threadStack + sizeof(threadStack)), sizeof(threadStack), 0x78, 1);
     if (threadId >= 0)
-        //*(u32*)(0xffff4d78 + 0xc8 * threadId) |= 0x1f;
+        *(u32*)(0xffff4d78 + 0xc8 * threadId) |= 0x1f;
         iosStartThread(threadId);
 }
