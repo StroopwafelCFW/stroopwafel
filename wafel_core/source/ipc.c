@@ -3,10 +3,12 @@
 #include "wafel/ios/ipc_types.h"
 #include "wafel/ios/svc.h"
 #include "wafel/ios/mmu.h"
+#include "wafel/ios/prsh.h"
 #include "wafel/ipc_commands.h"
 #include "wafel/latte/cache.h"
 #include "utils.h"
 #include "ipc.h"
+#include <stdio.h>
 
 static int ipcNodeKilled;
 static u8 threadStack[0x1000] __attribute__((aligned(0x20)));
@@ -54,6 +56,58 @@ static int ipc_ioctl(ipcmessage *message) {
                 int _res = _iosMapSharedUserExecution(message->ioctl.buffer_in);
                 debug_printf("IPC: Map Memory: res %d\n", _res);
                 return _res;
+            } else {
+                return IOS_ERROR_INVALID_ARG;
+            }
+            break;
+        }
+        case IOCTL_GET_MINUTE_PATH: {
+            minute_path_t *out = (minute_path_t *)message->ioctl.buffer_io;
+            if (out && message->ioctl.length_io >= sizeof(minute_path_t)) {
+                u32 minute_on_slc = !prsh_get_entry("minute_on_slc", NULL, NULL);
+                const char *filename = "fw.img";
+                u32 *p_location = NULL;
+                if (prsh_get_entry("minute_location", (void**)&p_location, NULL) == 0 && p_location) {
+                    u32 location = *p_location;
+                    minute_on_slc = location & 1;
+                    if ((location >> 1) & 1) filename = "minute.img";
+                }
+
+                if (minute_on_slc) {
+                    out->device = MIN_DEV_SLC;
+                    snprintf(out->path, sizeof(out->path), "/sys/hax/%s", filename);
+                } else {
+                    out->device = MIN_DEV_SD;
+                    snprintf(out->path, sizeof(out->path), "/%s", filename);
+                }
+                debug_printf("IPC: Get Minute Path: dev %d, path %s\n", out->device, out->path);
+                return sizeof(minute_path_t);
+            } else {
+                return IOS_ERROR_INVALID_ARG;
+            }
+            break;
+        }
+        case IOCTL_GET_PLUGIN_PATH: {
+            minute_path_t *out = (minute_path_t *)message->ioctl.buffer_io;
+            if (out && message->ioctl.length_io >= sizeof(minute_path_t)) {
+                u32 *p_boot = NULL;
+                u32 boot = 0;
+                if (prsh_get_entry("minute_boot", (void**)&p_boot, NULL) == 0 && p_boot) {
+                    boot = *p_boot;
+                }
+
+                if (boot == 1) {
+                    out->device = MIN_DEV_SLC;
+                    snprintf(out->path, sizeof(out->path), "/sys/hax/ios_plugins");
+                } else if (boot >= 2 && boot <= 5) {
+                    out->device = MIN_DEV_SD;
+                    snprintf(out->path, sizeof(out->path), "/wiiu/ios_plugins");
+                } else {
+                    out->device = MIN_DEV_UNKNOWN;
+                    out->path[0] = '\0';
+                }
+                debug_printf("IPC: Get Plugin Path: dev %d, path %s\n", out->device, out->path);
+                return sizeof(minute_path_t);
             } else {
                 return IOS_ERROR_INVALID_ARG;
             }
