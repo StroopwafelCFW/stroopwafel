@@ -11,15 +11,15 @@ Stroopwafel provides an IPC interface through the `/dev/stroopwafel` device. Thi
 Writes data to IOS memory.
 
 - **Input Vectors:**
-  - `vector[0]`: Contains the destination address in IOS memory.
-  - `vector[1...num_in-1]`: Contain the source data to be written.
+  - `vector[0]`: `ptr` contains the destination **virtual** address in IOS memory. `len` contains the total length of data to be written.
+  - `vector[1...num_in-1]`: Contain the source data to be written. The sum of lengths of these vectors must match `vector[0].len`.
 - **Notes:** After writing, the implementation ensures cache coherency by flushing the D-cache and invalidating the I-cache.
 
 ### `IOCTLV_EXECUTE` (0x4)
 Executes a function in IOS.
 
 - **Input Vectors:**
-  - `vector[0]`: Contains the address of the function to be called.
+  - `vector[0]`: `ptr` contains the **virtual** address of the function to be called.
   - `vector[1]`: (Optional) Config buffer passed to the function.
 - **Output Vectors:**
   - `vector[0]`: (Optional) Output buffer passed to the function.
