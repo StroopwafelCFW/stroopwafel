@@ -90,6 +90,14 @@ These trampolines support hooking the same address multiple times. With the `blr
 
 A demo of the trampolines can be found here: [wafel_trampoline_demo/source/main.c at main · jan-hofmeier/wafel_trampoline_demo · GitHub](https://github.com/jan-hofmeier/wafel_trampoline_demo/blob/main/source/main.c)
 
+## IPC Interface
+
+Stroopwafel provides a custom IPC interface via the `/dev/stroopwafel` device, allowing user-land applications to interact with the IOS kernel. This interface supports memory operations, code execution, and more.
+
+For a convenient wrapper to interact with this interface, see [libstroopwafel](https://github.com/StroopwafelCFW/libstroopwafel).
+
+Detailed technical information about the IPC commands and structures can be found in [IPC.md](IPC.md).
+
 ## technical details
 
 stroopwafel operates similar to (and is based on) [SaltyNX](https://github.com/shinyquagsire23/SaltyNX): Instead of jumping to the reset handler at 0xFFFF0000, code execution is redirected to `wafel_core`. `wafel_core` patches the IOS kernel, modules, and segments, and then jumps to 0xFFFF0000. The memory for stroopwafel plugins is taken from the end of the 128MiB ramdisk at 0x20000000. Specifics on bootstrapping can be found [here](https://github.com/shinyquagsire23/minute_minute/blob/master/source/ancast.c#L624).
