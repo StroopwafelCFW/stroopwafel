@@ -88,14 +88,17 @@ static int ipc_ioctl(ipcmessage *message) {
             break;
         }
         case IOCTL_GET_PLUGIN_PATH: {
+            printf("IPC: IOCTL_GET_PLUGIN_PATH\n");
             minute_path_t *out = (minute_path_t *)message->ioctl.buffer_io;
             if (out && message->ioctl.length_io >= sizeof(minute_path_t)) {
-                u32 *p_boot = NULL;
+                printf("IPC: IOCTL_GET_PLUGIN_PATH out buffer is valid\n");
                 u32 boot = 0;
-                if (prsh_get_entry("minute_boot", (void**)&p_boot, NULL) == 0 && p_boot) {
-                    boot = *p_boot;
+                if (prsh_get_entry("minute_boot", (void**)&boot, NULL)) {
+                    out->device = MIN_DEV_UNKNOWN;
+                    out->path[0] = '\0';
+                    debug_printf("IPC: minute_boot PRSH entry not found\n");
                 }
-
+                printf("IPC: minute_boot value: %u\n", boot);
                 if (boot == 1) {
                     out->device = MIN_DEV_SLC;
                     snprintf(out->path, sizeof(out->path), "/sys/hax/ios_plugins");
