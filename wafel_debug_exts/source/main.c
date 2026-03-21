@@ -3,11 +3,23 @@
 #include <wafel/trampoline.h>
 #include "config.h"
 
+#define MCP_SYSLOG_OUTPUT_ADDR (0x0503DCF8)
+#define PAD_SYSLOG_OUTPUT_ADDR (0x11F7EF98)
+#define FS_SYSLOG_OUTPUT_ADDR  (0x107F0C84)
+
+#define FS_SCFM_READ1           (0x107DC760)
+#define FS_SCFM_WRITE1          (0x107DC0C0)
 
 void sys_write_r1(trampoline_state *state){
     // buffer is in r1
     svc_sys_write((char*)state->r[1]);
 }
+
+#if PRINT_MLC_READ
+void hook_scfm_print(trampoline_state *regs){
+    debug_printf("mlcRead1 : %08X %08X %08X\n", );
+}
+#endif
 
 
 static void mcp_patches(void){
@@ -20,14 +32,14 @@ static void mcp_patches(void){
 static void fs_patches(void){
     // mlcRead1 logging
 #if PRINT_MLC_READ
-    BL_TRAMPOLINE_K(FS_MLC_READ1 + 0x4, FS_ALTBASE_ADDR(mlcRead1_dbg));
+    BL_TRAMPOLINE_K(FS_SCFM_READ1 + 0x4, FS_ALTBASE_ADDR(mlcRead1_dbg));
 #endif // PRINT_MLC_READ
 #if PRINT_MLC_WRITE
-    BL_TRAMPOLINE_K(FS_MLC_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
+    BL_TRAMPOLINE_K(FS_SCFM_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
 #endif // PRINT_MLC_WRITE
 
     // some selective logging function : enable all the logging!
-    BRANCH_PATCH_K(0x107F5720, FS_SYSLOG_OUTPUT);
+    BRANCH_PATCH_K(0x107F5720, FS_SYSLOG_OUTPUT_ADDR);
 
 //open_base equ 0x1070AF0C
 //opendir_base equ 
