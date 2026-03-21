@@ -30,9 +30,6 @@
 // Experimental vWii PPC overclock
 #define VWII_OVERCLOCK 0
 
-// Hooks semihosting operations with GPIO output
-#define HOOK_SEMIHOSTING 1
-
 // Enables serial output over the debug (NDEV_LED) GPIOs
 #define GPIO_SERIAL_CONSOLE 1
 

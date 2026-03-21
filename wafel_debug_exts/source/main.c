@@ -2,6 +2,7 @@
 #include <wafel/ios/svc.h>
 #include <wafel/trampoline.h>
 #include <wafel/patch.h>
+#include <wafel/latte/serial.h>
 
 #define MCP_SYSLOG_OUTPUT_ADDR (0x0503DCF8)
 #define PAD_SYSLOG_OUTPUT_ADDR (0x11F7EF98)
@@ -9,10 +10,29 @@
 
 #define PRINT_PAD 0
 
+// Hooks semihosting operations with GPIO output
+#define HOOK_SEMIHOSTING 1
+
 
 void sys_write_r1(trampoline_state *state){
     // buffer is in r1
     svc_sys_write((char*)state->r[1]);
+}
+
+extern void* old_svc_handler;
+extern void svc_handler_hook();
+
+static void semihosting_write0(const char* str)
+{
+    serial_send_str(str);
+}
+
+void semihosting_handler(int which, void* arg0)
+{
+    if (which == 4) // write0
+    {
+        semihosting_write0((const char*)arg0);
+    }
 }
 
 // This fn runs before everything else in kernel mode.
@@ -37,6 +57,13 @@ void kern_main()
     // PAD: some selective logging function : pad module
     BRANCH_PATCH_K(0x11f7efec, PAD_SYSLOG_OUTPUT_ADDR);
 #endif
+
+#if HOOK_SEMIHOSTING
+        // Hook SVC handler for semihosting
+        old_svc_handler = (void*)(*(u32*)0xFFFF0028);
+        *(u32*)0xFFFF0028 = (u32)svc_handler_hook;
+#endif
+
 }
 
 // This fn runs before MCP's main thread, and can be used

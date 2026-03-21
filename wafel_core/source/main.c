@@ -26,8 +26,6 @@
 
 extern void kern_entry();
 extern void mcp_entry();
-extern void svc_handler_hook();
-extern void* old_svc_handler;
 extern int otp_read_replace_hacky(int which_word, u32 *pOut, unsigned int len);
 extern void otp_read_replace_hacky_end();
 extern void ancast_crypt_check();
@@ -141,19 +139,6 @@ void ios_panic_replace(const char* str)
     // TODO: write RTC
     // TODO: write screen?
     while (1);
-}
-
-static void semihosting_write0(const char* str)
-{
-    serial_send_str(str);
-}
-
-void semihosting_handler(int which, void* arg0)
-{
-    if (which == 4) // write0
-    {
-        semihosting_write0((const char*)arg0);
-    }
 }
 
 static void init_heap()
@@ -347,7 +332,7 @@ static void init_phdrs()
     add_mirror(BSP_ALT_BASE);
     add_mirror(KERN_ALT_BASE);
 
-    ios_elf_print_map();
+    //ios_elf_print_map();
 }
 
 static void init_linking()
@@ -610,12 +595,6 @@ static void patch_55x()
             "_panic_hook: .word ios_panic_replace");
 
         trampoline_hook_before(0x081214dc, ipc_init);
-
-#if HOOK_SEMIHOSTING
-        // Hook SVC handler for semihosting
-        old_svc_handler = (void*)(*(u32*)0xFFFF0028);
-        *(u32*)0xFFFF0028 = (u32)svc_handler_hook;
-#endif
     }
 
     // BSP
