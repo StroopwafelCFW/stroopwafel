@@ -12,8 +12,6 @@
 	bx lr
 .endm
 
-.extern semihosting_handler
-
 .global _wafel_SyscallStart
 _wafel_SyscallStart:
 
