@@ -5,7 +5,9 @@
 .extern memset
 .extern memcpy
 .extern debug_printf
+#if PRINT_WELCOME
 .extern font_bin
+#endif
 .extern msleep
 .extern snprintf
 .extern iosCreateSemaphore
@@ -90,6 +92,7 @@ hai_shift_loop:
 
 
 
+#if BOOT_DIRS_CLEAR
 .align 4
 .global boot_dirs_clear_t
 boot_dirs_clear_t:
@@ -119,6 +122,7 @@ system_ramdisk_cache:
 .ascii "/vol/system_ram/cache" 
 .byte 0
 .align 4
+#endif
 
 
 #if 0
@@ -1423,6 +1427,7 @@ fsaopendir_str:
 .align 4
 #endif
     
+#if PRINT_WELCOME
 sdcard_init:
     @ this should run *after* /dev/mmc thread is created
     push {lr}
@@ -1448,25 +1453,9 @@ sdcard_init:
     str r1, [r0, #0x28]
 
     pop {pc}
-
-#if 0
-mlc_init:
-    @ this should run *after* /dev/mmc thread is created (and after sdcard_init)
-    @ this should also only be run when you want to dump mlc; this will cause the physical mlc device to be inaccessible to regular FS code
-    push {lr}
-
-    @ finally we set some flags to indicate sdcard is ready for use
-    ldr r0, =FS_MMC_MLC_STRUCT
-    ldr r1, [r0, #0x24]
-    orr r1, #0x20
-    str r1, [r0, #0x24]
-    ldr r1, [r0, #0x28]
-    bic r1, #0x4
-    str r1, [r0, #0x28]
-
-    pop {pc}
 #endif
 
+#if USE_REDNAND
 .equ sdcard_readwrite_stackframe_size, (4*4+12*4)
 
 @ r0 : bool read (0 = read, not 0 = write), r1 : data_ptr, r2 : cnt, r3 : block_size, sparg0 : offset_blocks, sparg1 : out_callback_arg2, sparg2 : device_id
@@ -1561,7 +1550,9 @@ sdcard_readwrite_callback:
     str r1, [r0, #4]
     ldr r0, [r0]
     b iosSignalSemaphore
+#endif
 
+#if PRINT_WELCOME
 createDevThread_hook:
     push {r0}
     @ check if we were initializing /dev/mmc
@@ -1591,6 +1582,7 @@ createDevThread_hook:
     .ascii "welcome to redNAND: SALT edition"
 .byte 0
     .align 0x4
+#endif
     
 
 getMdDeviceById_hook:
@@ -1996,6 +1988,7 @@ rw_data_offset:
 #endif
 .pool
 
+#if PRINT_WELCOME
 .equ FRAMEBUFFER_ADDRESS, (0x14000000+0x38C0000)
 .equ FRAMEBUFFER_STRIDE,  (0xE00)
 .equ FRAMEBUFFER_SIZE, (FRAMEBUFFER_STRIDE*504)
@@ -2028,7 +2021,6 @@ _printf:
     ldr r0, =_printf_string
     bl drawString
     pop {pc}
-
 
 @ r0 : str, r1 : x, r2 : y
 drawString:
@@ -2084,15 +2076,21 @@ drawCharacter:
         subs r6, #1
         bne drawCharacter_loop1
     pop {r4-r7,pc}
+#endif
 
 .pool
 
 .section ".bss"
 
+#if USE_REDNAND || PRINT_WELCOME
 sdcard_access_mutex:
     .word 0x00000000
+#endif
+#if 0
 mlc_out_callback_arg2:
     .word 0x00000000
+#endif
+#if PRINT_WELCOME
 _printf_xylr:
     .word 0x00000000
     .word 0x00000000
@@ -2100,6 +2098,7 @@ _printf_xylr:
 _printf_string:
     .skip 0x100
 _printf_string_end:
+#endif
 
 .global trampoline_buffer
 .global trampoline_buffer_end
@@ -2111,6 +2110,7 @@ trampoline_buffer_end:
 
 .skip 32
 .align 0x4
+#if 0
 syslog_buffer:
     .skip 0x40000
 
@@ -2118,3 +2118,4 @@ syslog_buffer:
 .align 0x4
 sdcard_read_buffer:
     .skip 0x100000
+#endif

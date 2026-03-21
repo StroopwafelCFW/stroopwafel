@@ -33,7 +33,9 @@ extern void launch_os_hook();
 #if USB_SHRINKSHIFT
 extern void hai_shift_data_offsets_t();
 #endif
+#if BOOT_DIRS_CLEAR
 extern void boot_dirs_clear_t();
+#endif
 extern void crypto_keychange_hook();
 extern void crypto_disable_hook();
 extern void c2w_seeprom_hook_t();
@@ -665,6 +667,7 @@ static void patch_55x()
         //BL_T_TRAMPOLINE_K(0x05034118, MCP_ALTBASE_ADDR(ppc_hook_post));
 
         // hook in a few dirs to delete on mcp startup
+#if BOOT_DIRS_CLEAR
         ASM_T_PATCH_K(0x05016C8C,
             "push {lr}\n"
         );
@@ -673,6 +676,7 @@ static void patch_55x()
             "mov r0, #0\n"
             "pop {pc}\n"
         );
+#endif
 
         // fix 10 minute timeout that crashes MCP after 10 minutes of booting
         U32_PATCH_K(0x05022474, NEW_TIMEOUT);

@@ -102,6 +102,12 @@
 #define PRINT_MLC_WRITE     0 // Print MLC write calls
 #define PRINT_USB_RW        0 // Print USB read/write calls
 
+// Print welcome message on screen
+#define PRINT_WELCOME       0
+
+// Clear temporary directories on boot
+#define BOOT_DIRS_CLEAR     1
+
 // dump current syslog contents to SYSLOG_OFFS_SECTORS on every FSA log write.
 // (debugging feature, will cause slowdown and hammer on the SD card)
 #define DUMP_LOG 0
