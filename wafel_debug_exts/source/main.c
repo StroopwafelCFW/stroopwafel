@@ -14,6 +14,9 @@
 #define HOOK_SEMIHOSTING 1
 
 
+// just needs to exist to enable debug_printf
+int enable_debug_printf;
+
 void sys_write_r1(trampoline_state *state){
     // buffer is in r1
     svc_sys_write((char*)state->r[1]);

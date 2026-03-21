@@ -366,6 +366,10 @@ static void init_linking()
             }
             debug_printf("registering plugin: %08x\n", next_plugin);
             wafel_register_plugin(next_plugin);
+            if(wafel_get_symbol_addr(next_plugin, "enable_debug_printf")){
+                debug_printf_enabled = true;
+                debug_printf("Enabling debug_printf\n");
+            }
         }
     }
 

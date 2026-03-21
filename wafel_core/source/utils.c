@@ -9,6 +9,9 @@
 #include "latte/latte.h"
 #include "latte/serial.h"
 
+
+bool debug_printf_enabled = false;
+
 void debug_printf(const char *format, ...)
 {
     va_list args;
@@ -16,9 +19,11 @@ void debug_printf(const char *format, ...)
 
     static char buffer[0x100];
 
-    vsnprintf(buffer, 0xFF, format, args);
-    //svc_sys_write(buffer);
-    serial_send_str(buffer);
+    if(debug_printf_enabled){
+        vsnprintf(buffer, 0xFF, format, args);
+        //svc_sys_write(buffer);
+        serial_send_str(buffer);
+    }
 
     va_end(args);
 }

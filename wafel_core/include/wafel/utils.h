@@ -9,6 +9,8 @@
 #define ALIGN_BACKWARD(x,align) \
     ((__typeof__(x))(((u32)(x)) & (~(align-1))))
 
+
+extern bool debug_printf_enabled;
 /*
  * These functions are guaranteed to copy by reading from src and writing to dst in <n>-bit units
  * If size is not aligned, the remaining bytes are not copied
