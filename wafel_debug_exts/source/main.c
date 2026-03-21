@@ -1,6 +1,7 @@
 #include <wafel/utils.h>
 #include <wafel/ios/svc.h>
 #include <wafel/trampoline.h>
+#include <wafel/patch.h>
 
 #define MCP_SYSLOG_OUTPUT_ADDR (0x0503DCF8)
 #define PAD_SYSLOG_OUTPUT_ADDR (0x11F7EF98)
