@@ -62,6 +62,7 @@ ancast_no_crypt:
 .pool
 
 .align 4
+#if USB_SHRINKSHIFT
 hai_shift_data_offsets_t:
     .thumb
     bx pc
@@ -85,6 +86,7 @@ hai_shift_loop:
     ldr r3, [r7, #8] @replaced
     ldr r0, [r5]
     bx lr
+#endif
 
 
 
@@ -119,6 +121,7 @@ system_ramdisk_cache:
 .align 4
 
 
+#if 0
 @ r0 = location, r1 = entry
 ppc_jump_stub:
     .arm
@@ -245,11 +248,13 @@ ppc_wait_stub:
     mov r1, #0x3C   @ size
     pop {lr}
     b iosFlushDCache
+#endif
 
 .pool
 
 @ TODO
 
+#if 0
 .align 4
 MCP_IOS_SHUTDOWN:
     .arm
@@ -258,6 +263,7 @@ MCP_IOS_SHUTDOWN:
     blx r7
     pop {r7, pc}
 .pool
+#endif
 
 .align 4
 MCP_FSA_OPEN:
@@ -277,12 +283,14 @@ MCP_FSA_MOUNT:
     pop {r7, pc}
 .pool
 
+#if 0
 .align 4
 MCP_READFILE:
     .thumb
     ldr r4, =0x050170FC+1
     bx r4
 .pool
+#endif
 
 .align 4
 MCP_SYSLOG_OUTPUT:
@@ -293,6 +301,7 @@ MCP_SYSLOG_OUTPUT:
     pop {r7, pc}
 .pool
 
+#if 0
 @ this runs after BSP holds the PPC in reset,
 @ the signed binary is already loaded in to memory
 @ this hook replaces syscall 0x5F ("init_mem1_ppc") but it sucks so who cares
@@ -311,6 +320,7 @@ ppc_hook_pre:
         bl ppc_wait_stub
 
     pop {pc}
+#endif
 
 #if 0
 @ this runs immediately after BSP boots the PowerPC
@@ -1277,6 +1287,7 @@ str_wplus: .ascii "w+"
 .align 4
 #endif
 
+#if PRINT_FSASEEKFILE
 .align 4
 seekfile_hook:
     push {r0-r3, lr}
@@ -1304,7 +1315,9 @@ str_seekfile_format:
 .byte 0xA
 .byte 0
 .align 4
+#endif
 
+#if PRINT_FSAREADWRITE
 fread_hook:
     push {r0-r3, lr}
     adr r1, str_read
@@ -1346,10 +1359,12 @@ str_read_write_print_format:
 .ascii "SALT: file %s size 0x%X handle 0x%X pid %d"
 .byte 0xA,0
 .align 4
+#endif
     
 
 
 
+#if USB_SHRINKSHIFT || NO_CRYPTO
 wfs_crypto_hook:
     ldrb r3, [lr,#0x19] @ replaced
 #if USB_SHRINKSHIFT | NO_CRYPTO
@@ -1374,8 +1389,9 @@ wfs_crypto_hook_ret:
     pop {r4-r7}
 #endif // USB_SHRINKSHIFT | NOCRYPTO
     b REL_WFS_CRYPTO_HOOK_RET_ADDR
+#endif
+#if PRINT_FSAOPEN
 .align 4
-    
 fsaopen_fullstr_dump_hook:
     push {r4, lr}
     bl REL_FS_GET_FULL_DIR_STR   @ fsa_get_full_dir_str
@@ -1397,7 +1413,7 @@ opendir_hook:
     adr r0, fsaopendir_str
     bl REL_FS_SYSLOG_OUTPUT
     pop {r0-r3, lr}
-    
+
     subs r6, r0, #0
     b (REL_FS_OPENDIR_BASE+4)
 
@@ -1405,6 +1421,7 @@ fsaopendir_str:
 .ascii "SALT: FSAOpenDir %s"
 .byte 0xA,0
 .align 4
+#endif
     
 sdcard_init:
     @ this should run *after* /dev/mmc thread is created
@@ -1432,6 +1449,7 @@ sdcard_init:
 
     pop {pc}
 
+#if 0
 mlc_init:
     @ this should run *after* /dev/mmc thread is created (and after sdcard_init)
     @ this should also only be run when you want to dump mlc; this will cause the physical mlc device to be inaccessible to regular FS code
@@ -1447,6 +1465,7 @@ mlc_init:
     str r1, [r0, #0x28]
 
     pop {pc}
+#endif
 
 .equ sdcard_readwrite_stackframe_size, (4*4+12*4)
 
@@ -1664,6 +1683,7 @@ readWriteCallback_patch:
 @    USB TWEAKS   @
 @ @ @ @ @ @ @ @ @ @
 
+#if USB_SHRINKSHIFT
 @ spoof mass storage sector count, if it matches
 usb_sector_spoof:
     ldr r11, [r7, #0x20]
@@ -1682,7 +1702,9 @@ usb_sector_spoof:
     streq r3, [r9]
 #endif
     b (REL_FS_USB_SECTOR_SPOOF+4)
+#endif
 
+#if USB_SHRINKSHIFT || PRINT_USB_RW
 @ add an offset to mass storage sector reads/writes
 usbRead_patch:
     push {r4-r11, lr}
@@ -1739,12 +1761,16 @@ usbWrite_patch:
     addeq  r2, r7
 #endif
     b (REL_FS_USB_WRITE+4)
+
+#if PRINT_USB_RW
 usb_str:.ascii "SALT: USB %s offset 0x%X size 0x%X"
 .byte 0xA, 0
 read_str:.ascii "read"
 .byte 0
 write_str:.ascii "write"
 .byte 0
+#endif
+#endif
 .align 4
 
 
@@ -1912,6 +1938,7 @@ _read_orig_cont: .word 0xe600d094
 @   DEBUG STUFF   @
 @ @ @ @ @ @ @ @ @ @
 
+#if PRINT_MLC_READ
 mlcRead1_dbg:
 .equ mlcRead1_dbg_stackframe, (4*6)
     mov r12, r0
@@ -1924,7 +1951,9 @@ mlcRead1_dbg:
         .ascii "mlcRead1 : %08X %08X %08X"
 .byte 0xA,0
         .align 0x4
-    
+#endif
+
+#if PRINT_MLC_WRITE
 mlcWrite1_dbg:
 .equ mlcWrite1_dbg_stackframe, (4*6)
     mov r12, r0
@@ -1937,7 +1966,9 @@ mlcWrite1_dbg:
         .ascii "mlcWrite1 : %08X %08X %08X"
 .byte 0xA,0
         .align 0x4
+#endif
 
+#if 0
 @ r0 : data ptr
 @ r1 : size
 @ r2 : offset_blocks
@@ -1962,6 +1993,7 @@ rw_data_offset:
     bl sdcard_readwrite
     add sp, #0xC
     pop {r4,pc}
+#endif
 .pool
 
 .equ FRAMEBUFFER_ADDRESS, (0x14000000+0x38C0000)

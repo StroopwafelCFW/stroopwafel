@@ -30,7 +30,9 @@ extern int otp_read_replace_hacky(int which_word, u32 *pOut, unsigned int len);
 extern void otp_read_replace_hacky_end();
 extern void ancast_crypt_check();
 extern void launch_os_hook();
+#if USB_SHRINKSHIFT
 extern void hai_shift_data_offsets_t();
+#endif
 extern void boot_dirs_clear_t();
 extern void crypto_keychange_hook();
 extern void crypto_disable_hook();
@@ -39,12 +41,20 @@ extern void c2w_boot_hook_t();
 extern void c2w_otp_replacement_t();
 extern void c2w_otp_replacement_t_end();
 
+#if USB_SHRINKSHIFT || NO_CRYPTO
 extern void wfs_crypto_hook();
+#endif
+#if USB_SHRINKSHIFT || PRINT_USB_RW
 extern void usbRead_patch();
 extern void usbWrite_patch();
+#endif
+#if USB_SHRINKSHIFT
 extern void usb_sector_spoof();
+#endif
+#if PRINT_FSAOPEN
 extern void opendir_hook();
 extern void fsaopen_fullstr_dump_hook();
+#endif
 
 
 // Buffers for runtime fw.img path patching
@@ -846,10 +856,16 @@ static void patch_55x()
 #endif
 
         //  usb redirection and crypto disable
+#if USB_SHRINKSHIFT || PRINT_USB_RW
         BRANCH_PATCH_K(FS_USB_READ, FS_ALTBASE_ADDR(usbRead_patch));
         BRANCH_PATCH_K(FS_USB_WRITE, FS_ALTBASE_ADDR(usbWrite_patch));
+#endif
+#if USB_SHRINKSHIFT
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
+#endif
+#if USB_SHRINKSHIFT || NO_CRYPTO
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
+#endif
 
         // mlcRead1 logging
 #if PRINT_MLC_READ
