@@ -652,15 +652,6 @@ static void patch_55x()
         // MCP main thread hook
         BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
 
-        // some selective logging function : enable all the logging !
-        BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT_ADDR);
-
-#if PRINT_PAD
-        // some selective logging function : pad module
-        BRANCH_PATCH_K(0x11f7efec, PAD_SYSLOG_OUTPUT_ADDR);
-#endif
-
-
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
 
@@ -879,41 +870,6 @@ static void patch_55x()
         BRANCH_PATCH_K(FS_USB_WRITE, FS_ALTBASE_ADDR(usbWrite_patch));
         BRANCH_PATCH_K(FS_USB_SECTOR_SPOOF, FS_ALTBASE_ADDR(usb_sector_spoof));
         BRANCH_PATCH_K(WFS_CRYPTO_HOOK_ADDR, FS_ALTBASE_ADDR(wfs_crypto_hook));
-
-        // mlcRead1 logging
-#if PRINT_MLC_READ
-        BL_TRAMPOLINE_K(FS_MLC_READ1 + 0x4, FS_ALTBASE_ADDR(mlcRead1_dbg));
-#endif // PRINT_MLC_READ
-#if PRINT_MLC_WRITE
-        BL_TRAMPOLINE_K(FS_MLC_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
-#endif // PRINT_MLC_WRITE
-
-        // some selective logging function : enable all the logging!
-        BRANCH_PATCH_K(0x107F5720, FS_SYSLOG_OUTPUT);
-
-//open_base equ 0x1070AF0C
-//opendir_base equ 
-#if PRINT_FSAOPEN
-        BL_TRAMPOLINE_K(0x1070AC94, FS_ALTBASE_ADDR(fsaopen_fullstr_dump_hook));
-
-        // opendir_base
-        BRANCH_PATCH_K(FS_OPENDIR_BASE, FS_ALTBASE_ADDR(opendir_hook));
-#endif // PRINT_FSAOPEN
-    
-        // FSA general permissions patch
-        // ASM_PATCH_K(0x107043E4,
-        //     "mov r3, #-1\n"
-        //     "mov r2, #-1\n"
-        // );
-    
-#if PRINT_FSAREADWRITE
-        BL_TRAMPOLINE_K(0x1070AA1C, FS_ALTBASE_ADDR(fread_hook));
-        BL_TRAMPOLINE_K(0x1070A7A8, FS_ALTBASE_ADDR(fwrite_hook));
-#endif // PRINT_FSAREADWRITE
-
-#if PRINT_FSASEEKFILE
-        BL_TRAMPOLINE_K(0x1070A46C, FS_ALTBASE_ADDR(seekfile_hook));
-#endif // PRINT_FSASEEKFILE
     }
 }
 
