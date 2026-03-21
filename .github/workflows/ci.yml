@@ -26,10 +26,13 @@ jobs:
     - name: Build Docker image
       run: docker build . -t builder:latest
 
-    - name: build binary
+    - name: build wafel core
       run: |
-        docker run --rm -v ${PWD}:/project builder:latest /bin/bash -c "export STROOPWAFEL_ROOT=/project && make -C wafel_core clean && make -C wafel_debug_exts clean && make -C wafel_core && make -C wafel_debug_exts && cp wafel_core/00core.elf 00core.ipx && cp wafel_debug_exts/5debug.ipx 5debug.ipx"
+        docker run --rm -v ${PWD}:/project builder:latest /bin/bash -c "export STROOPWAFEL_ROOT=/project && make -C wafel_core && mv wafel_core/00core.elf 00core.ipx"
 
+    - name: build debug plugin
+      run: |
+        docker run --rm -v ${PWD}:/project builder:latest /bin/bash -c "export STROOPWAFEL_ROOT=/project && make -C wafel_debug_exts && mv wafel_debug_exts/5debug.ipx 5debug.ipx"
         
     - uses: actions/upload-artifact@v4
       with:
