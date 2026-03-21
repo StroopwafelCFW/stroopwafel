@@ -71,7 +71,7 @@ static void _patch_u32_k(uintptr_t addr, u32 val)
 
 static void _patch_copy_k(uintptr_t dst, uintptr_t src, size_t sz)
 {
-    debug_printf("Patch size: %p\n", sz);
+    //debug_printf("Patch size: %p\n", sz);
     // copy in u16 increments, so that thumb patches don't break
     memcpy16((void*)ios_elf_vaddr_to_paddr(dst), (void*)src, sz);
 }
