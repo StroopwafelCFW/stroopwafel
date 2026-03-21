@@ -652,14 +652,6 @@ static void patch_55x()
         // MCP main thread hook
         BL_TRAMPOLINE_K(ios_elf_get_module_entrypoint(IOS_MCP), MCP_ALTBASE_ADDR(mcp_entry));
 
-        // some selective logging function : enable all the logging !
-        BRANCH_PATCH_K(0x05055438, MCP_SYSLOG_OUTPUT_ADDR);
-
-#if PRINT_PAD
-        // some selective logging function : pad module
-        BRANCH_PATCH_K(0x11f7efec, PAD_SYSLOG_OUTPUT_ADDR);
-#endif
-
 
         // hook to allow decrypted ancast images
         BL_T_TRAMPOLINE_K(0x0500A678, MCP_ALTBASE_ADDR(ancast_crypt_check));
@@ -887,9 +879,6 @@ static void patch_55x()
 #if PRINT_MLC_WRITE
         BL_TRAMPOLINE_K(FS_MLC_WRITE1 + 0x4, FS_ALTBASE_ADDR(mlcWrite1_dbg));
 #endif // PRINT_MLC_WRITE
-
-        // some selective logging function : enable all the logging!
-        BRANCH_PATCH_K(0x107F5720, FS_SYSLOG_OUTPUT);
 
 //open_base equ 0x1070AF0C
 //opendir_base equ 
