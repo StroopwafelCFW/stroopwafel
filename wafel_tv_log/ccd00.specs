@@ -1,0 +1,6 @@
+%rename link old_link
+
+*link:
+%(old_link) -T %:getenv(MAKEFILE_ROOT_DIR /ccd00.ld) -pie --gc-sections --build-id=sha1
+
+# I wanted -z text in here, but it's not possible w/ dkA's static libs
