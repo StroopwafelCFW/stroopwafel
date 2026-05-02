@@ -1427,7 +1427,7 @@ fsaopendir_str:
 .align 4
 #endif
     
-#if PRINT_WELCOME
+#if USE_REDNAND
 sdcard_init:
     @ this should run *after* /dev/mmc thread is created
     push {lr}
@@ -1453,9 +1453,7 @@ sdcard_init:
     str r1, [r0, #0x28]
 
     pop {pc}
-#endif
 
-#if USE_REDNAND
 .equ sdcard_readwrite_stackframe_size, (4*4+12*4)
 
 @ r0 : bool read (0 = read, not 0 = write), r1 : data_ptr, r2 : cnt, r3 : block_size, sparg0 : offset_blocks, sparg1 : out_callback_arg2, sparg2 : device_id
@@ -1552,7 +1550,7 @@ sdcard_readwrite_callback:
     b iosSignalSemaphore
 #endif
 
-#if PRINT_WELCOME
+
 createDevThread_hook:
     push {r0}
     @ check if we were initializing /dev/mmc
@@ -1560,14 +1558,18 @@ createDevThread_hook:
     cmp r0, #0xD
     bne createDevThread_hook_skip1
 
+#if USE_REDNAND
     bl sdcard_init
+#endif
 
+#if PRINT_WELCOME
     bl clear_screen
 
     mov r0, #20
     mov r1, #20
     adr r2, createDevThread_hook_welcome
     bl _printf
+#endif
 
     createDevThread_hook_skip1:
 
@@ -1578,6 +1580,8 @@ createDevThread_hook:
 
     @createDevThread_hook_skip2:
     pop {r0,r4-r8,pc}
+
+#if PRINT_WELCOME
     createDevThread_hook_welcome:
     .ascii "welcome to redNAND: SALT edition"
 .byte 0
@@ -1910,6 +1914,7 @@ slcWrite2_patch_cont:
     add sp, #0x14
     pop {r1-r4,pc}
  
+.align 4
 redslc_off_sectors:
     .word 0
 redslc_size_sectors:

@@ -19,9 +19,7 @@ extern void sdcardRead_patch();
 extern void sdcardWrite_patch();
 extern void getMdDeviceById_hook();
 extern void registerMdDevice_hook();
-#if PRINT_WELCOME
 extern void createDevThread_hook();
-#endif
 extern void scfm_try_slc_cache_migration();
 
 #define LOCAL_HEAP_ID 0xCAFE
@@ -194,12 +192,9 @@ static void rednand_apply_slc_patches(void){
         bx lr\n"
     );
 
-    // following were base patches before
-
     // in createDevThread
-#if PRINT_WELCOME
     BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
-#endif
+
 
     // FS_GETMDDEVICEBYID
     BL_TRAMPOLINE_K(FS_GETMDDEVICEBYID + 0x8, FS_ALTBASE_ADDR(getMdDeviceById_hook));
