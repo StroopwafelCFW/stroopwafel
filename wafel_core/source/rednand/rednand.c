@@ -145,6 +145,26 @@ static void rednand_apply_mlc_patches(bool mount_sys){
     }
 }
 
+#define FSSCFM_SERVER_HANDLE (*(void**)0x110c0c88)
+
+// FSWFS_AttachDeattachDeviceCB: "ldr r3,[sp,#4]; cmp r3,#5; bne; mov r0,r4; bl 0x1073d350"
+// FUN_1073d350 sets bit 0x1000 in the WFS volume's work queue flags and registers the SCFM
+// cache-ready callback. With that bit WFS writes back and evicts files (e.g. HAI nfs files)
+// from SCFM and throttles on it. Stock only does this for SAL type 5 (MLC); with sysMLC
+// mounted as USB the volume never gets it. Decide by "is this the device SCFM wraps"
+// instead. r3 is only a scratch copy of params.flags used for this branch, so this does not
+// change the device type anywhere. r5 = SAL handle of the device.
+static void wfs_scfm_flag_hook(trampoline_state *s){
+    FSSALHandle handle;
+    memcpy(&handle, &s->r[5], sizeof(handle));
+    FSSALDevice *dev = FSSAL_LookupDevice(handle);
+    void *scfm_server_handle = FSSCFM_SERVER_HANDLE;
+    bool is_scfm_device = dev && scfm_server_handle && dev->server_handle == scfm_server_handle;
+    debug_printf("wfs_scfm_flag_hook: server_handle %p scfm %p -> %d\n",
+                 dev ? dev->server_handle : NULL, scfm_server_handle, is_scfm_device);
+    s->r[3] = is_scfm_device ? 5 : 0;
+}
+
 static void rednand_apply_mount_sys_mlc_patches(void){
     debug_printf("Mount sysMLC as USB\n");
     // change mlc type to USB
@@ -154,6 +174,9 @@ static void rednand_apply_mount_sys_mlc_patches(void){
     ASM_PATCH_K(0x107d1f40, "cmp r3, #" STR(DEVTYPE_USB));
 
     trampoline_blreplace(0x107bdae0, sysmlc_attach_hook);
+
+    // let WFS treat the SCFM-cached sysMLC (now USB) as SCFM volume
+    trampoline_hook_before(0x1073ce90, wfs_scfm_flag_hook);
 
     hai_apply_force_mlc_patch();
 }
