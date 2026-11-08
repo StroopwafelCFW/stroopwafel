@@ -14,16 +14,22 @@
 #define _U32_PATCH(_addr, _val, _copy_fn) { \
     _copy_fn((uintptr_t)_addr, (u32)_val); \
 }
+// The snippet is assembled inline in the calling (ARM) function and jumped
+// over. After a Thumb snippet with an odd number of halfwords, post_ is only
+// 2-byte aligned, so the code after the snippet is realigned (.align 2) and
+// the jump goes to cont_. The copied size stays post_ - pre_ (no padding).
 #define _ASM_PATCH(_addr, _preamble, _str, _copy_fn) { \
     __asm__ volatile (           \
     ".globl pre_" #_addr "\n"    \
     ".globl post_" #_addr "\n"   \
-    "b post_" #_addr "\n"        \
+    "b cont_" #_addr "\n"        \
     "pre_" #_addr ":\n"          \
     _preamble "\n"               \
     _str "\n"                    \
     "post_" #_addr ":\n"         \
-    ".arm\n");                   \
+    ".arm\n"                     \
+    ".align 2\n"                 \
+    "cont_" #_addr ":\n");       \
     extern void pre_##_addr();   \
     extern void post_##_addr();  \
     _copy_fn((uintptr_t)_addr, (uintptr_t)pre_##_addr, (u32)post_##_addr - (u32)pre_##_addr); \
