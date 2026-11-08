@@ -158,19 +158,62 @@ static void rednand_apply_mount_sys_mlc_patches(void){
     hai_apply_force_mlc_patch();
 }
 
+/*
+ * SLC spare-area ops of the flash driver (device ops +0x1e4 / +0x1e8, filled
+ * from the driver table at 0x107B96B8 / 0x107B96BC in FS_flaServerAttachDetachCB).
+ * The redNAND image on the SD has no spare area, so on a redirected device:
+ *  - spare read (0x107b975c, flash request type 4): only used by ISFS format's
+ *    factory bad-block check (isfsCheckBlockGood 0x10720c6c, pages 0 and 1 of
+ *    every erase block, "good" = status 0). Report every block as good.
+ *  - bad-block marker write (0x107b96c8, request type 5, marker 0x55/0xaa):
+ *    nowhere to store it, ignore it.
+ * Both complete synchronously through the SAL callback cb(status, ctx), like the
+ * redirected reads/writes. Before, both pointers were set to 0, so an ISFS format
+ * of a redNAND SLC jumped to 0 (pc 0x4c, lr 0x107326c0). A device that isn't
+ * redirected (slccmpt without redirection) still gets the original functions.
+ */
+typedef void (*sal_callback)(int status, void *ctx);
+typedef int fla_spare_read_fn(void *dev, u32 lba_hi, u32 page, u32 count,
+                              sal_callback cb, void *ctx);
+typedef int fla_mark_bad_fn(void *dev, u32 lba_hi, u32 page, u32 count, u8 marker,
+                            sal_callback cb, void *ctx);
+#define FLA_SPARE_READ ((fla_spare_read_fn *)0x107b975c)
+#define FLA_MARK_BAD   ((fla_mark_bad_fn *)0x107b96c8)
+
+/* same test as slcRead1_patch: device 1 = slc, device 0 = slccmpt */
+static bool rednand_slc_dev_redirected(void *dev){
+    return ((u32 *)dev)[1] ? redslc_size_sectors != 0 : redslccmpt_size_sectors != 0;
+}
+
+static int rednand_slc_spare_read(void *dev, u32 lba_hi, u32 page, u32 count,
+                                  sal_callback cb, void *ctx){
+    if(!rednand_slc_dev_redirected(dev) || count != 1)
+        return FLA_SPARE_READ(dev, lba_hi, page, count, cb, ctx);
+    if(cb)
+        cb(0, ctx);
+    return 0;
+}
+
+static int rednand_slc_mark_bad(void *dev, u32 lba_hi, u32 page, u32 count, u8 marker,
+                                sal_callback cb, void *ctx){
+    if(!rednand_slc_dev_redirected(dev))
+        return FLA_MARK_BAD(dev, lba_hi, page, count, marker, cb, ctx);
+    if(cb)
+        cb(0, ctx);
+    return 0;
+}
+
 static void rednand_apply_slc_patches(void){
     debug_printf("Enabeling SLC/SLCCMPT redirection\n");
 
-    // null out references to slcSomething1 and slcSomething2
-    // (nulling them out is apparently ok; more importantly, i'm not sure what they do and would rather get a crash than unwanted slc-writing)
-    U32_PATCH_K(0x107B96B8, 0);
-    U32_PATCH_K(0x107B96BC, 0);
 
     // slc redirection
     BRANCH_PATCH_K(FS_SLC_READ1, FS_ALTBASE_ADDR(slcRead1_patch));
     BRANCH_PATCH_K(FS_SLC_READ2, FS_ALTBASE_ADDR(slcRead2_patch));
     BRANCH_PATCH_K(FS_SLC_WRITE1, FS_ALTBASE_ADDR(slcWrite1_patch));
     BRANCH_PATCH_K(FS_SLC_WRITE2, FS_ALTBASE_ADDR(slcWrite2_patch));
+    U32_PATCH_K(0x107B96B8, FS_ALTBASE_ADDR(rednand_slc_spare_read));
+    U32_PATCH_K(0x107B96BC, FS_ALTBASE_ADDR(rednand_slc_mark_bad));
     ASM_PATCH_K(0x107206F0, "mov r0, #0"); // nop out hmac memcmp
 
     // SEEPROM write disable is restricted to redNAND only:
