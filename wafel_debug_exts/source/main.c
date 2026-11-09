@@ -17,9 +17,32 @@
 // just needs to exist to enable debug_printf
 int enable_debug_printf;
 
+// Hooked on `bl ringbuf_write` in MCP's ringbuf_write_overwrite (0x05055334):
+// r1 = data, r2 = length. The data is length-delimited, NOT NUL-terminated
+// (e.g. /dev/syslog writes from other modules / Cafe OS pass the client
+// buffer as is), so it must not be passed to svc_sys_write directly: that
+// printed bytes past the end until some random 0 byte (stale text from older
+// messages, garbage) and stopped early on an embedded 0.
+// Copy it in NUL-terminated chunks instead. Small stack buffer since this
+// runs on the stack of whatever MCP thread logs.
 void sys_write_r1(trampoline_state *state){
-    // buffer is in r1
-    svc_sys_write((char*)state->r[1]);
+    const char *data = (const char*)state->r[1];
+    u32 len = state->r[2];
+    char buf[128];
+
+    while (len) {
+        u32 n = 0;
+        while (len && n < sizeof(buf) - 1) {
+            char c = *data++;
+            len--;
+            if (c)              // drop embedded NULs instead of truncating
+                buf[n++] = c;
+        }
+        if (n) {
+            buf[n] = 0;
+            svc_sys_write(buf);
+        }
+    }
 }
 
 extern void* old_svc_handler;
