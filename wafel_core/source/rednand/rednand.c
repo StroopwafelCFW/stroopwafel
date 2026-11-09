@@ -203,6 +203,28 @@ static int rednand_slc_mark_bad(void *dev, u32 lba_hi, u32 page, u32 count, u8 m
     return 0;
 }
 
+/*
+ * boot1 version for the update check with a redirected SLC.
+ * MCP_GetComponentVersion (0x0502ee60) gets the installed boot1 version from
+ * MCP_GetBoot1Info (0x05006ad4, its only caller is the bl at 0x0502eef2): the
+ * SEEPROM boot1 records pick the current slot, and the header in that raw SLC
+ * block must carry the same version. A redNAND SLC (e.g. rebuilt from scratch)
+ * has no boot1 matching the real SEEPROM, so every system update fails at the
+ * boot1 check (162-1021), and installing boot1 can't work either because
+ * SEEPROM writes are disabled below. So report the highest version (15.255.15,
+ * 0xffff): boot1 is always up to date and never installed.
+ * Info layout as read by MCP_GetComponentVersion: u16 major at +4, minor at
+ * +6, patch at +8 (version = major << 12 | (minor & 0xff) << 4 | patch & 0xf).
+ */
+static int rednand_boot1_info(u8 *info, int r1, int r2, int r3, int (*org)(u8 *)){
+    (void)r1; (void)r2; (void)r3; (void)org;
+    memset(info, 0, 0x10);
+    *(u16 *)(info + 4) = 0xf;
+    *(u16 *)(info + 6) = 0xff;
+    *(u16 *)(info + 8) = 0xf;
+    return 0;
+}
+
 static void rednand_apply_slc_patches(void){
     debug_printf("Enabeling SLC/SLCCMPT redirection\n");
 
@@ -230,10 +252,14 @@ static void rednand_apply_slc_patches(void){
     );
 
     // skip seeprom writes in eepromDrvWriteWord for safety
-    ASM_PATCH_K(0xE600D010, 
+    ASM_PATCH_K(0xE600D010,
         "mov r0, #0\n \
         bx lr\n"
     );
+
+    // redirected SLC: boot1 is always up to date for the update check
+    if(redslc_size_sectors)
+        trampoline_t_blreplace(0x0502eef2, rednand_boot1_info);
 
     // in createDevThread
     BRANCH_PATCH_K(0x10700294, FS_ALTBASE_ADDR(createDevThread_hook));
